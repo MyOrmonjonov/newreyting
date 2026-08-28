@@ -1,0 +1,320 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * MICCO Boshqaruv va Reyting tizimi — dizayn tizimi.
+ * Boshqaruv sahifalari: toza, neytral oq/kulrang, ko'k aksent.
+ * Reyting sahifalari: to'q qora + qizil sport temasi (race tokens).
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-track: var(--track);
+  --color-race-bg: var(--race-bg);
+  --color-race-panel: var(--race-panel);
+  --color-race-red: var(--race-red);
+  --color-race-red-deep: var(--race-red-deep);
+  --color-race-fg: var(--race-fg);
+  --color-race-muted: var(--race-muted);
+  --font-sans: "Inter Tight", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Archivo", "Inter Tight", system-ui, sans-serif;
+  --shadow-glow: 0 8px 24px -10px color-mix(in oklab, var(--brand) 55%, transparent);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px -18px oklch(0 0 0 / 0.35);
+  --shadow-lift: 0 18px 40px -22px oklch(0 0 0 / 0.45);
+}
+
+:root {
+  --radius: 0.7rem;
+  --background: oklch(0.16 0.008 260);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.01 260);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.01 260);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.53 0.24 27);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.27 0.012 260);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.27 0.012 260);
+  --muted-foreground: oklch(0.78 0.01 260);
+  --accent: oklch(0.27 0.012 260);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.53 0.24 27);
+  --brand: oklch(0.53 0.24 27);
+  --brand-foreground: oklch(0.985 0 0);
+  --brand-soft: color-mix(in oklab, var(--race-red) 22%, var(--race-panel));
+  --success: oklch(0.62 0.16 152);
+  --warning: oklch(0.78 0.15 82);
+  --danger: oklch(0.58 0.22 27);
+  --track: oklch(1 0 0 / 12%);
+  --race-bg: oklch(0.16 0.008 260);
+  --race-panel: oklch(0.21 0.01 260);
+  --race-red: oklch(0.53 0.24 27);
+  --race-red-deep: oklch(0.4 0.2 27);
+  --race-fg: oklch(0.985 0 0);
+  --race-muted: oklch(0.78 0.01 260);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ---------- Animatsiya qatlami ---------- */
+
+@keyframes micco-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes micco-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in oklab, var(--race-red) 45%, transparent),
+      0 20px 60px -30px oklch(0 0 0 / 0.8);
+  }
+  50% {
+    box-shadow:
+      0 0 42px 6px color-mix(in oklab, var(--race-red) 32%, transparent),
+      0 20px 60px -30px oklch(0 0 0 / 0.8);
+  }
+}
+
+@keyframes micco-bounce-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes micco-sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(220%);
+  }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-enter {
+  animation: micco-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.trend-arrow {
+  animation: micco-bounce-y 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@utility card-surface {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@utility card-hover {
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+@utility btn-brand {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-brand);
+  color: var(--color-brand-foreground);
+  padding: 0.55rem 1.05rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.22s ease;
+  &:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: var(--shadow-glow);
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent, oklch(1 0 0 / 0.35), transparent);
+    transform: translateX(-120%);
+  }
+  &:hover::after {
+    animation: micco-sheen 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@utility btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card);
+  padding: 0.55rem 1.05rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  &:hover {
+    background-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@utility field {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card);
+  padding: 0.55rem 0.8rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  &:focus {
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 18%, transparent);
+  }
+}
+
+/* ---------- Reyting (race) qatlami ---------- */
+
+@utility race-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.6rem 1rem 0.6rem 0;
+  color: var(--color-race-fg);
+  background: linear-gradient(
+    92deg,
+    var(--race-red) 0%,
+    var(--race-red) 62%,
+    color-mix(in oklab, var(--race-red-deep) 92%, black) 100%
+  );
+  clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%);
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  &:hover {
+    transform: translateY(-3px) translateX(3px);
+    filter: brightness(1.1);
+    box-shadow: 0 16px 30px -18px oklch(0 0 0 / 0.9);
+  }
+}
+
+@utility race-row-danger {
+  background: linear-gradient(
+    92deg,
+    color-mix(in oklab, var(--race-red-deep) 85%, black) 0%,
+    oklch(0.24 0.06 25) 100%
+  );
+}
+
+@utility podium-glow {
+  animation: micco-breathe 3s ease-in-out infinite;
+}
+
+@utility cutout-avatar {
+  object-fit: cover;
+  border-radius: 9999px;
+  background: transparent;
+  filter: drop-shadow(0 6px 14px oklch(0 0 0 / 0.35));
+  -webkit-mask-image: radial-gradient(circle at 50% 45%, black 62%, transparent 78%);
+  mask-image: radial-gradient(circle at 50% 45%, black 62%, transparent 78%);
+}
