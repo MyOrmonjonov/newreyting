@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AppShell } from "@/components/AppShell";
+import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, TimeFilter, Trend, periodFactor, type Period } from "@/components/motion";
 import { PERIOD_LABEL, buildManagers } from "@/lib/micco-data";
 
@@ -31,8 +31,8 @@ function ManagerRating() {
   const avg = rows.reduce((s, r) => s + r.percent, 0) / rows.length;
 
   return (
-    <AppShell>
-      <div className="overflow-hidden rounded-2xl bg-race-bg text-race-fg">
+    <PublicShell>
+      <div className="overflow-hidden rounded-2xl border border-white/10">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight lg:text-3xl">MENEJER REYTINGI</h1>
@@ -53,13 +53,22 @@ function ManagerRating() {
             {rows.map((r, i) => (
               <Reveal key={r.name} delay={i * 60}>
                 <div className="race-row rounded-md">
-                  <span className="ml-0 h-10 w-1.5 shrink-0 rounded-r bg-white/70" />
-                  <span className="w-10 text-center text-2xl font-black tabular-nums">{r.place}</span>
-                  <span className="w-12">
+                  <span className="ml-0 h-8 w-1.5 shrink-0 rounded-r bg-white/70 sm:h-10" />
+                  <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
+                    {r.place}
+                  </span>
+                  <span className="hidden sm:block sm:w-12">
                     <Trend today={r.place} yesterday={r.yesterday} />
                   </span>
-                  <span className="flex-1 truncate text-sm font-bold uppercase tracking-wide">{r.name}</span>
-                  <span className="w-32 text-right text-xl font-black tabular-nums">
+                  <img
+                    src={r.avatar}
+                    alt={r.name}
+                    className="cutout-avatar h-8 w-8 shrink-0 sm:h-10 sm:w-10"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
+                    {r.name}
+                  </span>
+                  <span className="w-16 shrink-0 text-right text-base font-black tabular-nums sm:w-32 sm:text-xl">
                     <CountUp value={r.percent} decimals={1} suffix="%" />
                   </span>
                 </div>
@@ -77,6 +86,6 @@ function ManagerRating() {
           </Reveal>
         </div>
       </div>
-    </AppShell>
+    </PublicShell>
   );
 }

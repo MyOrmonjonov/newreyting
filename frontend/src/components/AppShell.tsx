@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Users,
   UserCog,
+  UserPlus,
   Package,
   ScrollText,
   Trophy,
@@ -17,6 +18,7 @@ const NAV = [
   { group: "Boshqaruv", items: [
     { to: "/", label: "Bosh dashboard", icon: LayoutDashboard },
     { to: "/operator", label: "Ishchilarni kiritish", icon: Users },
+    { to: "/operatorlar", label: "Operatorlar", icon: UserPlus },
     { to: "/jamoa", label: "Menejer / Supervayzer", icon: UserCog },
     { to: "/mahsulotlar", label: "Mahsulotlar", icon: Package },
     { to: "/audit", label: "Audit log", icon: ScrollText },

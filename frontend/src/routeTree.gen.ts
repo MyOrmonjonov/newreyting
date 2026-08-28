@@ -15,6 +15,7 @@ import { Route as FonTestRouteImport } from './routes/fon-test'
 import { Route as JamoaRouteImport } from './routes/jamoa'
 import { Route as MahsulotlarRouteImport } from './routes/mahsulotlar'
 import { Route as OperatorRouteImport } from './routes/operator'
+import { Route as OperatorlarRouteImport } from './routes/operatorlar'
 import { Route as ReytingIshchiRouteImport } from './routes/reyting.ishchi'
 import { Route as ReytingMenejerRouteImport } from './routes/reyting.menejer'
 import { Route as ReytingSupervayzerRouteImport } from './routes/reyting.supervayzer'
@@ -49,6 +50,11 @@ const OperatorRoute = OperatorRouteImport.update({
   path: '/operator',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperatorlarRoute = OperatorlarRouteImport.update({
+  id: '/operatorlar',
+  path: '/operatorlar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReytingIshchiRoute = ReytingIshchiRouteImport.update({
   id: '/reyting/ishchi',
   path: '/reyting/ishchi',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/jamoa': typeof JamoaRoute
   '/mahsulotlar': typeof MahsulotlarRoute
   '/operator': typeof OperatorRoute
+  '/operatorlar': typeof OperatorlarRoute
   '/reyting/ishchi': typeof ReytingIshchiRoute
   '/reyting/menejer': typeof ReytingMenejerRoute
   '/reyting/supervayzer': typeof ReytingSupervayzerRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/jamoa': typeof JamoaRoute
   '/mahsulotlar': typeof MahsulotlarRoute
   '/operator': typeof OperatorRoute
+  '/operatorlar': typeof OperatorlarRoute
   '/reyting/ishchi': typeof ReytingIshchiRoute
   '/reyting/menejer': typeof ReytingMenejerRoute
   '/reyting/supervayzer': typeof ReytingSupervayzerRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/jamoa': typeof JamoaRoute
   '/mahsulotlar': typeof MahsulotlarRoute
   '/operator': typeof OperatorRoute
+  '/operatorlar': typeof OperatorlarRoute
   '/reyting/ishchi': typeof ReytingIshchiRoute
   '/reyting/menejer': typeof ReytingMenejerRoute
   '/reyting/supervayzer': typeof ReytingSupervayzerRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/jamoa'
     | '/mahsulotlar'
     | '/operator'
+    | '/operatorlar'
     | '/reyting/ishchi'
     | '/reyting/menejer'
     | '/reyting/supervayzer'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/jamoa'
     | '/mahsulotlar'
     | '/operator'
+    | '/operatorlar'
     | '/reyting/ishchi'
     | '/reyting/menejer'
     | '/reyting/supervayzer'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/jamoa'
     | '/mahsulotlar'
     | '/operator'
+    | '/operatorlar'
     | '/reyting/ishchi'
     | '/reyting/menejer'
     | '/reyting/supervayzer'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   JamoaRoute: typeof JamoaRoute
   MahsulotlarRoute: typeof MahsulotlarRoute
   OperatorRoute: typeof OperatorRoute
+  OperatorlarRoute: typeof OperatorlarRoute
   ReytingIshchiRoute: typeof ReytingIshchiRoute
   ReytingMenejerRoute: typeof ReytingMenejerRoute
   ReytingSupervayzerRoute: typeof ReytingSupervayzerRoute
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperatorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/operatorlar': {
+      id: '/operatorlar'
+      path: '/operatorlar'
+      fullPath: '/operatorlar'
+      preLoaderRoute: typeof OperatorlarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reyting/ishchi': {
       id: '/reyting/ishchi'
       path: '/reyting/ishchi'
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   JamoaRoute: JamoaRoute,
   MahsulotlarRoute: MahsulotlarRoute,
   OperatorRoute: OperatorRoute,
+  OperatorlarRoute: OperatorlarRoute,
   ReytingIshchiRoute: ReytingIshchiRoute,
   ReytingMenejerRoute: ReytingMenejerRoute,
   ReytingSupervayzerRoute: ReytingSupervayzerRoute,

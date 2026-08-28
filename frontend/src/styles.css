@@ -158,6 +158,7 @@
   }
 }
 
+
 .reveal {
   opacity: 0;
   transform: translateY(18px);
@@ -178,6 +179,22 @@
 
 .trend-arrow {
   animation: micco-bounce-y 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .race-row {
+    gap: 0.5rem;
+    padding-right: 0.6rem;
+  }
 }
 
 @utility card-surface {

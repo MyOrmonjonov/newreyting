@@ -164,6 +164,8 @@ export type Agent = {
   yesterday: number;
   avatar: string;
   stripe: string;
+  trophies: number;
+  yearsActive: number;
 };
 
 const STRIPES = [
@@ -203,6 +205,8 @@ export function buildLeague(league: LeagueKey, count = 27): Agent[] {
         branch + name + place,
       )}&backgroundColor=transparent`,
       stripe: STRIPES[i % STRIPES.length]!,
+      trophies: Math.max(0, Math.round((count - place) / 6 + rnd() * 3)),
+      yearsActive: 1 + Math.floor(rnd() * 5),
     });
   }
   return rows;
@@ -211,6 +215,7 @@ export function buildLeague(league: LeagueKey, count = 27): Agent[] {
 export type SupervisorRow = {
   place: number;
   name: string;
+  avatar: string;
   percent: number;
   daily: number;
   yesterday: number;
@@ -247,6 +252,7 @@ export function buildSupervisors(): SupervisorRow[] {
     return {
       place,
       name,
+      avatar: `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(name)}&backgroundColor=transparent`,
       percent,
       daily: Math.round((rnd() * 18 - 7) * 10) / 10,
       yesterday: Math.max(1, Math.min(10, place + Math.round((rnd() - 0.5) * 4))),
@@ -262,6 +268,7 @@ export function buildManagers() {
   return MANAGERS.map((name, i) => ({
     place: i + 1,
     name,
+    avatar: `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(name)}&backgroundColor=transparent`,
     percent: Math.round((128 - i * 6.2 - rnd() * 4) * 10) / 10,
     yesterday: Math.max(1, Math.min(6, i + 1 + Math.round((rnd() - 0.5) * 4))),
   }));
@@ -308,3 +315,49 @@ export const STAFF = buildLeague("diamond", 12).map((a, i) => ({
   league: LEAGUES[i % 5]!.name,
   percent: a.percent,
 }));
+
+export type SupervisorScoreRow = {
+  place: number;
+  name: string;
+  months: { month: string; percent: number; points: number }[];
+  avgPercent: number;
+  totalPoints: number;
+};
+
+/**
+ * Har oy supervayzerlar umumiy ko'rsatgichi (%) bo'yicha saralanadi va
+ * o'rniga qarab mezon (pointsForPlace) asosida ball beriladi. Yakunda
+ * o'rtacha foiz va jami ball bo'yicha reyting shakllanadi.
+ */
+export function buildSupervisorScoreboard(monthCount = 5): SupervisorScoreRow[] {
+  const rnd = seeded(7331);
+  const months = MONTHS.slice(1, 1 + monthCount);
+
+  const percents = SUPERVISORS.map((_, i) =>
+    months.map((_, mi) => Math.max(20, Math.round((70 + rnd() * 70 - i * 1.5 + mi * 1.2) * 10) / 10)),
+  );
+
+  const pointsByRow: number[][] = SUPERVISORS.map(() => []);
+  months.forEach((_, mi) => {
+    const order = percents
+      .map((p, idx) => ({ idx, percent: p[mi]! }))
+      .sort((a, b) => b.percent - a.percent);
+    order.forEach((o, rank) => {
+      pointsByRow[o.idx]![mi] = pointsForPlace(rank + 1);
+    });
+  });
+
+  const rows = SUPERVISORS.map((name, idx) => {
+    const monthRows = months.map((m, mi) => ({
+      month: m,
+      percent: percents[idx]![mi]!,
+      points: pointsByRow[idx]![mi]!,
+    }));
+    const avgPercent = Math.round((monthRows.reduce((s, m) => s + m.percent, 0) / monthRows.length) * 10) / 10;
+    const totalPoints = monthRows.reduce((s, m) => s + m.points, 0);
+    return { name, months: monthRows, avgPercent, totalPoints };
+  });
+
+  rows.sort((a, b) => b.totalPoints - a.totalPoints);
+  return rows.map((r, i) => ({ ...r, place: i + 1 }));
+}

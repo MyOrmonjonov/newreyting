@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -10,9 +10,11 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
+import { Trophy, Medal } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { CountUp, Donut, Reveal, TimeFilter, periodFactor, type Period } from "@/components/motion";
-import { LEAGUES, YEAR_STATS, buildLeague } from "@/lib/micco-data";
+import { LEAGUES, YEAR_STATS, buildLeague, buildSupervisorScoreboard } from "@/lib/micco-data";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,6 +49,9 @@ function Dashboard() {
     () => YEAR_STATS.map((m) => ({ ...m, fakt: Math.round(m.fakt * f) })),
     [f],
   );
+
+  const scoreboard = useMemo(() => buildSupervisorScoreboard(5), []);
+  const scoreboardMonths = scoreboard[0]?.months.map((m) => m.month) ?? [];
 
   const metrics = [
     { label: "Yillik bajarilish", value: 118.4 * f, donut: true },
@@ -128,6 +133,94 @@ function Dashboard() {
                 />
               </ComposedChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      </Reveal>
+
+      <Reveal delay={100} className="mt-6 block">
+        <div className="card-surface overflow-hidden">
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border p-5">
+            <div>
+              <h2 className="text-lg font-semibold">Supervayzerlar reytingi — oylik ball</h2>
+              <p className="text-sm text-muted-foreground">
+                Har oy umumiy ko'rsatgich bo'yicha o'rin egallanadi, mezonga ko'ra ball beriladi
+              </p>
+            </div>
+            <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-medium text-brand">
+              1-o'rin = 24 ball · har o'ringa -1 · 22-o'rin = 1 ball
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/60 text-center text-xs uppercase tracking-wider text-muted-foreground">
+                  <th rowSpan={2} className="sticky left-0 z-10 bg-muted/95 px-5 py-3 text-left font-medium backdrop-blur">
+                    Supervayzer
+                  </th>
+                  {scoreboardMonths.map((m) => (
+                    <th key={m} colSpan={2} className="border-l border-border px-3 py-2 font-medium">
+                      {m}
+                    </th>
+                  ))}
+                  <th colSpan={2} className="border-l border-border bg-brand-soft/40 px-3 py-2 font-medium text-brand">
+                    {scoreboardMonths.length} oylik
+                  </th>
+                </tr>
+                <tr className="border-b border-border bg-muted/40 text-center text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {scoreboardMonths.map((m) => (
+                    <th key={m} colSpan={2} className="border-l border-border px-3 py-1.5 font-normal">
+                      <span className="mr-2">Ko'rsatgi</span>
+                      <span>Ball</span>
+                    </th>
+                  ))}
+                  <th colSpan={2} className="border-l border-border bg-brand-soft/40 px-3 py-1.5 font-normal text-brand">
+                    <span className="mr-2">O'rtacha</span>
+                    <span>Ball</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {scoreboard.map((row, i) => (
+                  <tr
+                    key={row.name}
+                    className="border-b border-border/70 text-center transition-colors duration-200 last:border-0 hover:bg-accent/70"
+                    style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 35}ms both` }}
+                  >
+                    <td className="sticky left-0 z-10 bg-card px-5 py-3 text-left">
+                      <div className="flex items-center gap-2">
+                        {row.place === 1 ? (
+                          <Trophy className="h-4 w-4 shrink-0 text-warning" />
+                        ) : row.place <= 3 ? (
+                          <Medal className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <span className="w-4 shrink-0 text-center text-xs font-semibold text-muted-foreground">
+                            {row.place}
+                          </span>
+                        )}
+                        <span className="font-medium">{row.name}</span>
+                      </div>
+                    </td>
+                    {row.months.map((m) => (
+                      <Fragment key={m.month}>
+                        <td className="border-l border-border px-3 py-3 tabular-nums">{m.percent}%</td>
+                        <td className="px-3 py-3 font-semibold tabular-nums">{m.points}</td>
+                      </Fragment>
+                    ))}
+                    <td className="border-l border-border bg-brand-soft/20 px-3 py-3 tabular-nums">
+                      {row.avgPercent}%
+                    </td>
+                    <td
+                      className={cn(
+                        "bg-brand-soft/20 px-3 py-3 text-base font-bold tabular-nums",
+                        row.place === 1 ? "text-brand" : "text-foreground",
+                      )}
+                    >
+                      {row.totalPoints}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </Reveal>
