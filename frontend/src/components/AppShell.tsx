@@ -1,5 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -11,8 +11,11 @@ import {
   ShieldCheck,
   Menu,
   X,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 const NAV = [
   { group: "Boshqaruv", items: [
@@ -33,6 +36,22 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      void navigate({ to: "/login" });
+    }
+  }, [loading, user, navigate]);
+
+  if (loading || !user) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen">
@@ -87,9 +106,23 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </nav>
-        <div className="absolute inset-x-3 bottom-3 rounded-xl border border-border bg-accent p-3">
-          <p className="text-xs font-semibold">Admin</p>
-          <p className="text-[11px] text-muted-foreground">Cheklovsiz huquq · 5 rol</p>
+        <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl border border-border bg-accent p-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold">
+              {user.ism} {user.familiya}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{user.login}</p>
+          </div>
+          <button
+            onClick={() => {
+              logout();
+              void navigate({ to: "/login" });
+            }}
+            aria-label="Chiqish"
+            className="btn-ghost px-2 py-1.5"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
         </div>
       </aside>
 
@@ -102,8 +135,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             Mavsum: <span className="font-medium text-foreground">2026 · Iyul</span>
           </p>
           <div className="flex items-center gap-3">
-            <span className="hidden rounded-full border border-border px-3 py-1 text-xs text-muted-foreground sm:inline">
-              Rol: Admin
+            <span className="hidden rounded-full border border-border px-3 py-1 text-xs capitalize text-muted-foreground sm:inline">
+              Rol: {user.role.toLowerCase()}
             </span>
             <div className="h-8 w-8 rounded-full bg-brand/15 ring-1 ring-brand/30" />
           </div>

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as FonTestRouteImport } from './routes/fon-test'
 import { Route as JamoaRouteImport } from './routes/jamoa'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MahsulotlarRouteImport } from './routes/mahsulotlar'
 import { Route as OperatorRouteImport } from './routes/operator'
 import { Route as OperatorlarRouteImport } from './routes/operatorlar'
@@ -38,6 +39,11 @@ const FonTestRoute = FonTestRouteImport.update({
 const JamoaRoute = JamoaRouteImport.update({
   id: '/jamoa',
   path: '/jamoa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MahsulotlarRoute = MahsulotlarRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuditRoute
   '/fon-test': typeof FonTestRoute
   '/jamoa': typeof JamoaRoute
+  '/login': typeof LoginRoute
   '/mahsulotlar': typeof MahsulotlarRoute
   '/operator': typeof OperatorRoute
   '/operatorlar': typeof OperatorlarRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AuditRoute
   '/fon-test': typeof FonTestRoute
   '/jamoa': typeof JamoaRoute
+  '/login': typeof LoginRoute
   '/mahsulotlar': typeof MahsulotlarRoute
   '/operator': typeof OperatorRoute
   '/operatorlar': typeof OperatorlarRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/audit': typeof AuditRoute
   '/fon-test': typeof FonTestRoute
   '/jamoa': typeof JamoaRoute
+  '/login': typeof LoginRoute
   '/mahsulotlar': typeof MahsulotlarRoute
   '/operator': typeof OperatorRoute
   '/operatorlar': typeof OperatorlarRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/fon-test'
     | '/jamoa'
+    | '/login'
     | '/mahsulotlar'
     | '/operator'
     | '/operatorlar'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/fon-test'
     | '/jamoa'
+    | '/login'
     | '/mahsulotlar'
     | '/operator'
     | '/operatorlar'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/fon-test'
     | '/jamoa'
+    | '/login'
     | '/mahsulotlar'
     | '/operator'
     | '/operatorlar'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   AuditRoute: typeof AuditRoute
   FonTestRoute: typeof FonTestRoute
   JamoaRoute: typeof JamoaRoute
+  LoginRoute: typeof LoginRoute
   MahsulotlarRoute: typeof MahsulotlarRoute
   OperatorRoute: typeof OperatorRoute
   OperatorlarRoute: typeof OperatorlarRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/jamoa'
       fullPath: '/jamoa'
       preLoaderRoute: typeof JamoaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mahsulotlar': {
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuditRoute: AuditRoute,
   FonTestRoute: FonTestRoute,
   JamoaRoute: JamoaRoute,
+  LoginRoute: LoginRoute,
   MahsulotlarRoute: MahsulotlarRoute,
   OperatorRoute: OperatorRoute,
   OperatorlarRoute: OperatorlarRoute,
