@@ -305,96 +305,109 @@ function OperatorPage() {
               </div>
             )}
           </div>
-
-          <Reveal delay={60} className="mt-6 block">
-            <div className="card-surface space-y-4 p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">Oylik natija kiritish</h2>
-                <input
-                  type="month"
-                  className="field w-40"
-                  value={oy.slice(0, 7)}
-                  onChange={(e) => setOy(`${e.target.value}-01`)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Ishchi</label>
-                <select
-                  className="field"
-                  value={selectedIshchiId}
-                  onChange={(e) => setSelectedIshchiId(e.target.value ? Number(e.target.value) : "")}
-                >
-                  <option value="">— tanlang —</option>
-                  {ishchilar.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.ism} {s.familiya}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedIshchiId && mahsulotlar.length > 0 ? (
-                <div className="rounded-xl border border-border p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Mahsulot bo'yicha plan / bajarildi
-                  </p>
-                  <div className="space-y-3">
-                    {mahsulotlar.map((m) => (
-                      <div key={m.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                        <span className="text-sm">
-                          {m.nomi} <span className="text-xs text-muted-foreground">({m.birlik})</span>
-                        </span>
-                        <input
-                          className="field w-24"
-                          type="number"
-                          value={natijaDraft[m.id]?.plan ?? m.standartPlan}
-                          onChange={(e) =>
-                            setNatijaDraft((s) => ({
-                              ...s,
-                              [m.id]: { plan: Number(e.target.value), bajarildi: s[m.id]?.bajarildi ?? 0 },
-                            }))
-                          }
-                        />
-                        <input
-                          className="field w-24"
-                          type="number"
-                          value={natijaDraft[m.id]?.bajarildi ?? 0}
-                          onChange={(e) =>
-                            setNatijaDraft((s) => ({
-                              ...s,
-                              [m.id]: { plan: s[m.id]?.plan ?? m.standartPlan, bajarildi: Number(e.target.value) },
-                            }))
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">Chapdagi maydon — plan, o'ngdagi — bajarilgan miqdor.</p>
-                  <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
-                    <Donut value={Math.round(natijaPreview * 10) / 10} size={82} stroke={8} />
-                    <p className="text-xs text-muted-foreground">Umumiy foiz = jami bajarilgan / jami plan × 100.</p>
-                  </div>
-                  <button
-                    className="btn-brand mt-4 w-full"
-                    onClick={() => saveNatijaMutation.mutate()}
-                    disabled={saveNatijaMutation.isPending}
-                  >
-                    {saveNatijaMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    Natijani saqlash
-                  </button>
-                </div>
-              ) : selectedIshchiId ? (
-                <p className="text-sm text-muted-foreground">Avval Mahsulotlar bo'limida mahsulot qo'shing.</p>
-              ) : null}
-            </div>
-          </Reveal>
         </Reveal>
       </div>
+
+      {selectedIshchiId
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              onClick={() => setSelectedIshchiId("")}
+            >
+              <div
+                className="card-surface my-8 w-full max-w-md space-y-4 p-5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Oylik natija kiritish</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {ishchilar.find((s) => s.id === selectedIshchiId)?.ism}{" "}
+                      {ishchilar.find((s) => s.id === selectedIshchiId)?.familiya}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1.5"
+                    onClick={() => setSelectedIshchiId("")}
+                    aria-label="Yopish"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Oy</label>
+                  <input
+                    type="month"
+                    className="field w-40"
+                    value={oy.slice(0, 7)}
+                    onChange={(e) => setOy(`${e.target.value}-01`)}
+                  />
+                </div>
+
+                {mahsulotlar.length > 0 ? (
+                  <div className="rounded-xl border border-border p-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Mahsulot bo'yicha plan / bajarildi
+                    </p>
+                    <div className="space-y-3">
+                      {mahsulotlar.map((m) => (
+                        <div key={m.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                          <span className="text-sm">
+                            {m.nomi} <span className="text-xs text-muted-foreground">({m.birlik})</span>
+                          </span>
+                          <input
+                            className="field w-24"
+                            type="number"
+                            value={natijaDraft[m.id]?.plan ?? m.standartPlan}
+                            onChange={(e) =>
+                              setNatijaDraft((s) => ({
+                                ...s,
+                                [m.id]: { plan: Number(e.target.value), bajarildi: s[m.id]?.bajarildi ?? 0 },
+                              }))
+                            }
+                          />
+                          <input
+                            className="field w-24"
+                            type="number"
+                            value={natijaDraft[m.id]?.bajarildi ?? 0}
+                            onChange={(e) =>
+                              setNatijaDraft((s) => ({
+                                ...s,
+                                [m.id]: { plan: s[m.id]?.plan ?? m.standartPlan, bajarildi: Number(e.target.value) },
+                              }))
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted-foreground">Chapdagi maydon — plan, o'ngdagi — bajarilgan miqdor.</p>
+                    <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
+                      <Donut value={Math.round(natijaPreview * 10) / 10} size={82} stroke={8} />
+                      <p className="text-xs text-muted-foreground">Umumiy foiz = jami bajarilgan / jami plan × 100.</p>
+                    </div>
+                    <button
+                      className="btn-brand mt-4 w-full"
+                      onClick={() => saveNatijaMutation.mutate()}
+                      disabled={saveNatijaMutation.isPending}
+                    >
+                      {saveNatijaMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Natijani saqlash
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Avval Mahsulotlar bo'limida mahsulot qo'shing.</p>
+                )}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {showIshchiModal
         ? createPortal(
