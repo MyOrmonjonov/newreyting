@@ -43,8 +43,10 @@ public class Ishchi {
     @Column(name = "boshlangich_liga")
     private Liga boshlangichLiga;
 
-    /** Fondan ajratilgan (shaffof) surat — data URL sifatida (masalan "data:image/png;base64,..."). */
-    @Lob
+    /** Fondan ajratilgan (shaffof) surat — data URL sifatida (masalan "data:image/png;base64,...").
+     * E'tibor: @Lob ataylab qo'yilmagan — PostgreSQL'da @Lob String'ni "Large Object" (OID)
+     * sifatida saqlaydi, bu esa avtomatik-commit rejimida o'qishda xato beradi. Oddiy TEXT ustun
+     * bilan cheklovsiz uzunlikdagi matn muammosiz saqlanadi. */
     @Column(columnDefinition = "TEXT")
     private String rasm;
 
