@@ -59,8 +59,16 @@ public class User {
         return ism;
     }
 
+    public void setIsm(String ism) {
+        this.ism = ism;
+    }
+
     public String getFamiliya() {
         return familiya;
+    }
+
+    public void setFamiliya(String familiya) {
+        this.familiya = familiya;
     }
 
     public String getFullName() {

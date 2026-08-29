@@ -17,7 +17,7 @@ public record AuditEntryResponse(
         return new AuditEntryResponse(
                 log.getId(),
                 log.getVaqt(),
-                log.getActor() != null ? log.getActor().getFullName() : "Tizim",
+                log.getActorNomi(),
                 capitalize(log.getActorRoleSnapshot()),
                 log.getHarakat().getLabel(),
                 log.getMaqsad()

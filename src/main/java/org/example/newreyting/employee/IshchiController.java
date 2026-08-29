@@ -40,4 +40,10 @@ public class IshchiController {
                                   @AuthenticationPrincipal AppUserDetails principal) {
         return IshchiResponse.from(ishchiService.update(id, req, principal.getUser()));
     }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
+        ishchiService.delete(id, principal.getUser());
+    }
 }

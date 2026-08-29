@@ -1,7 +1,6 @@
 package org.example.newreyting.employee;
 
 import jakarta.persistence.*;
-import org.example.newreyting.branch.Filial;
 import org.example.newreyting.user.User;
 
 import java.time.Instant;
@@ -20,10 +19,6 @@ public class Ishchi {
 
     @Column(nullable = false)
     private String familiya;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "filial_id", nullable = false)
-    private Filial filial;
 
     /** Ishchini boshqaradigan supervayzer (User, role=SUPERVAYZER). */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -46,10 +41,9 @@ public class Ishchi {
     protected Ishchi() {
     }
 
-    public Ishchi(String ism, String familiya, Filial filial, User supervayzer, LocalDate ishGaKirganSana, User createdBy) {
+    public Ishchi(String ism, String familiya, User supervayzer, LocalDate ishGaKirganSana, User createdBy) {
         this.ism = ism;
         this.familiya = familiya;
-        this.filial = filial;
         this.supervayzer = supervayzer;
         this.ishGaKirganSana = ishGaKirganSana;
         this.createdBy = createdBy;
@@ -73,14 +67,6 @@ public class Ishchi {
 
     public void setFamiliya(String familiya) {
         this.familiya = familiya;
-    }
-
-    public Filial getFilial() {
-        return filial;
-    }
-
-    public void setFilial(Filial filial) {
-        this.filial = filial;
     }
 
     public User getSupervayzer() {

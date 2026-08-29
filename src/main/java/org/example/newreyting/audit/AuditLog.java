@@ -14,11 +14,14 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "actor_id")
-    private User actor;
+    /**
+     * Actor'ning to'liq ismi va roli harakat vaqtida "suratga olinadi" (snapshot) — jonli
+     * foreign key emas. Shunda actor keyinchalik o'chirilsa ham audit tarixi buzilmaydi va
+     * o'sha paytdagi ism/rol saqlanib qoladi.
+     */
+    @Column(nullable = false)
+    private String actorNomi;
 
-    /** Actor'ning harakat vaqtidagi roli — keyinchalik actor roli o'zgarsa ham tarix to'g'ri qolishi uchun. */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role actorRoleSnapshot;
@@ -37,7 +40,7 @@ public class AuditLog {
     }
 
     public AuditLog(User actor, HarakatTuri harakat, String maqsad) {
-        this.actor = actor;
+        this.actorNomi = actor.getFullName();
         this.actorRoleSnapshot = actor.getRole();
         this.harakat = harakat;
         this.maqsad = maqsad;
@@ -47,8 +50,8 @@ public class AuditLog {
         return id;
     }
 
-    public User getActor() {
-        return actor;
+    public String getActorNomi() {
+        return actorNomi;
     }
 
     public Role getActorRoleSnapshot() {

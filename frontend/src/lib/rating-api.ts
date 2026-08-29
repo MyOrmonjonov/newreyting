@@ -8,7 +8,6 @@ export type AgentApiRow = {
   ism: string;
   familiya: string;
   fullName: string;
-  filialNomi: string;
   supervisorFullName: string;
   percent: number;
   points: number;

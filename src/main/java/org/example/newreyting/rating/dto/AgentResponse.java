@@ -6,7 +6,6 @@ public record AgentResponse(
         String ism,
         String familiya,
         String fullName,
-        String filialNomi,
         String supervisorFullName,
         double percent,
         int points,

@@ -14,7 +14,6 @@ public interface OylikNatijaRepository extends JpaRepository<OylikNatija, Long> 
             SELECT n FROM OylikNatija n
             LEFT JOIN FETCH n.ishchi i
             LEFT JOIN FETCH n.mahsulot
-            LEFT JOIN FETCH i.filial
             LEFT JOIN FETCH i.supervayzer
             WHERE n.oy = :oy
             """)

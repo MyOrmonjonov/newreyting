@@ -5,6 +5,7 @@ import org.example.newreyting.auth.AppUserDetails;
 import org.example.newreyting.user.dto.CreateUserRequest;
 import org.example.newreyting.user.dto.ResetPasswordRequest;
 import org.example.newreyting.user.dto.UpdateActiveRequest;
+import org.example.newreyting.user.dto.UpdateProfileRequest;
 import org.example.newreyting.user.dto.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -55,12 +56,26 @@ public class UserController {
         userService.setActive(id, Role.OPERATOR, req.active(), principal.getUser());
     }
 
-    // --- Menejerlar: Admin yoki Operator qo'sha/ko'ra oladi ---
+    @PutMapping("/operators/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserResponse updateOperator(@PathVariable Long id, @Valid @RequestBody UpdateProfileRequest req,
+                                        @AuthenticationPrincipal AppUserDetails principal) {
+        return UserResponse.from(userService.updateProfile(id, Role.OPERATOR, req.ism(), req.familiya(), principal.getUser()));
+    }
+
+    @DeleteMapping("/operators/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteOperator(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
+        userService.delete(id, Role.OPERATOR, principal.getUser());
+    }
+
+    // --- Menejerlar: Admin yoki Operator qo'sha/ko'ra oladi (Operator faqat o'zinikini) ---
 
     @GetMapping("/menejers")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
-    public List<UserResponse> listMenejers() {
-        return userService.listByRole(Role.MENEJER).stream().map(UserResponse::from).toList();
+    public List<UserResponse> listMenejers(@AuthenticationPrincipal AppUserDetails principal) {
+        return userService.listByRoleVisibleTo(Role.MENEJER, principal.getUser()).stream().map(UserResponse::from).toList();
     }
 
     @PostMapping("/menejers")
@@ -87,12 +102,26 @@ public class UserController {
         userService.setActive(id, Role.MENEJER, req.active(), principal.getUser());
     }
 
-    // --- Supervayzerlar: Admin yoki Menejer qo'sha/ko'ra oladi ---
+    @PutMapping("/menejers/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    public UserResponse updateMenejer(@PathVariable Long id, @Valid @RequestBody UpdateProfileRequest req,
+                                       @AuthenticationPrincipal AppUserDetails principal) {
+        return UserResponse.from(userService.updateProfile(id, Role.MENEJER, req.ism(), req.familiya(), principal.getUser()));
+    }
+
+    @DeleteMapping("/menejers/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteMenejer(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
+        userService.delete(id, Role.MENEJER, principal.getUser());
+    }
+
+    // --- Supervayzerlar: Admin, Menejer (o'ziniki) yoki Operator (ishchi biriktirish uchun, o'ziniki) ---
 
     @GetMapping("/supervayzers")
     @PreAuthorize("hasAnyRole('ADMIN','MENEJER','OPERATOR')")
-    public List<UserResponse> listSupervayzers() {
-        return userService.listByRole(Role.SUPERVAYZER).stream().map(UserResponse::from).toList();
+    public List<UserResponse> listSupervayzers(@AuthenticationPrincipal AppUserDetails principal) {
+        return userService.listByRoleVisibleTo(Role.SUPERVAYZER, principal.getUser()).stream().map(UserResponse::from).toList();
     }
 
     @PostMapping("/supervayzers")
@@ -117,5 +146,19 @@ public class UserController {
     public void setSupervayzerActive(@PathVariable Long id, @Valid @RequestBody UpdateActiveRequest req,
                                       @AuthenticationPrincipal AppUserDetails principal) {
         userService.setActive(id, Role.SUPERVAYZER, req.active(), principal.getUser());
+    }
+
+    @PutMapping("/supervayzers/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    public UserResponse updateSupervayzer(@PathVariable Long id, @Valid @RequestBody UpdateProfileRequest req,
+                                           @AuthenticationPrincipal AppUserDetails principal) {
+        return UserResponse.from(userService.updateProfile(id, Role.SUPERVAYZER, req.ism(), req.familiya(), principal.getUser()));
+    }
+
+    @DeleteMapping("/supervayzers/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSupervayzer(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
+        userService.delete(id, Role.SUPERVAYZER, principal.getUser());
     }
 }

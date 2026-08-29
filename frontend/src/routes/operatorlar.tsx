@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, UserPlus, UserCog, Loader2, ShieldAlert, UserX, UserCheck } from "lucide-react";
+import { KeyRound, UserPlus, UserCog, Loader2, ShieldAlert, UserX, UserCheck, Pencil, Trash2, X, Save } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { PasswordDialog } from "@/components/PasswordDialog";
@@ -44,6 +44,8 @@ function OperatorlarPage() {
   const [date, setDate] = useState("2026-07-28");
   const [form, setForm] = useState(EMPTY_FORM);
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ ism: "", familiya: "" });
 
   const canManage = user?.role === "ADMIN";
 
@@ -88,6 +90,31 @@ function OperatorlarPage() {
       toast.error(err instanceof ApiError ? err.message : "Holatni o'zgartirib bo'lmadi");
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: typeof editForm }) =>
+      api.put(`/api/users/operators/${id}`, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users", "operators"] });
+      toast.success("Operator ma'lumotlari yangilandi");
+      setEditingId(null);
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Yangilab bo'lmadi"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/api/users/operators/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users", "operators"] });
+      toast.success("Operator o'chirildi");
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "O'chirib bo'lmadi"),
+  });
+
+  function startEdit(o: UserRow) {
+    setEditingId(o.id);
+    setEditForm({ ism: o.ism, familiya: o.familiya });
+  }
 
   if (!canManage) {
     return (
@@ -134,45 +161,90 @@ function OperatorlarPage() {
                     }`}
                     style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 50}ms both` }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-brand">
-                        <UserCog className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="flex items-center gap-2 text-sm font-medium">
-                          {o.ism} {o.familiya}
-                          {!o.active ? (
-                            <span className="rounded-full bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                              Faol emas
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          login: {o.login}
-                          {o.createdByFullName ? ` · qo'shdi: ${o.createdByFullName}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="btn-ghost" onClick={() => setResetTarget(o)}>
-                        <KeyRound className="h-3.5 w-3.5" /> Parolni yangilash
-                      </button>
-                      <button
-                        className={`btn-ghost ${o.active ? "text-destructive" : ""}`}
-                        onClick={() => setActiveMutation.mutate({ id: o.id, active: !o.active })}
-                        disabled={setActiveMutation.isPending}
+                    {editingId === o.id ? (
+                      <form
+                        className="flex flex-1 flex-wrap items-center gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          updateMutation.mutate({ id: o.id, payload: editForm });
+                        }}
                       >
-                        {o.active ? (
-                          <>
-                            <UserX className="h-3.5 w-3.5" /> Faolsizlantirish
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="h-3.5 w-3.5" /> Faollashtirish
-                          </>
-                        )}
-                      </button>
-                    </div>
+                        <input
+                          className="field w-32"
+                          value={editForm.ism}
+                          onChange={(e) => setEditForm((s) => ({ ...s, ism: e.target.value }))}
+                          required
+                        />
+                        <input
+                          className="field w-32"
+                          value={editForm.familiya}
+                          onChange={(e) => setEditForm((s) => ({ ...s, familiya: e.target.value }))}
+                          required
+                        />
+                        <button className="btn-brand px-3 py-1.5" type="submit" disabled={updateMutation.isPending}>
+                          {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        </button>
+                        <button className="btn-ghost px-3 py-1.5" type="button" onClick={() => setEditingId(null)}>
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-brand">
+                            <UserCog className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="flex items-center gap-2 text-sm font-medium">
+                              {o.ism} {o.familiya}
+                              {!o.active ? (
+                                <span className="rounded-full bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                                  Faol emas
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              login: {o.login}
+                              {o.createdByFullName ? ` · qo'shdi: ${o.createdByFullName}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button className="btn-ghost" onClick={() => startEdit(o)}>
+                            <Pencil className="h-3.5 w-3.5" /> Tahrirlash
+                          </button>
+                          <button className="btn-ghost" onClick={() => setResetTarget(o)}>
+                            <KeyRound className="h-3.5 w-3.5" /> Parolni yangilash
+                          </button>
+                          <button
+                            className={`btn-ghost ${o.active ? "text-destructive" : ""}`}
+                            onClick={() => setActiveMutation.mutate({ id: o.id, active: !o.active })}
+                            disabled={setActiveMutation.isPending}
+                          >
+                            {o.active ? (
+                              <>
+                                <UserX className="h-3.5 w-3.5" /> Faolsizlantirish
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="h-3.5 w-3.5" /> Faollashtirish
+                              </>
+                            )}
+                          </button>
+                          <button
+                            className="btn-ghost text-destructive"
+                            onClick={() => {
+                              if (window.confirm(`"${o.ism} ${o.familiya}"ni butunlay o'chirishga ishonchingiz komilmi?`)) {
+                                deleteMutation.mutate(o.id);
+                              }
+                            }}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> O'chirish
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

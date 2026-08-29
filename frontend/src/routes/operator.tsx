@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageOff, Loader2, Pencil, Plus, Save, UserRound, X } from "lucide-react";
+import { ImageOff, Loader2, Pencil, Plus, Save, Trash2, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { Donut, Reveal } from "@/components/motion";
@@ -28,20 +28,17 @@ type IshchiRow = {
   id: number;
   ism: string;
   familiya: string;
-  filialId: number;
-  filialNomi: string;
   supervayzerId: number;
   supervayzerFullName: string;
   ishGaKirganSana: string;
   active: boolean;
 };
 
-type FilialRow = { id: number; nomi: string };
 type MahsulotRow = { id: number; nomi: string; birlik: string; standartPlan: number };
 type SupervayzerRow = { id: number; ism: string; familiya: string };
 type NatijaRow = { ishchiId: number; mahsulotId: number; plan: number; bajarildi: number };
 
-const EMPTY_ISHCHI_FORM = { ism: "", familiya: "", filialId: "", supervayzerId: "", ishGaKirganSana: "", active: true };
+const EMPTY_ISHCHI_FORM = { ism: "", familiya: "", supervayzerId: "", ishGaKirganSana: "", active: true };
 
 function todayMonthInput(): string {
   return new Date().toISOString().slice(0, 7) + "-01";
@@ -55,10 +52,6 @@ function OperatorPage() {
   const { data: ishchilar = [], isLoading: loadingIshchilar } = useQuery({
     queryKey: ["ishchilar"],
     queryFn: () => api.get<IshchiRow[]>("/api/ishchilar"),
-  });
-  const { data: filiallar = [] } = useQuery({
-    queryKey: ["filiallar"],
-    queryFn: () => api.get<FilialRow[]>("/api/filiallar"),
   });
   const { data: mahsulotlar = [] } = useQuery({
     queryKey: ["mahsulotlar"],
@@ -79,7 +72,6 @@ function OperatorPage() {
       api.post<IshchiRow>("/api/ishchilar", {
         ism: ishchiForm.ism,
         familiya: ishchiForm.familiya,
-        filialId: Number(ishchiForm.filialId),
         supervayzerId: isSupervayzer ? undefined : Number(ishchiForm.supervayzerId),
         ishGaKirganSana: ishchiForm.ishGaKirganSana,
       }),
@@ -96,7 +88,6 @@ function OperatorPage() {
       api.put<IshchiRow>(`/api/ishchilar/${editingIshchiId}`, {
         ism: ishchiForm.ism,
         familiya: ishchiForm.familiya,
-        filialId: Number(ishchiForm.filialId),
         supervayzerId: isSupervayzer ? undefined : Number(ishchiForm.supervayzerId),
         ishGaKirganSana: ishchiForm.ishGaKirganSana,
         active: ishchiForm.active,
@@ -110,12 +101,20 @@ function OperatorPage() {
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini yangilab bo'lmadi"),
   });
 
+  const deleteIshchiMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/api/ishchilar/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
+      toast.success("Ishchi o'chirildi");
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini o'chirib bo'lmadi"),
+  });
+
   function startEditIshchi(s: IshchiRow) {
     setEditingIshchiId(s.id);
     setIshchiForm({
       ism: s.ism,
       familiya: s.familiya,
-      filialId: String(s.filialId),
       supervayzerId: String(s.supervayzerId),
       ishGaKirganSana: s.ishGaKirganSana,
       active: s.active,
@@ -227,7 +226,6 @@ function OperatorPage() {
                   <thead>
                     <tr className="border-b border-border bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
                       <th className="px-5 py-3 font-medium">Ism</th>
-                      <th className="px-5 py-3 font-medium">Filial</th>
                       <th className="px-5 py-3 font-medium">Supervayzer</th>
                       <th className="px-5 py-3 text-right font-medium">Amal</th>
                     </tr>
@@ -251,7 +249,6 @@ function OperatorPage() {
                             ) : null}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-muted-foreground">{s.filialNomi}</td>
                         <td className="px-5 py-3 text-muted-foreground">{s.supervayzerFullName}</td>
                         <td className="px-5 py-3 text-right">
                           <div className="flex justify-end gap-2">
@@ -260,6 +257,17 @@ function OperatorPage() {
                             </button>
                             <button className="btn-ghost px-2 py-1" onClick={() => setSelectedIshchiId(s.id)}>
                               Natija kiritish
+                            </button>
+                            <button
+                              className="btn-ghost px-2 py-1 text-destructive"
+                              onClick={() => {
+                                if (window.confirm(`"${s.ism} ${s.familiya}"ni o'chirishga ishonchingiz komilmi?`)) {
+                                  deleteIshchiMutation.mutate(s.id);
+                                }
+                              }}
+                              disabled={deleteIshchiMutation.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> O'chirish
                             </button>
                           </div>
                         </td>
@@ -293,7 +301,7 @@ function OperatorPage() {
                   <option value="">— tanlang —</option>
                   {ishchilar.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.ism} {s.familiya} ({s.filialNomi})
+                      {s.ism} {s.familiya}
                     </option>
                   ))}
                 </select>
@@ -449,23 +457,6 @@ function OperatorPage() {
                   required
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Filial</label>
-              <select
-                className="field"
-                value={ishchiForm.filialId}
-                onChange={(e) => setIshchiForm((s) => ({ ...s, filialId: e.target.value }))}
-                required
-              >
-                <option value="">— tanlang —</option>
-                {filiallar.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.nomi}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {!isSupervayzer ? (
