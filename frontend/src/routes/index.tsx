@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -13,8 +14,15 @@ import {
 import { Trophy, Medal } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { CountUp, Donut, Reveal, TimeFilter, periodFactor, type Period } from "@/components/motion";
-import { LEAGUES, YEAR_STATS, buildLeague, buildSupervisorScoreboard } from "@/lib/micco-data";
+import { LEAGUES, MONTHS, YEAR_STATS, buildLeague } from "@/lib/micco-data";
+import { api } from "@/lib/api";
+import { type ScoreboardApiRow } from "@/lib/rating-api";
 import { cn } from "@/lib/utils";
+
+function monthLabel(oy: string): string {
+  const month = Number(oy.split("-")[1]);
+  return MONTHS[month - 1] ?? oy;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -50,7 +58,21 @@ function Dashboard() {
     [f],
   );
 
-  const scoreboard = useMemo(() => buildSupervisorScoreboard(5), []);
+  const { data: scoreboardApi = [] } = useQuery({
+    queryKey: ["reyting", "supervayzer", "tarix", "dashboard"],
+    queryFn: () => api.get<ScoreboardApiRow[]>("/api/reyting/supervayzer/tarix?oyCount=5"),
+  });
+  const scoreboard = useMemo(
+    () =>
+      scoreboardApi.map((r) => ({
+        name: r.fullName,
+        place: r.place,
+        months: r.oylar.map((m) => ({ month: monthLabel(m.oy), percent: m.percent, points: m.ball })),
+        avgPercent: r.ortachaPercent,
+        totalPoints: r.jamiBall,
+      })),
+    [scoreboardApi],
+  );
   const scoreboardMonths = scoreboard[0]?.months.map((m) => m.month) ?? [];
 
   const metrics = [

@@ -170,9 +170,12 @@ hisoblangan reyting + audit) to'liq ishlaydigan mahsulotga aylandi:
 **Hali qolgan (bilinen, keyingi safar uchun)**: refresh-token/logout-invalidation yo'q (token
 12 soat amal qiladi); HTTPS hali yo'q (lokal HTTP); production uchun hosting/deploy hali yo'q.
 
+Shu bilan **Bosh dashboard'dagi "Supervayzerlar reytingi — oylik ball" jadvali** ham
+`/api/reyting/supervayzer/tarix?oyCount=5`ga ulandi (`index.tsx`) — endi butun loyihada
+`micco-data.ts`dagi demo generatorlarga tayangan yagona joy qolmadi (statik ro'yxatlar —
+`LEAGUES`, `MONTHS` kabi UI konstantalari — hali ishlatiladi, bular demo emas).
+
 ## Keyingi qadamlar (taxminiy)
-- [ ] Bosh dashboard'dagi "Supervayzerlar reytingi — oylik ball" jadvalini
-      `/api/reyting/supervayzer/tarix`ga ulash (hozir hali demo).
 - [ ] Deploy qilish va doimiy link olish (backend + frontend, + Postgres serverga ko'chirish) —
       shunda "Avto rejim" haqiqatan ham ofis TV ekraniga qo'yiladigan bo'ladi.
 - [ ] Refresh-token/logout-invalidation, HTTPS — production'ga chiqishdan oldin.
