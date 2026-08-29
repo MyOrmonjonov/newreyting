@@ -114,9 +114,20 @@ Ishchi (agent) hali login olmaydi — u faqat ochiq reyting sahifasini ko'radi (
   ulanmagan (xodim/mahsulot/audit uchun entity/API yo'q)
 - Reyting sahifalari (`/reyting/*`) — hamon `micco-data.ts` statik/tasodifiy ma'lumot
 
+## Parolni almashtirish/yangilash (2026-08-30)
+
+- **O'zining parolini almashtirish**: `POST /api/auth/change-password` (`{oldPassword,newPassword}`,
+  joriy parolni bilish kerak) — `AppShell` chap paneli pastida (login/logout yonida) kalit
+  ikonkasi orqali ochiladigan modal (`PasswordDialog.tsx`, `requireOldPassword`).
+- **Quyi rol parolini yangilash** (eskisini bilmasdan): `PUT /api/users/operators/{id}/password`
+  (ADMIN), `.../menejers/{id}/password` (ADMIN yoki OPERATOR), `.../supervayzers/{id}/password`
+  (ADMIN yoki MENEJER) — `/operatorlar` va `/jamoa` sahifalaridagi "Parolni yangilash"
+  tugmalari (avval "tez orada" placeholder edi) endi shu endpointlarga ulangan.
+- Muhim tuzatilgan xato: `changeOwnPassword` da foydalanuvchi obyekti (`@AuthenticationPrincipal`
+  orqali) boshqa so'rovda yuklanib **detached** holatda kelgani uchun `setPasswordHash()`
+  chaqirilsa ham `userRepository.save()` qilinmaguncha bazaga yozilmayotgan edi — endi tuzatildi.
+
 ## Keyingi qadamlar (taxminiy)
-- [ ] Parolni o'zgartirish endpoint'i (hozir birinchi kirishdan keyin admin paroli
-      o'zgarmasdan qolaveradi — xavfsizlik uchun muhim).
 - [ ] Ishchi (agent), Filial, Mahsulot, Oylik natija uchun entity + API — shundan keyin
       `/operator` va `/mahsulotlar` sahifalarini ham real backend'ga ulash mumkin bo'ladi.
 - [ ] Reyting sahifalarini (`/reyting/*`) real oylik natijalar API'siga ulash — hozircha

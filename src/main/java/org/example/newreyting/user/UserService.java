@@ -37,4 +37,25 @@ public class UserService {
     public List<User> listByRole(Role role) {
         return userRepository.findByRoleOrderByFamiliyaAsc(role);
     }
+
+    /** Foydalanuvchi o'zining joriy parolini bilib, yangisiga almashtiradi. */
+    @Transactional
+    public void changeOwnPassword(User user, String oldPassword, String newPassword) {
+        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Joriy parol noto'g'ri");
+        }
+        // `user` @AuthenticationPrincipal orqali oldingi (JwtAuthFilter) so'rovda yuklangan,
+        // shu tranzaksiya doirasida detached — save() chaqirmasak o'zgarish bazaga yozilmaydi.
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    /** Yuqori rol (masalan Admin) quyi rol foydalanuvchisining parolini eskisini bilmasdan yangilaydi. */
+    @Transactional
+    public void resetPassword(Long userId, Role expectedRole, String newPassword) {
+        User user = userRepository.findById(userId)
+                .filter(u -> u.getRole() == expectedRole)
+                .orElseThrow(() -> new IllegalArgumentException("Foydalanuvchi topilmadi"));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+    }
 }

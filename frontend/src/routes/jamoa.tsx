@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Loader2, ShieldAlert, ShieldCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
+import { PasswordDialog } from "@/components/PasswordDialog";
 import { Reveal, TimeFilter, type Period } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth-context";
@@ -58,6 +59,7 @@ function TeamPage() {
   const [period, setPeriod] = useState<Period>("oy");
   const [date, setDate] = useState("2026-07-28");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
 
   const availableTabs = useMemo(
     () => (["menejer", "supervayzer"] as Tab[]).filter((t) => user && TAB_CONFIG[t].canManage(user.role)),
@@ -82,6 +84,18 @@ function TeamPage() {
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.message : "Qo'shib bo'lmadi");
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ id, newPassword }: { id: number; newPassword: string }) =>
+      api.put(`${config.path}/${id}/password`, { newPassword }),
+    onSuccess: () => {
+      toast.success("Parol yangilandi");
+      setResetTarget(null);
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Parolni yangilab bo'lmadi");
     },
   });
 
@@ -157,7 +171,7 @@ function TeamPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button className="btn-ghost" onClick={() => toast("Parol yangilash tez orada")}>
+                      <button className="btn-ghost" onClick={() => setResetTarget(r)}>
                         <KeyRound className="h-3.5 w-3.5" /> Parolni yangilash
                       </button>
                     </div>
@@ -233,6 +247,18 @@ function TeamPage() {
           </form>
         </Reveal>
       </div>
+
+      {resetTarget ? (
+        <PasswordDialog
+          title="Parolni yangilash"
+          description={`${resetTarget.ism} ${resetTarget.familiya} (${resetTarget.login}) uchun yangi parol`}
+          submitting={resetPasswordMutation.isPending}
+          onClose={() => setResetTarget(null)}
+          onSubmit={({ newPassword }) =>
+            resetPasswordMutation.mutate({ id: resetTarget.id, newPassword })
+          }
+        />
+      ) : null}
     </AppShell>
   );
 }

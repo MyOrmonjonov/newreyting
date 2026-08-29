@@ -1,9 +1,11 @@
 package org.example.newreyting.auth;
 
 import jakarta.validation.Valid;
+import org.example.newreyting.auth.dto.ChangePasswordRequest;
 import org.example.newreyting.auth.dto.LoginRequest;
 import org.example.newreyting.auth.dto.LoginResponse;
 import org.example.newreyting.user.User;
+import org.example.newreyting.user.UserService;
 import org.example.newreyting.user.dto.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,10 +22,12 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final UserService userService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtService jwtService) {
+    public AuthController(AuthenticationManager authenticationManager, JwtService jwtService, UserService userService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.userService = userService;
     }
 
     @PostMapping("/login")
@@ -45,6 +49,13 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal AppUserDetails principal) {
         return ResponseEntity.ok(UserResponse.from(principal.getUser()));
+    }
+
+    @PostMapping("/change-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest req,
+                                @AuthenticationPrincipal AppUserDetails principal) {
+        userService.changeOwnPassword(principal.getUser(), req.oldPassword(), req.newPassword());
     }
 
     public record ApiError(String message) {

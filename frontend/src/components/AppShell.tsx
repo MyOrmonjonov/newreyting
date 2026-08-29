@@ -12,10 +12,14 @@ import {
   Menu,
   X,
   LogOut,
+  KeyRound,
   Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { api, ApiError } from "@/lib/api";
+import { PasswordDialog } from "@/components/PasswordDialog";
 
 const NAV = [
   { group: "Boshqaruv", items: [
@@ -38,6 +42,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -114,6 +120,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-[11px] text-muted-foreground">{user.login}</p>
           </div>
           <button
+            onClick={() => setShowPasswordDialog(true)}
+            aria-label="Parolni almashtirish"
+            className="btn-ghost px-2 py-1.5"
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+          </button>
+          <button
             onClick={() => {
               logout();
               void navigate({ to: "/login" });
@@ -125,6 +138,29 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
+
+      {showPasswordDialog ? (
+        <PasswordDialog
+          title="Parolni almashtirish"
+          description="O'zingizning login parolingizni yangilash"
+          requireOldPassword
+          submitting={changingPassword}
+          onClose={() => setShowPasswordDialog(false)}
+          onSubmit={({ oldPassword, newPassword }) => {
+            setChangingPassword(true);
+            api
+              .post("/api/auth/change-password", { oldPassword, newPassword })
+              .then(() => {
+                toast.success("Parol muvaffaqiyatli almashtirildi");
+                setShowPasswordDialog(false);
+              })
+              .catch((err) => {
+                toast.error(err instanceof ApiError ? err.message : "Parolni almashtirib bo'lmadi");
+              })
+              .finally(() => setChangingPassword(false));
+          }}
+        />
+      ) : null}
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur lg:px-8">

@@ -3,6 +3,7 @@ package org.example.newreyting.user;
 import jakarta.validation.Valid;
 import org.example.newreyting.auth.AppUserDetails;
 import org.example.newreyting.user.dto.CreateUserRequest;
+import org.example.newreyting.user.dto.ResetPasswordRequest;
 import org.example.newreyting.user.dto.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,6 +38,13 @@ public class UserController {
         return UserResponse.from(userService.create(req, Role.OPERATOR, principal.getUser()));
     }
 
+    @PutMapping("/operators/{id}/password")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetOperatorPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req) {
+        userService.resetPassword(id, Role.OPERATOR, req.newPassword());
+    }
+
     // --- Menejerlar: Admin yoki Operator qo'sha/ko'ra oladi ---
 
     @GetMapping("/menejers")
@@ -53,6 +61,13 @@ public class UserController {
         return UserResponse.from(userService.create(req, Role.MENEJER, principal.getUser()));
     }
 
+    @PutMapping("/menejers/{id}/password")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetMenejerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req) {
+        userService.resetPassword(id, Role.MENEJER, req.newPassword());
+    }
+
     // --- Supervayzerlar: Admin yoki Menejer qo'sha/ko'ra oladi ---
 
     @GetMapping("/supervayzers")
@@ -67,5 +82,12 @@ public class UserController {
     public UserResponse createSupervayzer(@Valid @RequestBody CreateUserRequest req,
                                            @AuthenticationPrincipal AppUserDetails principal) {
         return UserResponse.from(userService.create(req, Role.SUPERVAYZER, principal.getUser()));
+    }
+
+    @PutMapping("/supervayzers/{id}/password")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetSupervayzerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req) {
+        userService.resetPassword(id, Role.SUPERVAYZER, req.newPassword());
     }
 }
