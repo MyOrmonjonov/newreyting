@@ -12,6 +12,7 @@ public record UpdateIshchiRequest(
         Long supervayzerId,
         @NotNull LocalDate ishGaKirganSana,
         boolean active,
-        String boshlangichLiga
+        String boshlangichLiga,
+        String rasm
 ) {
 }

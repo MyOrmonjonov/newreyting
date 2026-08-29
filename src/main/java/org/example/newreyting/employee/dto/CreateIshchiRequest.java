@@ -12,6 +12,8 @@ public record CreateIshchiRequest(
         Long supervayzerId,
         @NotNull LocalDate ishGaKirganSana,
         /** Natija hali kiritilmagan oylar uchun ko'rsatiladigan boshlang'ich liga: diamond/gold/silver/bronze/rising. Ixtiyoriy — bo'sh bo'lsa "rising". */
-        String boshlangichLiga
+        String boshlangichLiga,
+        /** Fondan ajratilgan surat, data URL sifatida. Ixtiyoriy. */
+        String rasm
 ) {
 }

@@ -35,6 +35,7 @@ type IshchiRow = {
   ishGaKirganSana: string;
   active: boolean;
   boshlangichLiga: string | null;
+  rasm: string | null;
 };
 
 type MahsulotRow = { id: number; nomi: string; birlik: string; standartPlan: number };
@@ -86,11 +87,13 @@ function OperatorPage() {
         supervayzerId: isSupervayzer ? undefined : Number(ishchiForm.supervayzerId),
         ishGaKirganSana: ishchiForm.ishGaKirganSana,
         boshlangichLiga: ishchiForm.boshlangichLiga,
+        rasm: photo,
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
       toast.success(`"${created.ism} ${created.familiya}" ishchi sifatida qo'shildi`);
       setIshchiForm(EMPTY_ISHCHI_FORM);
+      setPhoto(null);
       setShowIshchiModal(false);
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini qo'shib bo'lmadi"),
@@ -105,12 +108,14 @@ function OperatorPage() {
         ishGaKirganSana: ishchiForm.ishGaKirganSana,
         active: ishchiForm.active,
         boshlangichLiga: ishchiForm.boshlangichLiga,
+        rasm: photo,
       }),
     onSuccess: (updated) => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
       toast.success(`"${updated.ism} ${updated.familiya}" yangilandi`);
       setIshchiForm(EMPTY_ISHCHI_FORM);
       setEditingIshchiId(null);
+      setPhoto(null);
       setShowIshchiModal(false);
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini yangilab bo'lmadi"),
@@ -135,12 +140,16 @@ function OperatorPage() {
       active: s.active,
       boshlangichLiga: s.boshlangichLiga ?? "rising",
     });
+    setPhoto(s.rasm ?? null);
+    setPhotoStatus("idle");
     setShowIshchiModal(true);
   }
 
   function openCreateIshchi() {
     setEditingIshchiId(null);
     setIshchiForm(EMPTY_ISHCHI_FORM);
+    setPhoto(null);
+    setPhotoStatus("idle");
     setShowIshchiModal(true);
   }
 
@@ -148,6 +157,8 @@ function OperatorPage() {
     setShowIshchiModal(false);
     setEditingIshchiId(null);
     setIshchiForm(EMPTY_ISHCHI_FORM);
+    setPhoto(null);
+    setPhotoStatus("idle");
   }
 
   // --- Oylik natija kiritish ---
@@ -200,7 +211,7 @@ function OperatorPage() {
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Natijani saqlab bo'lmadi"),
   });
 
-  // --- Surat (fon avtomatik olib tashlanadi) — hozircha faqat lokal ko'rinish, saqlanmaydi ---
+  // --- Surat (fon avtomatik olib tashlanadi, natija — kichraytirilgan shaffof PNG — ishchi bilan saqlanadi) ---
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoStatus, setPhotoStatus] = useState<"idle" | "loading" | "error">("idle");
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -474,7 +485,7 @@ function OperatorPage() {
                         {photo ? "Suratni almashtirish" : "Surat yuklash"}
                       </button>
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        Fon avtomatik olib tashlanadi (hozircha faqat ko'rinish uchun — saqlanmaydi).
+                        Fon avtomatik olib tashlanadi — ishchi saqlanganda shu surat reytingda ham ko'rinadi.
                       </p>
                       {photoStatus === "error" ? (
                         <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">

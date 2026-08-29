@@ -41,7 +41,7 @@ function toAgent(row: AgentApiRow): Agent {
     points: row.points,
     today: row.today,
     yesterday: row.yesterday,
-    avatar: avatarFor(`${row.fullName}-${row.id}`),
+    avatar: row.rasm || avatarFor(`${row.fullName}-${row.id}`),
     stripe: stripeFor(row.id),
     trophies: row.trophies,
     yearsActive: row.yearsActive,

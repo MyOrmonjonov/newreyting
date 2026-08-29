@@ -131,6 +131,11 @@ function refineMask(gray: Uint8ClampedArray, width: number, height: number): Uin
 // yakuniy natijani asl sifatda chiqaramiz.
 const MAX_INFERENCE_DIMENSION = 1280;
 
+// Yakuniy natija — kichik doiraviy avatar sifatida ko'rsatiladi va backendga
+// saqlanadi, shuning uchun asl rasm o'lchamini emas, shu chegaragacha
+// kichraytirilgan holatni qaytaramiz (saqlash hajmini nazoratda ushlab turadi).
+const MAX_OUTPUT_DIMENSION = 480;
+
 /**
  * Berilgan rasmdagi odamni fondan ajratadi va shaffof (alpha-kanalli) PNG qaytaradi.
  */
@@ -228,5 +233,19 @@ console.log(
   }
   ctx.putImageData(frame, 0, 0);
 
-  return { dataUrl: canvas.toDataURL("image/png"), width, height };
+  let outputCanvas: HTMLCanvasElement = canvas;
+  let outputWidth = width;
+  let outputHeight = height;
+  if (Math.max(width, height) > MAX_OUTPUT_DIMENSION) {
+    const outScale = MAX_OUTPUT_DIMENSION / Math.max(width, height);
+    outputWidth = Math.max(1, Math.round(width * outScale));
+    outputHeight = Math.max(1, Math.round(height * outScale));
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = outputWidth;
+    outCanvas.height = outputHeight;
+    outCanvas.getContext("2d")!.drawImage(canvas, 0, 0, outputWidth, outputHeight);
+    outputCanvas = outCanvas;
+  }
+
+  return { dataUrl: outputCanvas.toDataURL("image/png"), width: outputWidth, height: outputHeight };
 }

@@ -13,6 +13,7 @@ public record AgentResponse(
         int yesterday,
         int trophies,
         int yearsActive,
-        String league
+        String league,
+        String rasm
 ) {
 }

@@ -43,6 +43,11 @@ public class Ishchi {
     @Column(name = "boshlangich_liga")
     private Liga boshlangichLiga;
 
+    /** Fondan ajratilgan (shaffof) surat — data URL sifatida (masalan "data:image/png;base64,..."). */
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String rasm;
+
     protected Ishchi() {
     }
 
@@ -112,5 +117,13 @@ public class Ishchi {
 
     public void setBoshlangichLiga(Liga boshlangichLiga) {
         this.boshlangichLiga = boshlangichLiga;
+    }
+
+    public String getRasm() {
+        return rasm;
+    }
+
+    public void setRasm(String rasm) {
+        this.rasm = rasm;
     }
 }

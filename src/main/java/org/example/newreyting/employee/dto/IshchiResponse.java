@@ -12,7 +12,8 @@ public record IshchiResponse(
         String supervayzerFullName,
         LocalDate ishGaKirganSana,
         boolean active,
-        String boshlangichLiga
+        String boshlangichLiga,
+        String rasm
 ) {
     public static IshchiResponse from(Ishchi i) {
         return new IshchiResponse(
@@ -23,7 +24,8 @@ public record IshchiResponse(
                 i.getSupervayzer().getFullName(),
                 i.getIshGaKirganSana(),
                 i.isActive(),
-                i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : null
+                i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : null,
+                i.getRasm()
         );
     }
 }

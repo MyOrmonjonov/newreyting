@@ -131,7 +131,8 @@ public class RatingService {
                         place,
                         trophiesByIshchi.getOrDefault(s.ishchi().getId(), 0),
                         years,
-                        league
+                        league,
+                        s.ishchi().getRasm()
                 ));
             }
         }

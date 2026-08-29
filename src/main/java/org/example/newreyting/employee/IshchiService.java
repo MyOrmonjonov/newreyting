@@ -73,6 +73,7 @@ public class IshchiService {
                 currentUser
         );
         ishchi.setBoshlangichLiga(parseLiga(req.boshlangichLiga()));
+        ishchi.setRasm(validateRasm(req.rasm()));
         Ishchi saved = ishchiRepository.save(ishchi);
         auditService.record(currentUser, HarakatTuri.QOSHDI, "Ishchi: " + saved.getIsm() + " " + saved.getFamiliya());
         return saved;
@@ -92,6 +93,7 @@ public class IshchiService {
         ishchi.setIshGaKirganSana(req.ishGaKirganSana());
         ishchi.setActive(req.active());
         ishchi.setBoshlangichLiga(parseLiga(req.boshlangichLiga()));
+        ishchi.setRasm(validateRasm(req.rasm()));
         auditService.record(currentUser, HarakatTuri.OZGARTIRDI, "Ishchi: " + ishchi.getIsm() + " " + ishchi.getFamiliya());
         return ishchi;
     }
@@ -105,6 +107,18 @@ public class IshchiService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Noto'g'ri liga qiymati: " + value);
         }
+    }
+
+    private static final int MAX_RASM_LENGTH = 2_000_000;
+
+    private String validateRasm(String rasm) {
+        if (rasm == null || rasm.isBlank()) {
+            return null;
+        }
+        if (rasm.length() > MAX_RASM_LENGTH) {
+            throw new IllegalArgumentException("Surat hajmi juda katta");
+        }
+        return rasm;
     }
 
     @Transactional
