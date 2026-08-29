@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, UserPlus, UserCog, Loader2, ShieldAlert, UserX, UserCheck, Pencil, Trash2, X, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ function OperatorlarPage() {
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ ism: "", familiya: "" });
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const canManage = user?.role === "ADMIN";
 
@@ -61,6 +63,7 @@ function OperatorlarPage() {
       void queryClient.invalidateQueries({ queryKey: ["users", "operators"] });
       toast.success(`"${created.ism} ${created.familiya}" operator sifatida qo'shildi`);
       setForm(EMPTY_FORM);
+      setShowCreateModal(false);
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.message : "Operator qo'shib bo'lmadi");
@@ -138,12 +141,17 @@ function OperatorlarPage() {
         right={<TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Reveal className="lg:col-span-2 block">
+      <div className="grid grid-cols-1 gap-6">
+        <Reveal className="block">
           <div className="card-surface overflow-hidden">
-            <div className="border-b border-border p-5">
-              <h2 className="text-lg font-semibold">Operatorlar ro'yxati</h2>
-              <p className="text-sm text-muted-foreground">Admin tomonidan qo'shiladi va boshqariladi</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
+              <div>
+                <h2 className="text-lg font-semibold">Operatorlar ro'yxati</h2>
+                <p className="text-sm text-muted-foreground">Admin tomonidan qo'shiladi va boshqariladi</p>
+              </div>
+              <button type="button" className="btn-brand" onClick={() => setShowCreateModal(true)}>
+                <UserPlus className="h-4 w-4" /> Operator qo'shish
+              </button>
             </div>
             {isLoading ? (
               <div className="flex items-center justify-center p-10">
@@ -252,68 +260,88 @@ function OperatorlarPage() {
           </div>
         </Reveal>
 
-        <Reveal delay={90} className="block">
-          <form
-            className="card-surface space-y-4 p-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              createMutation.mutate(form);
-            }}
-          >
-            <h2 className="text-lg font-semibold">Operator qo'shish</h2>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Ismi</label>
-              <input
-                className="field"
-                placeholder="Ism"
-                value={form.ism}
-                onChange={(e) => setForm((s) => ({ ...s, ism: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
-              <input
-                className="field"
-                placeholder="Familiya"
-                value={form.familiya}
-                onChange={(e) => setForm((s) => ({ ...s, familiya: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Login</label>
-              <input
-                className="field"
-                placeholder="masalan: jasur.operator"
-                value={form.login}
-                onChange={(e) => setForm((s) => ({ ...s, login: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Parol</label>
-              <input
-                className="field"
-                type="password"
-                placeholder="Kamida 6 belgi"
-                value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-                minLength={6}
-                required
-              />
-            </div>
-            <button className="btn-brand w-full" type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserPlus className="h-4 w-4" />
-              )}
-              Yaratish va login berish
-            </button>
-          </form>
-        </Reveal>
       </div>
+
+      {showCreateModal
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              onClick={() => setShowCreateModal(false)}
+            >
+              <form
+                className="card-surface my-8 w-full max-w-sm space-y-4 p-5"
+                onClick={(e) => e.stopPropagation()}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createMutation.mutate(form);
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Operator qo'shish</h2>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1.5"
+                    onClick={() => setShowCreateModal(false)}
+                    aria-label="Yopish"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Ismi</label>
+                  <input
+                    className="field"
+                    placeholder="Ism"
+                    value={form.ism}
+                    onChange={(e) => setForm((s) => ({ ...s, ism: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
+                  <input
+                    className="field"
+                    placeholder="Familiya"
+                    value={form.familiya}
+                    onChange={(e) => setForm((s) => ({ ...s, familiya: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Login</label>
+                  <input
+                    className="field"
+                    placeholder="masalan: jasur.operator"
+                    value={form.login}
+                    onChange={(e) => setForm((s) => ({ ...s, login: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Parol</label>
+                  <input
+                    className="field"
+                    type="password"
+                    placeholder="Kamida 6 belgi"
+                    value={form.password}
+                    onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                    minLength={6}
+                    required
+                  />
+                </div>
+                <button className="btn-brand w-full" type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  Yaratish va login berish
+                </button>
+              </form>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {resetTarget ? (
         <PasswordDialog

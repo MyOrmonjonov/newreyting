@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Loader2, ShieldAlert, ShieldCheck, UserPlus, UserX, UserCheck, Pencil, Trash2, X, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -62,6 +63,7 @@ function TeamPage() {
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ ism: "", familiya: "" });
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const availableTabs = useMemo(
     () => (["menejer", "supervayzer"] as Tab[]).filter((t) => user && TAB_CONFIG[t].canManage(user.role)),
@@ -83,6 +85,7 @@ function TeamPage() {
       void queryClient.invalidateQueries({ queryKey: ["users", tab] });
       toast.success(`"${created.ism} ${created.familiya}" ${tab} sifatida qo'shildi`);
       setForm(EMPTY_FORM);
+      setShowCreateModal(false);
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.message : "Qo'shib bo'lmadi");
@@ -174,12 +177,17 @@ function TeamPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Reveal className="lg:col-span-2 block" key={tab}>
+      <div className="grid grid-cols-1 gap-6">
+        <Reveal className="block" key={tab}>
           <div className="card-surface overflow-hidden">
-            <div className="border-b border-border p-5">
-              <h2 className="text-lg font-semibold capitalize">{tab}lar ro'yxati</h2>
-              <p className="text-sm text-muted-foreground">{config.createdByHint}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
+              <div>
+                <h2 className="text-lg font-semibold capitalize">{tab}lar ro'yxati</h2>
+                <p className="text-sm text-muted-foreground">{config.createdByHint}</p>
+              </div>
+              <button type="button" className="btn-brand capitalize" onClick={() => setShowCreateModal(true)}>
+                <UserPlus className="h-4 w-4" /> {tab} qo'shish
+              </button>
             </div>
             {isLoading ? (
               <div className="flex items-center justify-center p-10">
@@ -288,71 +296,91 @@ function TeamPage() {
           </div>
         </Reveal>
 
-        <Reveal delay={90} className="block">
-          <form
-            className="card-surface space-y-4 p-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              createMutation.mutate(form);
-            }}
-          >
-            <h2 className="text-lg font-semibold capitalize">Yangi {tab}</h2>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Ismi</label>
-              <input
-                className="field"
-                placeholder="Ism"
-                value={form.ism}
-                onChange={(e) => setForm((s) => ({ ...s, ism: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
-              <input
-                className="field"
-                placeholder="Familiya"
-                value={form.familiya}
-                onChange={(e) => setForm((s) => ({ ...s, familiya: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Login</label>
-              <input
-                className="field"
-                placeholder={`masalan: ism.${tab}`}
-                value={form.login}
-                onChange={(e) => setForm((s) => ({ ...s, login: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Parol</label>
-              <input
-                className="field"
-                type="password"
-                placeholder="Kamida 6 belgi"
-                value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-                minLength={6}
-                required
-              />
-            </div>
-            <button className="btn-brand w-full" type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserPlus className="h-4 w-4" />
-              )}
-              Yaratish va login berish
-            </button>
-            <p className="text-[11px] text-muted-foreground">
-              Eslatma: ishchi (agent) uchun login yaratilmaydi — u faqat ochiq reyting sahifasini ko'radi.
-            </p>
-          </form>
-        </Reveal>
       </div>
+
+      {showCreateModal
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              onClick={() => setShowCreateModal(false)}
+            >
+              <form
+                className="card-surface my-8 w-full max-w-sm space-y-4 p-5"
+                onClick={(e) => e.stopPropagation()}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createMutation.mutate(form);
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold capitalize">Yangi {tab}</h2>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1.5"
+                    onClick={() => setShowCreateModal(false)}
+                    aria-label="Yopish"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Ismi</label>
+                  <input
+                    className="field"
+                    placeholder="Ism"
+                    value={form.ism}
+                    onChange={(e) => setForm((s) => ({ ...s, ism: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
+                  <input
+                    className="field"
+                    placeholder="Familiya"
+                    value={form.familiya}
+                    onChange={(e) => setForm((s) => ({ ...s, familiya: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Login</label>
+                  <input
+                    className="field"
+                    placeholder={`masalan: ism.${tab}`}
+                    value={form.login}
+                    onChange={(e) => setForm((s) => ({ ...s, login: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Parol</label>
+                  <input
+                    className="field"
+                    type="password"
+                    placeholder="Kamida 6 belgi"
+                    value={form.password}
+                    onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                    minLength={6}
+                    required
+                  />
+                </div>
+                <button className="btn-brand w-full" type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  Yaratish va login berish
+                </button>
+                <p className="text-[11px] text-muted-foreground">
+                  Eslatma: ishchi (agent) uchun login yaratilmaydi — u faqat ochiq reyting sahifasini ko'radi.
+                </p>
+              </form>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {resetTarget ? (
         <PasswordDialog
