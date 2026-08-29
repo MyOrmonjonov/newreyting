@@ -72,6 +72,7 @@ public class IshchiService {
                 req.ishGaKirganSana(),
                 currentUser
         );
+        ishchi.setBoshlangichLiga(parseLiga(req.boshlangichLiga()));
         Ishchi saved = ishchiRepository.save(ishchi);
         auditService.record(currentUser, HarakatTuri.QOSHDI, "Ishchi: " + saved.getIsm() + " " + saved.getFamiliya());
         return saved;
@@ -90,8 +91,20 @@ public class IshchiService {
         ishchi.setSupervayzer(supervayzer);
         ishchi.setIshGaKirganSana(req.ishGaKirganSana());
         ishchi.setActive(req.active());
+        ishchi.setBoshlangichLiga(parseLiga(req.boshlangichLiga()));
         auditService.record(currentUser, HarakatTuri.OZGARTIRDI, "Ishchi: " + ishchi.getIsm() + " " + ishchi.getFamiliya());
         return ishchi;
+    }
+
+    private Liga parseLiga(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Liga.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Noto'g'ri liga qiymati: " + value);
+        }
     }
 
     @Transactional

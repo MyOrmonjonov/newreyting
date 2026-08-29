@@ -74,9 +74,20 @@ public class RatingService {
 
         record Scored(Ishchi ishchi, double percent) {
         }
-        List<Scored> scored = ishchilar.stream()
+
+        // Shu oy uchun natija kiritilgan ishchilar — real % bo'yicha kvintil bilan ligaga bo'linadi.
+        // Natija hali kiritilmagan ishchilar (masalan, endigina qo'shilgan, tajribali xodim) — real
+        // % hisoblanmagani uchun global reytingga aralashtirilmaydi, o'rniga ularning qo'lda belgilangan
+        // `boshlangichLiga`si (yoki standart "rising") bo'yicha o'sha liganing oxiriga qo'shiladi.
+        List<Ishchi> hasData = new ArrayList<>();
+        List<Ishchi> noData = new ArrayList<>();
+        for (Ishchi i : ishchilar) {
+            if (sums.containsKey(i.getId())) hasData.add(i); else noData.add(i);
+        }
+
+        List<Scored> scored = hasData.stream()
                 .map(i -> {
-                    int[] s = sums.getOrDefault(i.getId(), new int[2]);
+                    int[] s = sums.get(i.getId());
                     return new Scored(i, overallPercent(s[1], s[0]));
                 })
                 .sorted(Comparator.comparingDouble(Scored::percent).reversed())
@@ -88,28 +99,41 @@ public class RatingService {
         // Avval global % bo'yicha kvintil bilan liga belgilanadi, so'ng har bir liga o'z ichida
         // mustaqil qayta raqamlanadi (1-o'rin har ligada ham 24 ball) — demo'dagi buildLeague()
         // xatti-harakati bilan bir xil (har liga alohida mustaqil reyting).
-        Map<String, Integer> placeWithinLeague = new HashMap<>();
-        List<AgentResponse> result = new ArrayList<>();
+        Map<String, List<Scored>> byLeague = new LinkedHashMap<>();
+        for (String key : LEAGUE_KEYS) {
+            byLeague.put(key, new ArrayList<>());
+        }
         for (int idx = 0; idx < n; idx++) {
-            Scored s = scored.get(idx);
             String league = LEAGUE_KEYS[Math.min(4, idx / bucketSize)];
-            int place = placeWithinLeague.merge(league, 1, Integer::sum);
-            int years = Period.between(s.ishchi().getIshGaKirganSana(), LocalDate.now()).getYears();
-            result.add(new AgentResponse(
-                    s.ishchi().getId(),
-                    place,
-                    s.ishchi().getIsm(),
-                    s.ishchi().getFamiliya(),
-                    s.ishchi().getIsm() + " " + s.ishchi().getFamiliya(),
-                    s.ishchi().getSupervayzer().getFullName(),
-                    round1(s.percent()),
-                    pointsForPlace(place),
-                    place,
-                    place,
-                    trophiesByIshchi.getOrDefault(s.ishchi().getId(), 0),
-                    years,
-                    league
-            ));
+            byLeague.get(league).add(scored.get(idx));
+        }
+        for (Ishchi i : noData) {
+            String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
+            byLeague.get(league).add(new Scored(i, 0.0));
+        }
+
+        List<AgentResponse> result = new ArrayList<>();
+        for (String league : LEAGUE_KEYS) {
+            int place = 0;
+            for (Scored s : byLeague.get(league)) {
+                place++;
+                int years = Period.between(s.ishchi().getIshGaKirganSana(), LocalDate.now()).getYears();
+                result.add(new AgentResponse(
+                        s.ishchi().getId(),
+                        place,
+                        s.ishchi().getIsm(),
+                        s.ishchi().getFamiliya(),
+                        s.ishchi().getIsm() + " " + s.ishchi().getFamiliya(),
+                        s.ishchi().getSupervayzer().getFullName(),
+                        round1(s.percent()),
+                        pointsForPlace(place),
+                        place,
+                        place,
+                        trophiesByIshchi.getOrDefault(s.ishchi().getId(), 0),
+                        years,
+                        league
+                ));
+            }
         }
         return result;
     }

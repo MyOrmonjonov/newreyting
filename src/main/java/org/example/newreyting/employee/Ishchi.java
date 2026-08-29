@@ -38,6 +38,11 @@ public class Ishchi {
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Natija hali kiritilmagan oylar uchun ko'rsatiladigan boshlang'ich liga (null = "rising"). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "boshlangich_liga")
+    private Liga boshlangichLiga;
+
     protected Ishchi() {
     }
 
@@ -99,5 +104,13 @@ public class Ishchi {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Liga getBoshlangichLiga() {
+        return boshlangichLiga;
+    }
+
+    public void setBoshlangichLiga(Liga boshlangichLiga) {
+        this.boshlangichLiga = boshlangichLiga;
     }
 }

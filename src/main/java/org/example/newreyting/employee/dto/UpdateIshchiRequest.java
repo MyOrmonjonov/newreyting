@@ -11,6 +11,7 @@ public record UpdateIshchiRequest(
         /** ADMIN/OPERATOR/MENEJER uchun majburiy; SUPERVAYZER uchun e'tiborga olinmaydi (o'zi qoladi). */
         Long supervayzerId,
         @NotNull LocalDate ishGaKirganSana,
-        boolean active
+        boolean active,
+        String boshlangichLiga
 ) {
 }

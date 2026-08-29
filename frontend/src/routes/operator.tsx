@@ -3,11 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageOff, Loader2, Pencil, Plus, Save, Trash2, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
+import { createPortal } from "react-dom";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { Donut, Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { cutoutPersonFromImage, warmUpSegmenter } from "@/lib/bg-removal";
+import { LEAGUES } from "@/lib/micco-data";
 
 export const Route = createFileRoute("/operator")({
   head: () => ({
@@ -32,13 +34,21 @@ type IshchiRow = {
   supervayzerFullName: string;
   ishGaKirganSana: string;
   active: boolean;
+  boshlangichLiga: string | null;
 };
 
 type MahsulotRow = { id: number; nomi: string; birlik: string; standartPlan: number };
 type SupervayzerRow = { id: number; ism: string; familiya: string };
 type NatijaRow = { ishchiId: number; mahsulotId: number; plan: number; bajarildi: number };
 
-const EMPTY_ISHCHI_FORM = { ism: "", familiya: "", supervayzerId: "", ishGaKirganSana: "", active: true };
+const EMPTY_ISHCHI_FORM = {
+  ism: "",
+  familiya: "",
+  supervayzerId: "",
+  ishGaKirganSana: "",
+  active: true,
+  boshlangichLiga: "rising",
+};
 
 function todayMonthInput(): string {
   return new Date().toISOString().slice(0, 7) + "-01";
@@ -63,9 +73,10 @@ function OperatorPage() {
     enabled: !isSupervayzer,
   });
 
-  // --- Yangi ishchi qo'shish / tahrirlash ---
+  // --- Yangi ishchi qo'shish / tahrirlash (modal) ---
   const [ishchiForm, setIshchiForm] = useState(EMPTY_ISHCHI_FORM);
   const [editingIshchiId, setEditingIshchiId] = useState<number | null>(null);
+  const [showIshchiModal, setShowIshchiModal] = useState(false);
 
   const createIshchiMutation = useMutation({
     mutationFn: () =>
@@ -74,11 +85,13 @@ function OperatorPage() {
         familiya: ishchiForm.familiya,
         supervayzerId: isSupervayzer ? undefined : Number(ishchiForm.supervayzerId),
         ishGaKirganSana: ishchiForm.ishGaKirganSana,
+        boshlangichLiga: ishchiForm.boshlangichLiga,
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
       toast.success(`"${created.ism} ${created.familiya}" ishchi sifatida qo'shildi`);
       setIshchiForm(EMPTY_ISHCHI_FORM);
+      setShowIshchiModal(false);
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini qo'shib bo'lmadi"),
   });
@@ -91,12 +104,14 @@ function OperatorPage() {
         supervayzerId: isSupervayzer ? undefined : Number(ishchiForm.supervayzerId),
         ishGaKirganSana: ishchiForm.ishGaKirganSana,
         active: ishchiForm.active,
+        boshlangichLiga: ishchiForm.boshlangichLiga,
       }),
     onSuccess: (updated) => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
       toast.success(`"${updated.ism} ${updated.familiya}" yangilandi`);
       setIshchiForm(EMPTY_ISHCHI_FORM);
       setEditingIshchiId(null);
+      setShowIshchiModal(false);
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini yangilab bo'lmadi"),
   });
@@ -118,10 +133,19 @@ function OperatorPage() {
       supervayzerId: String(s.supervayzerId),
       ishGaKirganSana: s.ishGaKirganSana,
       active: s.active,
+      boshlangichLiga: s.boshlangichLiga ?? "rising",
     });
+    setShowIshchiModal(true);
   }
 
-  function cancelEditIshchi() {
+  function openCreateIshchi() {
+    setEditingIshchiId(null);
+    setIshchiForm(EMPTY_ISHCHI_FORM);
+    setShowIshchiModal(true);
+  }
+
+  function closeIshchiModal() {
+    setShowIshchiModal(false);
     setEditingIshchiId(null);
     setIshchiForm(EMPTY_ISHCHI_FORM);
   }
@@ -205,14 +229,17 @@ function OperatorPage() {
         subtitle={`${isSupervayzer ? "Supervayzer" : "Operator"} paneli · xodimlar bazasi va oylik natijalar`}
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Reveal className="xl:col-span-2 block">
+      <div className="grid grid-cols-1 gap-6">
+        <Reveal className="block">
           <div className="card-surface overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
               <div>
                 <h2 className="text-lg font-semibold">Mavjud xodimlar</h2>
                 <p className="text-sm text-muted-foreground">{ishchilar.length} ta ishchi</p>
               </div>
+              <button type="button" className="btn-brand" onClick={openCreateIshchi}>
+                <Plus className="h-4 w-4" /> Ishchi qo'shish
+              </button>
             </div>
             {loadingIshchilar ? (
               <div className="flex items-center justify-center p-10">
@@ -367,156 +394,184 @@ function OperatorPage() {
             </div>
           </Reveal>
         </Reveal>
-
-        <Reveal delay={100} className="block">
-          <form
-            className="card-surface space-y-4 p-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (editingIshchiId) updateIshchiMutation.mutate();
-              else createIshchiMutation.mutate();
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{editingIshchiId ? "Ishchini tahrirlash" : "Yangi ishchi qo'shish"}</h2>
-              {editingIshchiId ? (
-                <button type="button" className="btn-ghost px-2 py-1" onClick={cancelEditIshchi}>
-                  <X className="h-3.5 w-3.5" /> Bekor qilish
-                </button>
-              ) : null}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Surat</label>
-              <div className="flex items-center gap-4">
-                <div
-                  className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted"
-                  style={
-                    photo
-                      ? { background: "linear-gradient(140deg, var(--race-red), var(--race-red-deep))" }
-                      : undefined
-                  }
-                >
-                  {photoStatus === "loading" ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  ) : photo ? (
-                    <img src={photo} alt="Ishchi surati" className="cutout-avatar h-full w-full" />
-                  ) : (
-                    <UserRound className="h-6 w-6 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void handlePhotoFile(file);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={() => {
-                      warmUpSegmenter();
-                      photoInputRef.current?.click();
-                    }}
-                  >
-                    {photo ? "Suratni almashtirish" : "Surat yuklash"}
-                  </button>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Fon avtomatik olib tashlanadi (hozircha faqat ko'rinish uchun — saqlanmaydi).
-                  </p>
-                  {photoStatus === "error" ? (
-                    <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
-                      <ImageOff className="h-3 w-3" /> Rasmda odam topilmadi — boshqasini sinab ko'ring.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Ismi</label>
-                <input
-                  className="field"
-                  value={ishchiForm.ism}
-                  onChange={(e) => setIshchiForm((s) => ({ ...s, ism: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
-                <input
-                  className="field"
-                  value={ishchiForm.familiya}
-                  onChange={(e) => setIshchiForm((s) => ({ ...s, familiya: e.target.value }))}
-                  required
-                />
-              </div>
-            </div>
-
-            {!isSupervayzer ? (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Supervayzer</label>
-                <select
-                  className="field"
-                  value={ishchiForm.supervayzerId}
-                  onChange={(e) => setIshchiForm((s) => ({ ...s, supervayzerId: e.target.value }))}
-                  required
-                >
-                  <option value="">— tanlang —</option>
-                  {supervayzerlar.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.ism} {s.familiya}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Ishga kirgan sana</label>
-              <input
-                className="field"
-                type="date"
-                value={ishchiForm.ishGaKirganSana}
-                onChange={(e) => setIshchiForm((s) => ({ ...s, ishGaKirganSana: e.target.value }))}
-                required
-              />
-            </div>
-
-            {editingIshchiId ? (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={ishchiForm.active}
-                  onChange={(e) => setIshchiForm((s) => ({ ...s, active: e.target.checked }))}
-                />
-                Faol
-              </label>
-            ) : null}
-
-            <button
-              type="submit"
-              className="btn-brand w-full"
-              disabled={createIshchiMutation.isPending || updateIshchiMutation.isPending}
-            >
-              {createIshchiMutation.isPending || updateIshchiMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : editingIshchiId ? (
-                <Save className="h-4 w-4" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              {editingIshchiId ? "Saqlash" : "Ishchini saqlash"}
-            </button>
-          </form>
-        </Reveal>
       </div>
+
+      {showIshchiModal
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              onClick={closeIshchiModal}
+            >
+              <form
+                className="card-surface my-8 w-full max-w-md space-y-4 p-5"
+                onClick={(e) => e.stopPropagation()}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (editingIshchiId) updateIshchiMutation.mutate();
+                  else createIshchiMutation.mutate();
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">
+                    {editingIshchiId ? "Ishchini tahrirlash" : "Yangi ishchi qo'shish"}
+                  </h2>
+                  <button type="button" className="btn-ghost px-2 py-1.5" onClick={closeIshchiModal} aria-label="Yopish">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Surat</label>
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted"
+                      style={
+                        photo
+                          ? { background: "linear-gradient(140deg, var(--race-red), var(--race-red-deep))" }
+                          : undefined
+                      }
+                    >
+                      {photoStatus === "loading" ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : photo ? (
+                        <img src={photo} alt="Ishchi surati" className="cutout-avatar h-full w-full" />
+                      ) : (
+                        <UserRound className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handlePhotoFile(file);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => {
+                          warmUpSegmenter();
+                          photoInputRef.current?.click();
+                        }}
+                      >
+                        {photo ? "Suratni almashtirish" : "Surat yuklash"}
+                      </button>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Fon avtomatik olib tashlanadi (hozircha faqat ko'rinish uchun — saqlanmaydi).
+                      </p>
+                      {photoStatus === "error" ? (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
+                          <ImageOff className="h-3 w-3" /> Rasmda odam topilmadi — boshqasini sinab ko'ring.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Ismi</label>
+                    <input
+                      className="field"
+                      value={ishchiForm.ism}
+                      onChange={(e) => setIshchiForm((s) => ({ ...s, ism: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
+                    <input
+                      className="field"
+                      value={ishchiForm.familiya}
+                      onChange={(e) => setIshchiForm((s) => ({ ...s, familiya: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {!isSupervayzer ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Supervayzer</label>
+                    <select
+                      className="field"
+                      value={ishchiForm.supervayzerId}
+                      onChange={(e) => setIshchiForm((s) => ({ ...s, supervayzerId: e.target.value }))}
+                      required
+                    >
+                      <option value="">— tanlang —</option>
+                      {supervayzerlar.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.ism} {s.familiya}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Ishga kirgan sana</label>
+                  <input
+                    className="field"
+                    type="date"
+                    value={ishchiForm.ishGaKirganSana}
+                    onChange={(e) => setIshchiForm((s) => ({ ...s, ishGaKirganSana: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Boshlang'ich liga</label>
+                  <select
+                    className="field"
+                    value={ishchiForm.boshlangichLiga}
+                    onChange={(e) => setIshchiForm((s) => ({ ...s, boshlangichLiga: e.target.value }))}
+                  >
+                    {LEAGUES.map((l) => (
+                      <option key={l.key} value={l.key}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Oylik natija hali kiritilmagan davrda shu liga bo'yicha ko'rsatiladi (masalan, tajribali xodim
+                    uchun) — natija kiritilgach, liga har doim haqiqiy % asosida qayta hisoblanadi.
+                  </p>
+                </div>
+
+                {editingIshchiId ? (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={ishchiForm.active}
+                      onChange={(e) => setIshchiForm((s) => ({ ...s, active: e.target.checked }))}
+                    />
+                    Faol
+                  </label>
+                ) : null}
+
+                <button
+                  type="submit"
+                  className="btn-brand w-full"
+                  disabled={createIshchiMutation.isPending || updateIshchiMutation.isPending}
+                >
+                  {createIshchiMutation.isPending || updateIshchiMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : editingIshchiId ? (
+                    <Save className="h-4 w-4" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  {editingIshchiId ? "Saqlash" : "Ishchini saqlash"}
+                </button>
+              </form>
+            </div>,
+            document.body,
+          )
+        : null}
     </AppShell>
   );
 }
