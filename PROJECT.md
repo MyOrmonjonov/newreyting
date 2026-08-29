@@ -108,11 +108,10 @@ Ishchi (agent) hali login olmaydi — u faqat ochiq reyting sahifasini ko'radi (
 - To'liq test qilindi: login → operator yaratish → o'sha operator sifatida kirish →
   faqat menejer yaratish huquqi borligini tasdiqlash — hammasi ishladi.
 
-**Hali ulanmagan** (frontend hamon statik demo ma'lumot bilan ishlaydi):
-- Bosh dashboard'dagi metrikalar (Operatorlar/Menejerlar/... soni) — hali `micco-data.ts`dan
-- Ishchilarni kiritish (`/operator`), Mahsulotlar, Audit log — bular hali real backend'ga
-  ulanmagan (xodim/mahsulot/audit uchun entity/API yo'q)
-- Reyting sahifalari (`/reyting/*`) — hamon `micco-data.ts` statik/tasodifiy ma'lumot
+**Hali ulanmagan**: Bosh dashboard'dagi ba'zi metrikalar (Operatorlar/Menejerlar sonlari
+allaqachon real, lekin "Supervayzerlar reytingi — oylik ball" jadvali hamon
+`buildSupervisorScoreboard()` demo ma'lumotidan — `/api/reyting/supervayzer/tarix` bilan
+almashtirish qoldi, boshqa hech narsa kerak emas).
 
 ## Parolni almashtirish/yangilash (2026-08-30)
 
@@ -127,13 +126,53 @@ Ishchi (agent) hali login olmaydi — u faqat ochiq reyting sahifasini ko'radi (
   orqali) boshqa so'rovda yuklanib **detached** holatda kelgani uchun `setPasswordHash()`
   chaqirilsa ham `userRepository.save()` qilinmaguncha bazaga yozilmayotgan edi — endi tuzatildi.
 
+## Ishchi/Filial/Mahsulot/Oylik natija + reyting hisoblash + audit + xavfsizlik (2026-08-30)
+
+Katta bosqich — endi tizim uchtadan (login) beshtaga (login + real tashkiliy ma'lumot +
+hisoblangan reyting + audit) to'liq ishlaydigan mahsulotga aylandi:
+
+- **Yangi entity/API'lar**: `Filial` (`/api/filiallar`), `Mahsulot` (`/api/mahsulotlar`, to'liq
+  CRUD), `Ishchi` (`/api/ishchilar` — rolga qarab ko'rinish/ruxsat: ADMIN/OPERATOR hammasini,
+  MENEJER o'z supervayzerlariga tegishlilarni, SUPERVAYZER faqat o'zinikini ko'radi/boshqaradi),
+  `OylikNatija` (`/api/natijalar`, `/api/natijalar/bulk` — ishchi×mahsulot×oy bo'yicha
+  plan/bajarildi, upsert).
+- **`RatingService`** — `/api/reyting/{ishchi,menejer,supervayzer,supervayzer/tarix}` (barchasi
+  **permitAll**, `PublicShell` login talab qilmaydi): `pointsForPlace`/`overallPercent`
+  frontend'dagi bilan bir xil formula; liga (diamond/gold/silver/bronze/rising) global %
+  bo'yicha **kvintil** bilan belgilanadi, so'ng har bir liga **mustaqil** qayta raqamlanadi
+  (har ligada ham 1-o'rin 24 ball — demo'dagi `buildLeague()` xatti-harakati bilan bir xil).
+  Trophies — tarixiy (o'tgan oylarda necha marta umumiy 1-o'rin bo'lgani, hisoblanadi, saqlanmaydi);
+  yearsActive — `ishGaKirganSana`dan hisoblanadi; kunlik/kechagi granulyatsiya yo'q (bilinen
+  soddalashtirish, joriy oylik o'ringa teng qo'yiladi).
+- Frontend: `operator.tsx` (ishchi qo'shish + oylik natija kiritish, mavjud natija avtomatik
+  prefill bilan), `mahsulotlar.tsx` (real CRUD), `reyting.ishchi/menejer/supervayzer.tsx`
+  (endi real API'dan, `micco-data.ts` generatorlari ishlatilmaydi).
+- **Audit log**: `AuditLog` entity + `AuditService.record()` — foydalanuvchi/ishchi/mahsulot
+  yaratish, parol almashtirish/yangilash, oylik natija saqlash va login har birida yozib
+  boriladi. `GET /api/audit` (barcha login rollariga ochiq), `audit.tsx` endi shu API'ga ulangan.
+- **Infratuzilma**: H2 fayl bazasidan lokal **PostgreSQL**ga o'tildi (baza nomi: `micco`,
+  ulanish `POSTGRES_URL`/`POSTGRES_USER`/`POSTGRES_PASSWORD` muhit o'zgaruvchilari orqali —
+  parol endi faylga yozilmaydi, **backend'ni ishga tushirishdan oldin
+  `$env:POSTGRES_PASSWORD = '...'` o'rnatish kerak**, aks holda ishga tushmaydi).
+- **Xavfsizlik tuzatishlari** (avvalgi hisobotda topilgan muammolar):
+  - `JWT_SECRET` uchun ochiq/hardcoded fallback olib tashlandi — endi berilmasa `JwtService`
+    har ishga tushishda xavfsiz tasodifiy kalit generatsiya qiladi (log'da ogohlantirish bilan;
+    kamchiligi — qayta ishga tushirilganda hamma tizimdan chiqadi, shuning uchun production'da
+    `JWT_SECRET` albatta muhit o'zgaruvchisi orqali berilishi kerak).
+  - `/api/auth/me` va `/api/auth/change-password` endi haqiqiy autentifikatsiya talab qiladi
+    (avval butun `/api/auth/**` `permitAll` edi — token'siz so'rov `NullPointerException`
+    (500) tashlar edi, endi to'g'ri 403 qaytadi). Faqat `/api/auth/login` ochiq qoldi.
+  - Login endpointiga **rate-limiting** qo'shildi (`LoginRateLimiter`, xotirada saqlanadigan
+    oddiy hisoblagich): bir login uchun 15 daqiqada 5 tadan ortiq noto'g'ri urinishdan keyin
+    429 qaytadi.
+  - H2 konsoli sozlamasi olib tashlandi (endi ishlatilmaydi).
+
+**Hali qolgan (bilinen, keyingi safar uchun)**: refresh-token/logout-invalidation yo'q (token
+12 soat amal qiladi); HTTPS hali yo'q (lokal HTTP); production uchun hosting/deploy hali yo'q.
+
 ## Keyingi qadamlar (taxminiy)
-- [ ] Ishchi (agent), Filial, Mahsulot, Oylik natija uchun entity + API — shundan keyin
-      `/operator` va `/mahsulotlar` sahifalarini ham real backend'ga ulash mumkin bo'ladi.
-- [ ] Reyting sahifalarini (`/reyting/*`) real oylik natijalar API'siga ulash — hozircha
-      `buildSupervisorScoreboard()`, `buildLeague()` kabi funksiyalar hali demo ma'lumot beradi.
-- [ ] Audit log'ni real qilish (hozir statik ro'yxat) — har bir foydalanuvchi yaratilganda
-      backend avtomatik yozib borsa bo'ladi (`createdBy` allaqachon saqlanyapti).
-- [ ] Production uchun: H2 o'rniga PostgreSQL, JWT_SECRET'ni muhit o'zgaruvchisiga o'tkazish.
-- [ ] Deploy qilish va doimiy link olish (backend + frontend) — shunda "Avto rejim"
-      haqiqatan ham ofis TV ekraniga qo'yiladigan bo'ladi.
+- [ ] Bosh dashboard'dagi "Supervayzerlar reytingi — oylik ball" jadvalini
+      `/api/reyting/supervayzer/tarix`ga ulash (hozir hali demo).
+- [ ] Deploy qilish va doimiy link olish (backend + frontend, + Postgres serverga ko'chirish) —
+      shunda "Avto rejim" haqiqatan ham ofis TV ekraniga qo'yiladigan bo'ladi.
+- [ ] Refresh-token/logout-invalidation, HTTPS — production'ga chiqishdan oldin.

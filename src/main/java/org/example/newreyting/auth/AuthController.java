@@ -26,28 +26,36 @@ public class AuthController {
     private final JwtService jwtService;
     private final UserService userService;
     private final AuditService auditService;
+    private final LoginRateLimiter loginRateLimiter;
 
     public AuthController(AuthenticationManager authenticationManager, JwtService jwtService, UserService userService,
-                           AuditService auditService) {
+                           AuditService auditService, LoginRateLimiter loginRateLimiter) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userService = userService;
         this.auditService = auditService;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+        if (loginRateLimiter.isBlocked(req.login())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new ApiError("Juda ko'p noto'g'ri urinish. 15 daqiqadan so'ng qayta urinib ko'ring."));
+        }
         try {
             var auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(req.login(), req.password()));
             AppUserDetails principal = (AppUserDetails) auth.getPrincipal();
             User user = principal.getUser();
             String token = jwtService.generateToken(user.getLogin(), user.getRole().name());
+            loginRateLimiter.recordSuccess(req.login());
             auditService.record(user, HarakatTuri.KIRDI, "Tizimga kirish");
             return ResponseEntity.ok(new LoginResponse(token, UserResponse.from(user)));
         } catch (DisabledException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError("Bu hisob faol emas"));
         } catch (BadCredentialsException e) {
+            loginRateLimiter.recordFailure(req.login());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError("Login yoki parol noto'g'ri"));
         }
     }
