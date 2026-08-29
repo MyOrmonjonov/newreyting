@@ -5,6 +5,7 @@ import org.example.newreyting.audit.HarakatTuri;
 import org.example.newreyting.branch.Filial;
 import org.example.newreyting.branch.FilialRepository;
 import org.example.newreyting.employee.dto.CreateIshchiRequest;
+import org.example.newreyting.employee.dto.UpdateIshchiRequest;
 import org.example.newreyting.user.Role;
 import org.example.newreyting.user.User;
 import org.example.newreyting.user.UserRepository;
@@ -70,6 +71,26 @@ public class IshchiService {
         Ishchi saved = ishchiRepository.save(ishchi);
         auditService.record(currentUser, HarakatTuri.QOSHDI, "Ishchi: " + saved.getIsm() + " " + saved.getFamiliya());
         return saved;
+    }
+
+    @Transactional
+    public Ishchi update(Long id, UpdateIshchiRequest req, User currentUser) {
+        Ishchi ishchi = getById(id);
+        if (!canManage(currentUser, ishchi)) {
+            throw new IllegalArgumentException("Bu ishchini tahrirlash huquqingiz yo'q");
+        }
+        Filial filial = filialRepository.findById(req.filialId())
+                .orElseThrow(() -> new IllegalArgumentException("Filial topilmadi"));
+        User supervayzer = resolveSupervayzer(req.supervayzerId(), currentUser);
+
+        ishchi.setIsm(req.ism().trim());
+        ishchi.setFamiliya(req.familiya().trim());
+        ishchi.setFilial(filial);
+        ishchi.setSupervayzer(supervayzer);
+        ishchi.setIshGaKirganSana(req.ishGaKirganSana());
+        ishchi.setActive(req.active());
+        auditService.record(currentUser, HarakatTuri.OZGARTIRDI, "Ishchi: " + ishchi.getIsm() + " " + ishchi.getFamiliya());
+        return ishchi;
     }
 
     private User resolveSupervayzer(Long requestedSupervayzerId, User currentUser) {

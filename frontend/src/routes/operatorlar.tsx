@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, UserPlus, UserCog, Loader2, ShieldAlert } from "lucide-react";
+import { KeyRound, UserPlus, UserCog, Loader2, ShieldAlert, UserX, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { PasswordDialog } from "@/components/PasswordDialog";
@@ -77,6 +77,18 @@ function OperatorlarPage() {
     },
   });
 
+  const setActiveMutation = useMutation({
+    mutationFn: ({ id, active }: { id: number; active: boolean }) =>
+      api.put(`/api/users/operators/${id}/active`, { active }),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["users", "operators"] });
+      toast.success(variables.active ? "Operator faollashtirildi" : "Operator faolsizlantirildi");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Holatni o'zgartirib bo'lmadi");
+    },
+  });
+
   if (!canManage) {
     return (
       <AppShell>
@@ -117,7 +129,9 @@ function OperatorlarPage() {
                 {operators.map((o, i) => (
                   <li
                     key={o.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-accent/70"
+                    className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-accent/70 ${
+                      o.active ? "" : "opacity-60"
+                    }`}
                     style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 50}ms both` }}
                   >
                     <div className="flex items-center gap-3">
@@ -125,8 +139,13 @@ function OperatorlarPage() {
                         <UserCog className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className="flex items-center gap-2 text-sm font-medium">
                           {o.ism} {o.familiya}
+                          {!o.active ? (
+                            <span className="rounded-full bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                              Faol emas
+                            </span>
+                          ) : null}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           login: {o.login}
@@ -137,6 +156,21 @@ function OperatorlarPage() {
                     <div className="flex gap-2">
                       <button className="btn-ghost" onClick={() => setResetTarget(o)}>
                         <KeyRound className="h-3.5 w-3.5" /> Parolni yangilash
+                      </button>
+                      <button
+                        className={`btn-ghost ${o.active ? "text-destructive" : ""}`}
+                        onClick={() => setActiveMutation.mutate({ id: o.id, active: !o.active })}
+                        disabled={setActiveMutation.isPending}
+                      >
+                        {o.active ? (
+                          <>
+                            <UserX className="h-3.5 w-3.5" /> Faolsizlantirish
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-3.5 w-3.5" /> Faollashtirish
+                          </>
+                        )}
                       </button>
                     </div>
                   </li>

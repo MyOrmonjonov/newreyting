@@ -175,7 +175,36 @@ Shu bilan **Bosh dashboard'dagi "Supervayzerlar reytingi — oylik ball" jadvali
 `micco-data.ts`dagi demo generatorlarga tayangan yagona joy qolmadi (statik ro'yxatlar —
 `LEAGUES`, `MONTHS` kabi UI konstantalari — hali ishlatiladi, bular demo emas).
 
+## Topilgan kamchiliklar va tuzatishlar (2026-08-30, kechqurun)
+
+"Loyihada kamchilik qolmadimi" deb so'ralganda topilgan va tuzatilgan narsalar:
+
+- **Bug (tuzatildi)**: oylik natija bog'langan mahsulotni o'chirishga urinilsa PostgreSQL FK
+  cheklovi ishlab, boshqarilmagan `DataIntegrityViolationException` (tushunarsiz xato) tashlar
+  edi. Endi oldindan tekshiriladi, tushunarli 409 xabar qaytadi.
+- **Ishchini tahrirlash** (`PUT /api/ishchilar/{id}`) qo'shildi — ism/familiya/filial/supervayzer/
+  ishga kirgan sana/faol holatini o'zgartirish mumkin (`operator.tsx`da "Tahrirlash" tugmasi,
+  forma tahrirlash rejimiga o'tadi).
+- **Foydalanuvchini faollashtirish/faolsizlantirish** (`PUT /api/users/{role}/{id}/active`) —
+  ishdan ketgan operator/menejer/supervayzer hisobini yopish mumkin endi (`operatorlar.tsx`,
+  `jamoa.tsx`dagi tugmalar). Faolsizlantirilgan foydalanuvchi keyingi so'rovda avtomatik
+  tizimdan chiqariladi (`JwtAuthFilter` `isEnabled()`ni tekshiradi).
+- Barchasi backend darajasida `curl` bilan to'liq tasdiqlandi (deactivate → login bloklanishi →
+  reactivate → login qayta ishlashi; ishchi tahrirlash → barcha maydon o'zgarishi).
+
+**Hali ataylab qilinmagan (chunki so'ralmadi yoki alohida qaror kerak)**:
+- Filial qo'shish uchun frontendda forma yo'q (faqat backend API bor) — foydalanuvchi
+  "keyinroq" deb qoldirdi.
+- Filial va Foydalanuvchi uchun ham xuddi Mahsulotdagi kabi "bog'langan ma'lumot bo'lsa
+  o'chirmaslik" himoyasi hali yo'q (hozircha ularda umuman o'chirish endpointi yo'q, faqat
+  foydalanuvchini faolsizlantirish bor — bu xavfsizroq yo'l).
+- Refresh-token/logout-invalidation yo'q (token 12 soat amal qiladi); HTTPS hali yo'q (lokal
+  HTTP); production uchun hosting/deploy hali yo'q; avtomatlashtirilgan testlar yo'q (hammasi
+  qo'lda curl/brauzer bilan tekshirilgan).
+
 ## Keyingi qadamlar (taxminiy)
+- [ ] Filial qo'shish formasi (frontend) — hozircha yangi filialni faqat API orqali qo'shish
+      mumkin.
 - [ ] Deploy qilish va doimiy link olish (backend + frontend, + Postgres serverga ko'chirish) —
       shunda "Avto rejim" haqiqatan ham ofis TV ekraniga qo'yiladigan bo'ladi.
 - [ ] Refresh-token/logout-invalidation, HTTPS — production'ga chiqishdan oldin.

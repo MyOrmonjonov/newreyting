@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Loader2, ShieldAlert, ShieldCheck, UserPlus } from "lucide-react";
+import { KeyRound, Loader2, ShieldAlert, ShieldCheck, UserPlus, UserX, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { PasswordDialog } from "@/components/PasswordDialog";
@@ -99,6 +99,18 @@ function TeamPage() {
     },
   });
 
+  const setActiveMutation = useMutation({
+    mutationFn: ({ id, active }: { id: number; active: boolean }) =>
+      api.put(`${config.path}/${id}/active`, { active }),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["users", tab] });
+      toast.success(variables.active ? "Faollashtirildi" : "Faolsizlantirildi");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Holatni o'zgartirib bo'lmadi");
+    },
+  });
+
   if (availableTabs.length === 0) {
     return (
       <AppShell>
@@ -153,7 +165,9 @@ function TeamPage() {
                 {rows.map((r, i) => (
                   <li
                     key={r.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-accent/70"
+                    className={`flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-accent/70 ${
+                      r.active ? "" : "opacity-60"
+                    }`}
                     style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 50}ms both` }}
                   >
                     <div className="flex items-center gap-3">
@@ -161,8 +175,13 @@ function TeamPage() {
                         <ShieldCheck className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className="flex items-center gap-2 text-sm font-medium">
                           {r.ism} {r.familiya}
+                          {!r.active ? (
+                            <span className="rounded-full bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                              Faol emas
+                            </span>
+                          ) : null}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           login: {r.login}
@@ -173,6 +192,21 @@ function TeamPage() {
                     <div className="flex gap-2">
                       <button className="btn-ghost" onClick={() => setResetTarget(r)}>
                         <KeyRound className="h-3.5 w-3.5" /> Parolni yangilash
+                      </button>
+                      <button
+                        className={`btn-ghost ${r.active ? "text-destructive" : ""}`}
+                        onClick={() => setActiveMutation.mutate({ id: r.id, active: !r.active })}
+                        disabled={setActiveMutation.isPending}
+                      >
+                        {r.active ? (
+                          <>
+                            <UserX className="h-3.5 w-3.5" /> Faolsizlantirish
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-3.5 w-3.5" /> Faollashtirish
+                          </>
+                        )}
                       </button>
                     </div>
                   </li>

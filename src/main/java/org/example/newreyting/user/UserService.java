@@ -66,4 +66,15 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         auditService.record(actor, HarakatTuri.OZGARTIRDI, user.getFullName() + " paroli");
     }
+
+    /** Yuqori rol foydalanuvchini faollashtiradi/faolsizlantiradi — ishdan ketgan xodim hisobini yopish uchun. */
+    @Transactional
+    public void setActive(Long userId, Role expectedRole, boolean active, User actor) {
+        User user = userRepository.findById(userId)
+                .filter(u -> u.getRole() == expectedRole)
+                .orElseThrow(() -> new IllegalArgumentException("Foydalanuvchi topilmadi"));
+        user.setActive(active);
+        auditService.record(actor, active ? HarakatTuri.OZGARTIRDI : HarakatTuri.OCHIRDI,
+                user.getFullName() + (active ? " faollashtirildi" : " faolsizlantirildi"));
+    }
 }

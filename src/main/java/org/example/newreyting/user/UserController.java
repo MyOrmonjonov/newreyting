@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.example.newreyting.auth.AppUserDetails;
 import org.example.newreyting.user.dto.CreateUserRequest;
 import org.example.newreyting.user.dto.ResetPasswordRequest;
+import org.example.newreyting.user.dto.UpdateActiveRequest;
 import org.example.newreyting.user.dto.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,6 +47,14 @@ public class UserController {
         userService.resetPassword(id, Role.OPERATOR, req.newPassword(), principal.getUser());
     }
 
+    @PutMapping("/operators/{id}/active")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setOperatorActive(@PathVariable Long id, @Valid @RequestBody UpdateActiveRequest req,
+                                   @AuthenticationPrincipal AppUserDetails principal) {
+        userService.setActive(id, Role.OPERATOR, req.active(), principal.getUser());
+    }
+
     // --- Menejerlar: Admin yoki Operator qo'sha/ko'ra oladi ---
 
     @GetMapping("/menejers")
@@ -70,6 +79,14 @@ public class UserController {
         userService.resetPassword(id, Role.MENEJER, req.newPassword(), principal.getUser());
     }
 
+    @PutMapping("/menejers/{id}/active")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setMenejerActive(@PathVariable Long id, @Valid @RequestBody UpdateActiveRequest req,
+                                  @AuthenticationPrincipal AppUserDetails principal) {
+        userService.setActive(id, Role.MENEJER, req.active(), principal.getUser());
+    }
+
     // --- Supervayzerlar: Admin yoki Menejer qo'sha/ko'ra oladi ---
 
     @GetMapping("/supervayzers")
@@ -92,5 +109,13 @@ public class UserController {
     public void resetSupervayzerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req,
                                           @AuthenticationPrincipal AppUserDetails principal) {
         userService.resetPassword(id, Role.SUPERVAYZER, req.newPassword(), principal.getUser());
+    }
+
+    @PutMapping("/supervayzers/{id}/active")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setSupervayzerActive(@PathVariable Long id, @Valid @RequestBody UpdateActiveRequest req,
+                                      @AuthenticationPrincipal AppUserDetails principal) {
+        userService.setActive(id, Role.SUPERVAYZER, req.active(), principal.getUser());
     }
 }

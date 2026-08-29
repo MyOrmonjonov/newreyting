@@ -63,20 +63,40 @@ public class Ishchi {
         return ism;
     }
 
+    public void setIsm(String ism) {
+        this.ism = ism;
+    }
+
     public String getFamiliya() {
         return familiya;
+    }
+
+    public void setFamiliya(String familiya) {
+        this.familiya = familiya;
     }
 
     public Filial getFilial() {
         return filial;
     }
 
+    public void setFilial(Filial filial) {
+        this.filial = filial;
+    }
+
     public User getSupervayzer() {
         return supervayzer;
     }
 
+    public void setSupervayzer(User supervayzer) {
+        this.supervayzer = supervayzer;
+    }
+
     public LocalDate getIshGaKirganSana() {
         return ishGaKirganSana;
+    }
+
+    public void setIshGaKirganSana(LocalDate ishGaKirganSana) {
+        this.ishGaKirganSana = ishGaKirganSana;
     }
 
     public boolean isActive() {

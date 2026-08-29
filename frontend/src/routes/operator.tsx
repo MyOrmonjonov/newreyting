@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageOff, Loader2, Plus, Save, UserRound } from "lucide-react";
+import { ImageOff, Loader2, Pencil, Plus, Save, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { Donut, Reveal } from "@/components/motion";
@@ -41,7 +41,7 @@ type MahsulotRow = { id: number; nomi: string; birlik: string; standartPlan: num
 type SupervayzerRow = { id: number; ism: string; familiya: string };
 type NatijaRow = { ishchiId: number; mahsulotId: number; plan: number; bajarildi: number };
 
-const EMPTY_ISHCHI_FORM = { ism: "", familiya: "", filialId: "", supervayzerId: "", ishGaKirganSana: "" };
+const EMPTY_ISHCHI_FORM = { ism: "", familiya: "", filialId: "", supervayzerId: "", ishGaKirganSana: "", active: true };
 
 function todayMonthInput(): string {
   return new Date().toISOString().slice(0, 7) + "-01";
@@ -70,8 +70,9 @@ function OperatorPage() {
     enabled: !isSupervayzer,
   });
 
-  // --- Yangi ishchi qo'shish ---
+  // --- Yangi ishchi qo'shish / tahrirlash ---
   const [ishchiForm, setIshchiForm] = useState(EMPTY_ISHCHI_FORM);
+  const [editingIshchiId, setEditingIshchiId] = useState<number | null>(null);
 
   const createIshchiMutation = useMutation({
     mutationFn: () =>
@@ -89,6 +90,42 @@ function OperatorPage() {
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini qo'shib bo'lmadi"),
   });
+
+  const updateIshchiMutation = useMutation({
+    mutationFn: () =>
+      api.put<IshchiRow>(`/api/ishchilar/${editingIshchiId}`, {
+        ism: ishchiForm.ism,
+        familiya: ishchiForm.familiya,
+        filialId: Number(ishchiForm.filialId),
+        supervayzerId: isSupervayzer ? undefined : Number(ishchiForm.supervayzerId),
+        ishGaKirganSana: ishchiForm.ishGaKirganSana,
+        active: ishchiForm.active,
+      }),
+    onSuccess: (updated) => {
+      void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
+      toast.success(`"${updated.ism} ${updated.familiya}" yangilandi`);
+      setIshchiForm(EMPTY_ISHCHI_FORM);
+      setEditingIshchiId(null);
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini yangilab bo'lmadi"),
+  });
+
+  function startEditIshchi(s: IshchiRow) {
+    setEditingIshchiId(s.id);
+    setIshchiForm({
+      ism: s.ism,
+      familiya: s.familiya,
+      filialId: String(s.filialId),
+      supervayzerId: String(s.supervayzerId),
+      ishGaKirganSana: s.ishGaKirganSana,
+      active: s.active,
+    });
+  }
+
+  function cancelEditIshchi() {
+    setEditingIshchiId(null);
+    setIshchiForm(EMPTY_ISHCHI_FORM);
+  }
 
   // --- Oylik natija kiritish ---
   const [selectedIshchiId, setSelectedIshchiId] = useState<number | "">("");
@@ -201,18 +238,30 @@ function OperatorPage() {
                         key={s.id}
                         className={`border-b border-border/70 transition-colors duration-200 last:border-0 hover:bg-accent/70 ${
                           selectedIshchiId === s.id ? "bg-brand-soft/60" : ""
-                        }`}
+                        } ${s.active ? "" : "opacity-60"}`}
                         style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 45}ms both` }}
                       >
                         <td className="px-5 py-3 font-medium">
-                          {s.ism} {s.familiya}
+                          <span className="flex items-center gap-2">
+                            {s.ism} {s.familiya}
+                            {!s.active ? (
+                              <span className="rounded-full bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                                Faol emas
+                              </span>
+                            ) : null}
+                          </span>
                         </td>
                         <td className="px-5 py-3 text-muted-foreground">{s.filialNomi}</td>
                         <td className="px-5 py-3 text-muted-foreground">{s.supervayzerFullName}</td>
                         <td className="px-5 py-3 text-right">
-                          <button className="btn-ghost px-2 py-1" onClick={() => setSelectedIshchiId(s.id)}>
-                            Natija kiritish
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button className="btn-ghost px-2 py-1" onClick={() => startEditIshchi(s)}>
+                              <Pencil className="h-3.5 w-3.5" /> Tahrirlash
+                            </button>
+                            <button className="btn-ghost px-2 py-1" onClick={() => setSelectedIshchiId(s.id)}>
+                              Natija kiritish
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -316,10 +365,18 @@ function OperatorPage() {
             className="card-surface space-y-4 p-5"
             onSubmit={(e) => {
               e.preventDefault();
-              createIshchiMutation.mutate();
+              if (editingIshchiId) updateIshchiMutation.mutate();
+              else createIshchiMutation.mutate();
             }}
           >
-            <h2 className="text-lg font-semibold">Yangi ishchi qo'shish</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{editingIshchiId ? "Ishchini tahrirlash" : "Yangi ishchi qo'shish"}</h2>
+              {editingIshchiId ? (
+                <button type="button" className="btn-ghost px-2 py-1" onClick={cancelEditIshchi}>
+                  <X className="h-3.5 w-3.5" /> Bekor qilish
+                </button>
+              ) : null}
+            </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Surat</label>
@@ -441,13 +498,30 @@ function OperatorPage() {
               />
             </div>
 
-            <button type="submit" className="btn-brand w-full" disabled={createIshchiMutation.isPending}>
-              {createIshchiMutation.isPending ? (
+            {editingIshchiId ? (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={ishchiForm.active}
+                  onChange={(e) => setIshchiForm((s) => ({ ...s, active: e.target.checked }))}
+                />
+                Faol
+              </label>
+            ) : null}
+
+            <button
+              type="submit"
+              className="btn-brand w-full"
+              disabled={createIshchiMutation.isPending || updateIshchiMutation.isPending}
+            >
+              {createIshchiMutation.isPending || updateIshchiMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
+              ) : editingIshchiId ? (
+                <Save className="h-4 w-4" />
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              Ishchini saqlash
+              {editingIshchiId ? "Saqlash" : "Ishchini saqlash"}
             </button>
           </form>
         </Reveal>

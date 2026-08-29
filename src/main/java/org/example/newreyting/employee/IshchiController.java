@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.example.newreyting.auth.AppUserDetails;
 import org.example.newreyting.employee.dto.CreateIshchiRequest;
 import org.example.newreyting.employee.dto.IshchiResponse;
+import org.example.newreyting.employee.dto.UpdateIshchiRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,5 +33,11 @@ public class IshchiController {
     public IshchiResponse create(@Valid @RequestBody CreateIshchiRequest req,
                                   @AuthenticationPrincipal AppUserDetails principal) {
         return IshchiResponse.from(ishchiService.create(req, principal.getUser()));
+    }
+
+    @PutMapping("/{id}")
+    public IshchiResponse update(@PathVariable Long id, @Valid @RequestBody UpdateIshchiRequest req,
+                                  @AuthenticationPrincipal AppUserDetails principal) {
+        return IshchiResponse.from(ishchiService.update(id, req, principal.getUser()));
     }
 }
