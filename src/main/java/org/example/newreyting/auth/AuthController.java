@@ -1,6 +1,8 @@
 package org.example.newreyting.auth;
 
 import jakarta.validation.Valid;
+import org.example.newreyting.audit.AuditService;
+import org.example.newreyting.audit.HarakatTuri;
 import org.example.newreyting.auth.dto.ChangePasswordRequest;
 import org.example.newreyting.auth.dto.LoginRequest;
 import org.example.newreyting.auth.dto.LoginResponse;
@@ -23,11 +25,14 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserService userService;
+    private final AuditService auditService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtService jwtService, UserService userService) {
+    public AuthController(AuthenticationManager authenticationManager, JwtService jwtService, UserService userService,
+                           AuditService auditService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userService = userService;
+        this.auditService = auditService;
     }
 
     @PostMapping("/login")
@@ -38,6 +43,7 @@ public class AuthController {
             AppUserDetails principal = (AppUserDetails) auth.getPrincipal();
             User user = principal.getUser();
             String token = jwtService.generateToken(user.getLogin(), user.getRole().name());
+            auditService.record(user, HarakatTuri.KIRDI, "Tizimga kirish");
             return ResponseEntity.ok(new LoginResponse(token, UserResponse.from(user)));
         } catch (DisabledException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError("Bu hisob faol emas"));

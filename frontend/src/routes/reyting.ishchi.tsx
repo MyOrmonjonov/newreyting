@@ -1,11 +1,53 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import { animate, stagger } from "animejs";
 import { X, Trophy, CalendarDays } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
-import { CountUp, Reveal, TimeFilter, Trend, periodFactor, type Period } from "@/components/motion";
-import { LEAGUES, PERIOD_LABEL, buildLeague, type Agent, type LeagueKey } from "@/lib/micco-data";
+import { CountUp, Reveal, TimeFilter, Trend, type Period } from "@/components/motion";
+import { LEAGUES, MONTHS, type LeagueKey } from "@/lib/micco-data";
+import { api } from "@/lib/api";
+import { avatarFor, monthParam, stripeFor, type AgentApiRow } from "@/lib/rating-api";
+
+type Agent = {
+  id: number;
+  place: number;
+  fullName: string;
+  supervisor: string;
+  percent: number;
+  points: number;
+  today: number;
+  yesterday: number;
+  avatar: string;
+  stripe: string;
+  trophies: number;
+  yearsActive: number;
+  league: AgentApiRow["league"];
+};
+
+function formatOyLabel(oy: string): string {
+  const [year, month] = oy.split("-");
+  return `${year} ${MONTHS[Number(month) - 1]?.toUpperCase() ?? month}`;
+}
+
+function toAgent(row: AgentApiRow): Agent {
+  return {
+    id: row.id,
+    place: row.place,
+    fullName: row.fullName,
+    supervisor: row.supervisorFullName,
+    percent: row.percent,
+    points: row.points,
+    today: row.today,
+    yesterday: row.yesterday,
+    avatar: avatarFor(`${row.fullName}-${row.id}`),
+    stripe: stripeFor(row.id),
+    trophies: row.trophies,
+    yearsActive: row.yearsActive,
+    league: row.league,
+  };
+}
 
 export const Route = createFileRoute("/reyting/ishchi")({
   head: () => ({
@@ -28,19 +70,21 @@ function AgentRating() {
   const [period, setPeriod] = useState<Period>("oy");
   const [date, setDate] = useState("2026-07-28");
   const [selected, setSelected] = useState<Agent | null>(null);
-  const f = periodFactor(period, date);
+  const oy = monthParam(date);
+
+  const { data: allAgents = [] } = useQuery({
+    queryKey: ["reyting", "ishchi", oy],
+    queryFn: () => api.get<AgentApiRow[]>(`/api/reyting/ishchi?oy=${oy}`),
+  });
 
   const meta = LEAGUES.find((l) => l.key === league)!;
   const rows = useMemo(
-    () =>
-      buildLeague(league, 27).map((r) => ({
-        ...r,
-        percent: Math.round(r.percent * f * 10) / 10,
-      })),
-    [league, f],
+    () => allAgents.filter((r) => r.league === league).map(toAgent),
+    [allAgents, league],
   );
 
-  const leader = rows[0]!;
+  const leagueSize = rows.length;
+  const leader = rows[0];
   const rest = rows.slice(1);
 
   const leaderAvatarRef = useRef<HTMLImageElement | null>(null);
@@ -110,10 +154,12 @@ function AgentRating() {
                 {meta.name} LEAGUE
               </h1>
               <p className="text-[11px] uppercase tracking-[0.28em] text-race-muted">{meta.slogan}</p>
-              <p className="mt-1 text-xs font-bold tracking-[0.3em] text-race-muted">{PERIOD_LABEL}</p>
+              <p className="mt-1 text-xs font-bold tracking-[0.3em] text-race-muted">{formatOyLabel(oy)}</p>
             </div>
           </div>
 
+          {leader ? (
+          <>
           {/* 1-o'rin bloki */}
           <Reveal>
             <div
@@ -178,7 +224,9 @@ function AgentRating() {
           {/* Qolgan o'rinlar */}
           <div className="space-y-1.5">
             {rest.map((r, i) => {
-              const inDanger = league !== "rising" && r.place >= 23;
+              const showZones = leagueSize >= 10;
+              const dangerBoundary = leagueSize - 5;
+              const inDanger = league !== "rising" && showZones && r.place > dangerBoundary;
               return (
                 <div key={r.id}>
                   <Reveal delay={Math.min(i * 45, 500)}>
@@ -228,11 +276,11 @@ function AgentRating() {
                     </div>
                   </Reveal>
 
-                  {league !== "diamond" && r.place === 5 ? (
-                    <ZoneLine tone="up" label="Ko'tarilish zonasi — 1–5 o'rin keyingi oy yuqori ligaga" />
+                  {showZones && league !== "diamond" && r.place === 5 ? (
+                    <ZoneLine tone="up" label="Ko'tarilish zonasi — top 5 o'rin keyingi oy yuqori ligaga" />
                   ) : null}
-                  {league !== "rising" && r.place === 22 ? (
-                    <ZoneLine tone="down" label="Pasayish zonasi — 23–27 o'rin keyingi oy pastroq ligaga" />
+                  {showZones && league !== "rising" && r.place === dangerBoundary ? (
+                    <ZoneLine tone="down" label="Pasayish zonasi — oxirgi 5 o'rin keyingi oy pastroq ligaga" />
                   ) : null}
                 </div>
               );
@@ -243,16 +291,22 @@ function AgentRating() {
             Reyting ball — mavsum davomida yig'iladigan MICCO ichki ball tizimi (1-o'rin 24 ball, 2-o'rin 22, 3-o'rin
             20, so'ng har o'ringa −1, 23-o'rin va undan past 0 ball).
           </p>
+          </>
+          ) : (
+            <p className="py-16 text-center text-sm text-race-muted">
+              Bu ligada hali ishchi yo'q — operator paneli orqali ishchi va oylik natija kiritilganda shu yerda chiqadi.
+            </p>
+          )}
         </div>
       </div>
 
-      <AgentDetailModal agent={selected} onClose={() => setSelected(null)} />
+      <AgentDetailModal agent={selected} oy={oy} onClose={() => setSelected(null)} />
     </PublicShell>
   );
 }
 
 /** Kartochka/qatorga bosilganda ochiladigan to'liq ma'lumot paneli (asosan telefon uchun). */
-function AgentDetailModal({ agent, onClose }: { agent: Agent | null; onClose: () => void }) {
+function AgentDetailModal({ agent, oy, onClose }: { agent: Agent | null; oy: string; onClose: () => void }) {
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
@@ -336,7 +390,7 @@ function AgentDetailModal({ agent, onClose }: { agent: Agent | null; onClose: ()
             <X className="h-4 w-4" />
           </button>
           <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/85">
-            {PERIOD_LABEL} · {agent.place}-o'rin
+            {formatOyLabel(oy)} · {agent.place}-o'rin
           </span>
         </div>
 

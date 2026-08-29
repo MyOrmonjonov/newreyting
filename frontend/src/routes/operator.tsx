@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
-import { FileSpreadsheet, ImageOff, Loader2, Pencil, Plus, Trash2, UserRound } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ImageOff, Loader2, Plus, Save, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { Donut, Reveal, TimeFilter, periodFactor, type Period } from "@/components/motion";
-import { LEAGUES, PRODUCTS, STAFF, SUPERVISORS, overallPercent } from "@/lib/micco-data";
+import { Donut, Reveal } from "@/components/motion";
+import { api, ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { cutoutPersonFromImage, warmUpSegmenter } from "@/lib/bg-removal";
 
 export const Route = createFileRoute("/operator")({
@@ -13,30 +15,132 @@ export const Route = createFileRoute("/operator")({
       { title: "Operator paneli — ishchilarni tizimga kiritish | MICCO" },
       {
         name: "description",
-        content:
-          "Ishchilarni qo'shish, supervayzer biriktirish, mahsulot bo'yicha oylik plan belgilash va Excel'dan import qilish.",
+        content: "Ishchilarni qo'shish, supervayzer biriktirish va mahsulot bo'yicha oylik natija kiritish.",
       },
       { property: "og:title", content: "MICCO Operator paneli" },
-      { property: "og:description", content: "Xodimlar jadvali va yangi ishchi qo'shish oqimi." },
+      { property: "og:description", content: "Xodimlar jadvali, yangi ishchi qo'shish va oylik natija oqimi." },
     ],
   }),
   component: OperatorPage,
 });
 
+type IshchiRow = {
+  id: number;
+  ism: string;
+  familiya: string;
+  filialId: number;
+  filialNomi: string;
+  supervayzerId: number;
+  supervayzerFullName: string;
+  ishGaKirganSana: string;
+  active: boolean;
+};
+
+type FilialRow = { id: number; nomi: string };
+type MahsulotRow = { id: number; nomi: string; birlik: string; standartPlan: number };
+type SupervayzerRow = { id: number; ism: string; familiya: string };
+type NatijaRow = { ishchiId: number; mahsulotId: number; plan: number; bajarildi: number };
+
+const EMPTY_ISHCHI_FORM = { ism: "", familiya: "", filialId: "", supervayzerId: "", ishGaKirganSana: "" };
+
+function todayMonthInput(): string {
+  return new Date().toISOString().slice(0, 7) + "-01";
+}
+
 function OperatorPage() {
-  const [period, setPeriod] = useState<Period>("oy");
-  const [date, setDate] = useState("2026-07-28");
-  const f = periodFactor(period, date);
-  const [plans, setPlans] = useState<Record<string, { plan: number; done: number }>>(
-    Object.fromEntries(PRODUCTS.map((p) => [p.id, { plan: p.defaultPlan, done: 0 }])),
-  );
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const isSupervayzer = user?.role === "SUPERVAYZER";
 
-  const preview = useMemo(() => overallPercent(Object.values(plans)), [plans]);
-  const staff = useMemo(
-    () => STAFF.map((s) => ({ ...s, percent: Math.round(s.percent * f * 10) / 10 })),
-    [f],
-  );
+  const { data: ishchilar = [], isLoading: loadingIshchilar } = useQuery({
+    queryKey: ["ishchilar"],
+    queryFn: () => api.get<IshchiRow[]>("/api/ishchilar"),
+  });
+  const { data: filiallar = [] } = useQuery({
+    queryKey: ["filiallar"],
+    queryFn: () => api.get<FilialRow[]>("/api/filiallar"),
+  });
+  const { data: mahsulotlar = [] } = useQuery({
+    queryKey: ["mahsulotlar"],
+    queryFn: () => api.get<MahsulotRow[]>("/api/mahsulotlar"),
+  });
+  const { data: supervayzerlar = [] } = useQuery({
+    queryKey: ["users", "supervayzers"],
+    queryFn: () => api.get<SupervayzerRow[]>("/api/users/supervayzers"),
+    enabled: !isSupervayzer,
+  });
 
+  // --- Yangi ishchi qo'shish ---
+  const [ishchiForm, setIshchiForm] = useState(EMPTY_ISHCHI_FORM);
+
+  const createIshchiMutation = useMutation({
+    mutationFn: () =>
+      api.post<IshchiRow>("/api/ishchilar", {
+        ism: ishchiForm.ism,
+        familiya: ishchiForm.familiya,
+        filialId: Number(ishchiForm.filialId),
+        supervayzerId: isSupervayzer ? undefined : Number(ishchiForm.supervayzerId),
+        ishGaKirganSana: ishchiForm.ishGaKirganSana,
+      }),
+    onSuccess: (created) => {
+      void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
+      toast.success(`"${created.ism} ${created.familiya}" ishchi sifatida qo'shildi`);
+      setIshchiForm(EMPTY_ISHCHI_FORM);
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini qo'shib bo'lmadi"),
+  });
+
+  // --- Oylik natija kiritish ---
+  const [selectedIshchiId, setSelectedIshchiId] = useState<number | "">("");
+  const [oy, setOy] = useState(todayMonthInput());
+  const [natijaDraft, setNatijaDraft] = useState<Record<number, { plan: number; bajarildi: number }>>({});
+
+  const { data: oyNatijalari = [] } = useQuery({
+    queryKey: ["natijalar", oy],
+    queryFn: () => api.get<NatijaRow[]>(`/api/natijalar?oy=${oy}`),
+    enabled: !!oy,
+  });
+
+  useEffect(() => {
+    if (!selectedIshchiId) {
+      setNatijaDraft({});
+      return;
+    }
+    const mavjud = oyNatijalari.filter((n) => n.ishchiId === selectedIshchiId);
+    const draft: Record<number, { plan: number; bajarildi: number }> = {};
+    for (const m of mahsulotlar) {
+      const bor = mavjud.find((n) => n.mahsulotId === m.id);
+      draft[m.id] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: m.standartPlan, bajarildi: 0 };
+    }
+    setNatijaDraft(draft);
+  }, [selectedIshchiId, oy, oyNatijalari, mahsulotlar]);
+
+  const natijaPreview = useMemo(() => {
+    const rows = Object.values(natijaDraft);
+    const plan = rows.reduce((s, r) => s + r.plan, 0);
+    const bajarildi = rows.reduce((s, r) => s + r.bajarildi, 0);
+    return plan === 0 ? 0 : (bajarildi / plan) * 100;
+  }, [natijaDraft]);
+
+  const saveNatijaMutation = useMutation({
+    mutationFn: () =>
+      api.post("/api/natijalar/bulk", {
+        oy,
+        satrlar: Object.entries(natijaDraft).map(([mahsulotId, v]) => ({
+          ishchiId: selectedIshchiId,
+          mahsulotId: Number(mahsulotId),
+          plan: v.plan,
+          bajarildi: v.bajarildi,
+        })),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["natijalar", oy] });
+      toast.success("Oylik natija saqlandi");
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Natijani saqlab bo'lmadi"),
+  });
+
+  // --- Surat (fon avtomatik olib tashlanadi) — hozircha faqat lokal ko'rinish, saqlanmaydi ---
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoStatus, setPhotoStatus] = useState<"idle" | "loading" | "error">("idle");
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -62,8 +166,7 @@ function OperatorPage() {
     <AppShell>
       <PageHeader
         title="Ishchilarni tizimga kiritish"
-        subtitle="Operator paneli · xodimlar bazasi va oylik planlar"
-        right={<TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />}
+        subtitle={`${isSupervayzer ? "Supervayzer" : "Operator"} paneli · xodimlar bazasi va oylik natijalar`}
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -72,55 +175,140 @@ function OperatorPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
               <div>
                 <h2 className="text-lg font-semibold">Mavjud xodimlar</h2>
-                <p className="text-sm text-muted-foreground">{staff.length} ta faol ishchi</p>
+                <p className="text-sm text-muted-foreground">{ishchilar.length} ta ishchi</p>
               </div>
-              <button className="btn-ghost" onClick={() => toast.success("Excel import oynasi ochildi (demo)")}>
-                <FileSpreadsheet className="h-4 w-4" /> Excel'dan import
-              </button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <th className="px-5 py-3 font-medium">Ism</th>
-                    <th className="px-5 py-3 font-medium">Supervayzer</th>
-                    <th className="px-5 py-3 font-medium">Liga</th>
-                    <th className="px-5 py-3 font-medium">Joriy foiz</th>
-                    <th className="px-5 py-3 text-right font-medium">Amallar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {staff.map((s, i) => (
-                    <tr
-                      key={s.id}
-                      className="border-b border-border/70 transition-colors duration-200 last:border-0 hover:bg-accent/70"
-                      style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 45}ms both` }}
-                    >
-                      <td className="px-5 py-3 font-medium">{s.name}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{s.supervisor}</td>
-                      <td className="px-5 py-3">
-                        <span className="rounded-full border border-border px-2.5 py-0.5 text-xs">{s.league}</span>
-                      </td>
-                      <td className="px-5 py-3 font-semibold tabular-nums">{s.percent}%</td>
-                      <td className="px-5 py-3">
-                        <div className="flex justify-end gap-2">
-                          <button className="btn-ghost px-2 py-1" onClick={() => toast("Tahrirlash (demo)")}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            className="btn-ghost px-2 py-1 text-destructive"
-                            onClick={() => toast.error("O'chirish tasdiqlanadi (demo)")}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
+            {loadingIshchilar ? (
+              <div className="flex items-center justify-center p-10">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : ishchilar.length === 0 ? (
+              <p className="p-6 text-sm text-muted-foreground">Hali ishchi qo'shilmagan.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                      <th className="px-5 py-3 font-medium">Ism</th>
+                      <th className="px-5 py-3 font-medium">Filial</th>
+                      <th className="px-5 py-3 font-medium">Supervayzer</th>
+                      <th className="px-5 py-3 text-right font-medium">Amal</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {ishchilar.map((s, i) => (
+                      <tr
+                        key={s.id}
+                        className={`border-b border-border/70 transition-colors duration-200 last:border-0 hover:bg-accent/70 ${
+                          selectedIshchiId === s.id ? "bg-brand-soft/60" : ""
+                        }`}
+                        style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 45}ms both` }}
+                      >
+                        <td className="px-5 py-3 font-medium">
+                          {s.ism} {s.familiya}
+                        </td>
+                        <td className="px-5 py-3 text-muted-foreground">{s.filialNomi}</td>
+                        <td className="px-5 py-3 text-muted-foreground">{s.supervayzerFullName}</td>
+                        <td className="px-5 py-3 text-right">
+                          <button className="btn-ghost px-2 py-1" onClick={() => setSelectedIshchiId(s.id)}>
+                            Natija kiritish
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
+
+          <Reveal delay={60} className="mt-6 block">
+            <div className="card-surface space-y-4 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Oylik natija kiritish</h2>
+                <input
+                  type="month"
+                  className="field w-40"
+                  value={oy.slice(0, 7)}
+                  onChange={(e) => setOy(`${e.target.value}-01`)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Ishchi</label>
+                <select
+                  className="field"
+                  value={selectedIshchiId}
+                  onChange={(e) => setSelectedIshchiId(e.target.value ? Number(e.target.value) : "")}
+                >
+                  <option value="">— tanlang —</option>
+                  {ishchilar.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.ism} {s.familiya} ({s.filialNomi})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedIshchiId && mahsulotlar.length > 0 ? (
+                <div className="rounded-xl border border-border p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Mahsulot bo'yicha plan / bajarildi
+                  </p>
+                  <div className="space-y-3">
+                    {mahsulotlar.map((m) => (
+                      <div key={m.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                        <span className="text-sm">
+                          {m.nomi} <span className="text-xs text-muted-foreground">({m.birlik})</span>
+                        </span>
+                        <input
+                          className="field w-24"
+                          type="number"
+                          value={natijaDraft[m.id]?.plan ?? m.standartPlan}
+                          onChange={(e) =>
+                            setNatijaDraft((s) => ({
+                              ...s,
+                              [m.id]: { plan: Number(e.target.value), bajarildi: s[m.id]?.bajarildi ?? 0 },
+                            }))
+                          }
+                        />
+                        <input
+                          className="field w-24"
+                          type="number"
+                          value={natijaDraft[m.id]?.bajarildi ?? 0}
+                          onChange={(e) =>
+                            setNatijaDraft((s) => ({
+                              ...s,
+                              [m.id]: { plan: s[m.id]?.plan ?? m.standartPlan, bajarildi: Number(e.target.value) },
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">Chapdagi maydon — plan, o'ngdagi — bajarilgan miqdor.</p>
+                  <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
+                    <Donut value={Math.round(natijaPreview * 10) / 10} size={82} stroke={8} />
+                    <p className="text-xs text-muted-foreground">Umumiy foiz = jami bajarilgan / jami plan × 100.</p>
+                  </div>
+                  <button
+                    className="btn-brand mt-4 w-full"
+                    onClick={() => saveNatijaMutation.mutate()}
+                    disabled={saveNatijaMutation.isPending}
+                  >
+                    {saveNatijaMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Natijani saqlash
+                  </button>
+                </div>
+              ) : selectedIshchiId ? (
+                <p className="text-sm text-muted-foreground">Avval Mahsulotlar bo'limida mahsulot qo'shing.</p>
+              ) : null}
+            </div>
+          </Reveal>
         </Reveal>
 
         <Reveal delay={100} className="block">
@@ -128,9 +316,7 @@ function OperatorPage() {
             className="card-surface space-y-4 p-5"
             onSubmit={(e) => {
               e.preventDefault();
-              toast.success("Yangi ishchi qo'shildi (demo)");
-              setPhoto(null);
-              setPhotoStatus("idle");
+              createIshchiMutation.mutate();
             }}
           >
             <h2 className="text-lg font-semibold">Yangi ishchi qo'shish</h2>
@@ -176,7 +362,7 @@ function OperatorPage() {
                     {photo ? "Suratni almashtirish" : "Surat yuklash"}
                   </button>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Fon avtomatik olib tashlanadi va reyting sahifalarida shu ko'rinishda chiqadi.
+                    Fon avtomatik olib tashlanadi (hozircha faqat ko'rinish uchun — saqlanmaydi).
                   </p>
                   {photoStatus === "error" ? (
                     <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
@@ -187,83 +373,81 @@ function OperatorPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Ism familiya</label>
-              <input className="field" placeholder="Farg'onaSmile STp9 Ahliyor" required />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Ismi</label>
+                <input
+                  className="field"
+                  value={ishchiForm.ism}
+                  onChange={(e) => setIshchiForm((s) => ({ ...s, ism: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
+                <input
+                  className="field"
+                  value={ishchiForm.familiya}
+                  onChange={(e) => setIshchiForm((s) => ({ ...s, familiya: e.target.value }))}
+                  required
+                />
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Supervayzer</label>
-              <select className="field">
-                {SUPERVISORS.map((s) => (
-                  <option key={s}>{s}</option>
+              <label className="text-xs font-medium text-muted-foreground">Filial</label>
+              <select
+                className="field"
+                value={ishchiForm.filialId}
+                onChange={(e) => setIshchiForm((s) => ({ ...s, filialId: e.target.value }))}
+                required
+              >
+                <option value="">— tanlang —</option>
+                {filiallar.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.nomi}
+                  </option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {!isSupervayzer ? (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Boshlang'ich liga</label>
-                <select className="field">
-                  {LEAGUES.map((l) => (
-                    <option key={l.key}>{l.name}</option>
+                <label className="text-xs font-medium text-muted-foreground">Supervayzer</label>
+                <select
+                  className="field"
+                  value={ishchiForm.supervayzerId}
+                  onChange={(e) => setIshchiForm((s) => ({ ...s, supervayzerId: e.target.value }))}
+                  required
+                >
+                  <option value="">— tanlang —</option>
+                  {supervayzerlar.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.ism} {s.familiya}
+                    </option>
                   ))}
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Joriy foiz</label>
-                <input className="field" type="number" defaultValue={0} />
-              </div>
+            ) : null}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Ishga kirgan sana</label>
+              <input
+                className="field"
+                type="date"
+                value={ishchiForm.ishGaKirganSana}
+                onChange={(e) => setIshchiForm((s) => ({ ...s, ishGaKirganSana: e.target.value }))}
+                required
+              />
             </div>
 
-            <div className="rounded-xl border border-border p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Mahsulot bo'yicha oylik plan
-              </p>
-              <div className="space-y-3">
-                {PRODUCTS.map((p) => (
-                  <div key={p.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                    <span className="text-sm">
-                      {p.name} <span className="text-xs text-muted-foreground">({p.unit})</span>
-                    </span>
-                    <input
-                      className="field w-24"
-                      type="number"
-                      value={plans[p.id]?.plan ?? 0}
-                      onChange={(e) =>
-                        setPlans((s) => ({
-                          ...s,
-                          [p.id]: { plan: Number(e.target.value), done: s[p.id]?.done ?? 0 },
-                        }))
-                      }
-                    />
-                    <input
-                      className="field w-24"
-                      type="number"
-                      value={plans[p.id]?.done ?? 0}
-                      onChange={(e) =>
-                        setPlans((s) => ({
-                          ...s,
-                          [p.id]: { plan: s[p.id]?.plan ?? 0, done: Number(e.target.value) },
-                        }))
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Chapdagi maydon — plan, o'ngdagi — bajarilgan miqdor.
-              </p>
-              <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
-                <Donut value={Math.round(preview * 10) / 10} size={82} stroke={8} />
-                <p className="text-xs text-muted-foreground">
-                  Umumiy foiz = jami bajarilgan / jami plan × 100. Chegara yo'q — 150%, 200% ham mumkin.
-                </p>
-              </div>
-            </div>
-
-            <button type="submit" className="btn-brand w-full">
-              <Plus className="h-4 w-4" /> Ishchini saqlash
+            <button type="submit" className="btn-brand w-full" disabled={createIshchiMutation.isPending}>
+              {createIshchiMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Ishchini saqlash
             </button>
           </form>
         </Reveal>

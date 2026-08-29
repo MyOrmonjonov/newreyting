@@ -1,9 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { Reveal, TimeFilter, type Period } from "@/components/motion";
-import { AUDIT } from "@/lib/micco-data";
+import { api } from "@/lib/api";
+
+type AuditEntryRow = {
+  id: number;
+  vaqt: string;
+  actorFullName: string;
+  role: string;
+  harakat: string;
+  maqsad: string;
+};
 
 export const Route = createFileRoute("/audit")({
   head: () => ({
@@ -21,6 +31,12 @@ export const Route = createFileRoute("/audit")({
   component: AuditPage,
 });
 
+function formatVaqt(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const ROLES = ["Barchasi", "Admin", "Operator", "Menejer", "Supervayzer"];
 const ACTIONS = ["Barchasi", "qo'shdi", "o'zgartirdi", "o'chirdi", "kirdi"];
 
@@ -31,15 +47,20 @@ function AuditPage() {
   const [action, setAction] = useState("Barchasi");
   const [q, setQ] = useState("");
 
+  const { data: audit = [], isLoading } = useQuery({
+    queryKey: ["audit"],
+    queryFn: () => api.get<AuditEntryRow[]>("/api/audit"),
+  });
+
   const rows = useMemo(
     () =>
-      AUDIT.filter(
+      audit.filter(
         (e) =>
           (role === "Barchasi" || e.role === role) &&
-          (action === "Barchasi" || e.action === action) &&
-          (q === "" || (e.actor + e.target).toLowerCase().includes(q.toLowerCase())),
+          (action === "Barchasi" || e.harakat === action) &&
+          (q === "" || (e.actorFullName + e.maqsad).toLowerCase().includes(q.toLowerCase())),
       ),
-    [role, action, q],
+    [audit, role, action, q],
   );
 
   const tone: Record<string, string> = {
@@ -100,18 +121,24 @@ function AuditPage() {
                   className="border-b border-border/70 transition-colors last:border-0 hover:bg-accent/70"
                   style={{ animation: `micco-rise 0.45s cubic-bezier(0.16,1,0.3,1) ${i * 40}ms both` }}
                 >
-                  <td className="px-5 py-3 tabular-nums text-muted-foreground">{e.at}</td>
-                  <td className="px-5 py-3 font-medium">{e.actor}</td>
+                  <td className="px-5 py-3 tabular-nums text-muted-foreground">{formatVaqt(e.vaqt)}</td>
+                  <td className="px-5 py-3 font-medium">{e.actorFullName}</td>
                   <td className="px-5 py-3 text-muted-foreground">{e.role}</td>
                   <td className="px-5 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tone[e.action]}`}>
-                      {e.action}
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tone[e.harakat]}`}>
+                      {e.harakat}
                     </span>
                   </td>
-                  <td className="px-5 py-3">{e.target}</td>
+                  <td className="px-5 py-3">{e.maqsad}</td>
                 </tr>
               ))}
-              {rows.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
+                    Yuklanmoqda...
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
                     Filtrga mos yozuv topilmadi

@@ -1,8 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { PublicShell } from "@/components/PublicShell";
-import { CountUp, Reveal, TimeFilter, Trend, periodFactor, type Period } from "@/components/motion";
-import { PERIOD_LABEL, buildManagers } from "@/lib/micco-data";
+import { CountUp, Reveal, TimeFilter, Trend, type Period } from "@/components/motion";
+import { MONTHS } from "@/lib/micco-data";
+import { api } from "@/lib/api";
+import { avatarFor, monthParam, type RankedApiRow } from "@/lib/rating-api";
+
+function formatOyLabel(oy: string): string {
+  const [year, month] = oy.split("-");
+  return `${year} ${MONTHS[Number(month) - 1]?.toUpperCase() ?? month}`;
+}
 
 export const Route = createFileRoute("/reyting/menejer")({
   head: () => ({
@@ -22,13 +30,25 @@ export const Route = createFileRoute("/reyting/menejer")({
 function ManagerRating() {
   const [period, setPeriod] = useState<Period>("oy");
   const [date, setDate] = useState("2026-07-28");
-  const f = periodFactor(period, date);
+  const oy = monthParam(date);
+
+  const { data: apiRows = [] } = useQuery({
+    queryKey: ["reyting", "menejer", oy],
+    queryFn: () => api.get<RankedApiRow[]>(`/api/reyting/menejer?oy=${oy}`),
+  });
 
   const rows = useMemo(
-    () => buildManagers().map((r) => ({ ...r, percent: Math.round(r.percent * f * 10) / 10 })),
-    [f],
+    () =>
+      apiRows.map((r) => ({
+        place: r.place,
+        name: r.fullName,
+        avatar: avatarFor(`${r.fullName}-${r.id}`),
+        percent: r.percent,
+        yesterday: r.place,
+      })),
+    [apiRows],
   );
-  const avg = rows.reduce((s, r) => s + r.percent, 0) / rows.length;
+  const avg = rows.length ? rows.reduce((s, r) => s + r.percent, 0) / rows.length : 0;
 
   return (
     <PublicShell>
@@ -36,7 +56,7 @@ function ManagerRating() {
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight lg:text-3xl">MENEJER REYTINGI</h1>
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-race-muted">{PERIOD_LABEL}</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-race-muted">{formatOyLabel(oy)}</p>
           </div>
           <TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />
         </div>

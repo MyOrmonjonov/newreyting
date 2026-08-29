@@ -1,5 +1,7 @@
 package org.example.newreyting.user;
 
+import org.example.newreyting.audit.AuditService;
+import org.example.newreyting.audit.HarakatTuri;
 import org.example.newreyting.user.dto.CreateUserRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -12,10 +14,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, AuditService auditService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -31,7 +35,9 @@ public class UserService {
                 role,
                 createdBy
         );
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        auditService.record(createdBy, HarakatTuri.QOSHDI, saved.getFullName());
+        return saved;
     }
 
     public List<User> listByRole(Role role) {
@@ -48,14 +54,16 @@ public class UserService {
         // shu tranzaksiya doirasida detached — save() chaqirmasak o'zgarish bazaga yozilmaydi.
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        auditService.record(user, HarakatTuri.OZGARTIRDI, "O'z paroli");
     }
 
     /** Yuqori rol (masalan Admin) quyi rol foydalanuvchisining parolini eskisini bilmasdan yangilaydi. */
     @Transactional
-    public void resetPassword(Long userId, Role expectedRole, String newPassword) {
+    public void resetPassword(Long userId, Role expectedRole, String newPassword, User actor) {
         User user = userRepository.findById(userId)
                 .filter(u -> u.getRole() == expectedRole)
                 .orElseThrow(() -> new IllegalArgumentException("Foydalanuvchi topilmadi"));
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        auditService.record(actor, HarakatTuri.OZGARTIRDI, user.getFullName() + " paroli");
     }
 }

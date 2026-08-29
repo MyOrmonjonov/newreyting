@@ -41,8 +41,9 @@ public class UserController {
     @PutMapping("/operators/{id}/password")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resetOperatorPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req) {
-        userService.resetPassword(id, Role.OPERATOR, req.newPassword());
+    public void resetOperatorPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req,
+                                       @AuthenticationPrincipal AppUserDetails principal) {
+        userService.resetPassword(id, Role.OPERATOR, req.newPassword(), principal.getUser());
     }
 
     // --- Menejerlar: Admin yoki Operator qo'sha/ko'ra oladi ---
@@ -64,14 +65,15 @@ public class UserController {
     @PutMapping("/menejers/{id}/password")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resetMenejerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req) {
-        userService.resetPassword(id, Role.MENEJER, req.newPassword());
+    public void resetMenejerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req,
+                                      @AuthenticationPrincipal AppUserDetails principal) {
+        userService.resetPassword(id, Role.MENEJER, req.newPassword(), principal.getUser());
     }
 
     // --- Supervayzerlar: Admin yoki Menejer qo'sha/ko'ra oladi ---
 
     @GetMapping("/supervayzers")
-    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER','OPERATOR')")
     public List<UserResponse> listSupervayzers() {
         return userService.listByRole(Role.SUPERVAYZER).stream().map(UserResponse::from).toList();
     }
@@ -87,7 +89,8 @@ public class UserController {
     @PutMapping("/supervayzers/{id}/password")
     @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resetSupervayzerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req) {
-        userService.resetPassword(id, Role.SUPERVAYZER, req.newPassword());
+    public void resetSupervayzerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req,
+                                          @AuthenticationPrincipal AppUserDetails principal) {
+        userService.resetPassword(id, Role.SUPERVAYZER, req.newPassword(), principal.getUser());
     }
 }
