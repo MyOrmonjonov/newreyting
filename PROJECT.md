@@ -192,19 +192,38 @@ Shu bilan **Bosh dashboard'dagi "Supervayzerlar reytingi — oylik ball" jadvali
 - Barchasi backend darajasida `curl` bilan to'liq tasdiqlandi (deactivate → login bloklanishi →
   reactivate → login qayta ishlashi; ishchi tahrirlash → barcha maydon o'zgarishi).
 
-**Hali ataylab qilinmagan (chunki so'ralmadi yoki alohida qaror kerak)**:
-- Filial qo'shish uchun frontendda forma yo'q (faqat backend API bor) — foydalanuvchi
-  "keyinroq" deb qoldirdi.
-- Filial va Foydalanuvchi uchun ham xuddi Mahsulotdagi kabi "bog'langan ma'lumot bo'lsa
-  o'chirmaslik" himoyasi hali yo'q (hozircha ularda umuman o'chirish endpointi yo'q, faqat
-  foydalanuvchini faolsizlantirish bor — bu xavfsizroq yo'l).
+## Filial olib tashlandi, ID-scoping va haqiqiy o'chirish (2026-08-30, kechqurun 2)
+
+Foydalanuvchi talabiga ko'ra uchta muhim o'zgarish:
+
+- **Filial butunlay olib tashlandi** — Ishchi endi filialga bog'lanmaydi (avval majburiy edi).
+  `Filial` entity/API/DTO'lar butunlay o'chirildi.
+- **ID zanjiri bo'yicha ko'rinish/boshqarish** — avval har qanday OPERATOR barcha
+  menejerlarni, har qanday MENEJER barcha supervayzerlarni ko'rar edi (butun tashkilot
+  bo'ylab). Endi qat'iy: **OPERATOR faqat o'zi yaratgan menejerlarni va ularning
+  supervayzerlarini (transitiv, 2 pog'ona)** ko'radi/boshqaradi; **MENEJER faqat o'zi
+  yaratgan supervayzerlarni**. Bu `/api/users/menejers`, `/api/users/supervayzers`,
+  `/api/ishchilar` — barchasida amalda.
+- **Haqiqiy o'chirish (DELETE)** qo'shildi — operator/menejer/supervayzer/ishchi uchun.
+  Bog'liq faol ma'lumot bo'lsa (masalan supervayzerga biriktirilgan ishchi, yoki menejerning
+  supervayzerlari) 409 bilan bloklanadi — avval bog'liqni o'chirish/ko'chirish kerak.
+- **Profilni tahrirlash** (ism/familiya) — `PUT /api/users/{role}/{id}` qo'shildi.
+- **AuditLog** endi actor'ni jonli FK sifatida emas, **suratga olingan ism** (`actorNomi`)
+  sifatida saqlaydi — shu orqali foydalanuvchi o'chirilgandan keyin ham audit tarixida ismi
+  to'g'ri ko'rinadi (avval bu FK muammoga olib kelardi — Mahsulotdagi bugga o'xshab).
+
+**Diqqat**: oylik natija (plan/bajarildi) va undan hisoblanadigan foiz mantiqi (`overallPercent`,
+`OylikNatija`) bu o'zgarishlarda **tegilmagan** — avvalgidek ishlaydi.
+
+**Hali ataylab qilinmagan**:
+- Filial qo'shish uchun frontendda forma yo'q edi, endi esa Filial tushunchasi umuman yo'q.
 - Refresh-token/logout-invalidation yo'q (token 12 soat amal qiladi); HTTPS hali yo'q (lokal
   HTTP); production uchun hosting/deploy hali yo'q; avtomatlashtirilgan testlar yo'q (hammasi
   qo'lda curl/brauzer bilan tekshirilgan).
 
 ## Keyingi qadamlar (taxminiy)
-- [ ] Filial qo'shish formasi (frontend) — hozircha yangi filialni faqat API orqali qo'shish
-      mumkin.
+- [ ] Foydalanuvchidan aniqlashtirish: har bir rol (Operator/Menejer/Supervayzer) uchun
+      to'liq ko'rish/qila olish matritsasi TZ'ga mos keladimi — tasdiqlash kerak.
 - [ ] Deploy qilish va doimiy link olish (backend + frontend, + Postgres serverga ko'chirish) —
       shunda "Avto rejim" haqiqatan ham ofis TV ekraniga qo'yiladigan bo'ladi.
 - [ ] Refresh-token/logout-invalidation, HTTPS — production'ga chiqishdan oldin.
