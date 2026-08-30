@@ -147,7 +147,7 @@ public class RatingService {
         Map<Long, int[]> sums = sumByIshchi(natijaRepository.findAllByOy(month));
         Map<Long, Integer> trophiesByIshchi = computeTrophies(month);
 
-        record Scored(Ishchi ishchi, double percent) {
+        record Scored(Ishchi ishchi, double percent, boolean hasData) {
         }
 
         Map<String, List<Scored>> byLeague = new LinkedHashMap<>();
@@ -156,11 +156,16 @@ public class RatingService {
         }
         for (Ishchi i : ishchilar) {
             String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
+            boolean hasData = sums.containsKey(i.getId());
             int[] s = sums.getOrDefault(i.getId(), new int[2]);
-            byLeague.get(league).add(new Scored(i, overallPercent(s[1], s[0])));
+            byLeague.get(league).add(new Scored(i, overallPercent(s[1], s[0]), hasData));
         }
         for (List<Scored> group : byLeague.values()) {
-            group.sort(Comparator.comparingDouble(Scored::percent).reversed());
+            // Natija kiritilgan ishchilar avval (% bo'yicha), hali natija kiritilmaganlar
+            // oxirida — shunda ular shu oy uchun ball olmagan holda ham ro'yxatda ko'rinadi
+            // (Nizom: reyting faqat kiritilgan KPI natijalari asosida tuziladi).
+            group.sort(Comparator.comparing((Scored s) -> !s.hasData())
+                    .thenComparing(Comparator.comparingDouble(Scored::percent).reversed()));
         }
 
         List<AgentResponse> result = new ArrayList<>();
@@ -169,6 +174,7 @@ public class RatingService {
             for (Scored s : byLeague.get(league)) {
                 place++;
                 int years = Period.between(s.ishchi().getIshGaKirganSana(), LocalDate.now()).getYears();
+                int points = s.hasData() ? pointsForLeague(league, place) : 0;
                 result.add(new AgentResponse(
                         s.ishchi().getId(),
                         place,
@@ -177,7 +183,7 @@ public class RatingService {
                         s.ishchi().getIsm() + " " + s.ishchi().getFamiliya(),
                         s.ishchi().getSupervayzer().getFullName(),
                         round1(s.percent()),
-                        pointsForLeague(league, place),
+                        points,
                         place,
                         place,
                         trophiesByIshchi.getOrDefault(s.ishchi().getId(), 0),
@@ -289,22 +295,25 @@ public class RatingService {
     }
 
     private List<RankedUserResponse> rankUsers(List<User> users, Map<Long, int[]> sums) {
-        record Scored(User user, double percent) {
+        record Scored(User user, double percent, boolean hasData) {
         }
         List<Scored> scored = users.stream()
                 .map(u -> {
+                    boolean hasData = sums.containsKey(u.getId());
                     int[] s = sums.getOrDefault(u.getId(), new int[2]);
-                    return new Scored(u, overallPercent(s[1], s[0]));
+                    return new Scored(u, overallPercent(s[1], s[0]), hasData);
                 })
-                .sorted(Comparator.comparingDouble(Scored::percent).reversed())
+                .sorted(Comparator.comparing((Scored s) -> !s.hasData())
+                        .thenComparing(Comparator.comparingDouble(Scored::percent).reversed()))
                 .toList();
 
         List<RankedUserResponse> result = new ArrayList<>();
         for (int idx = 0; idx < scored.size(); idx++) {
             Scored s = scored.get(idx);
             int place = idx + 1;
+            int points = s.hasData() ? pointsForPlace(place) : 0;
             result.add(new RankedUserResponse(s.user().getId(), place, s.user().getFullName(),
-                    round1(s.percent()), place, pointsForPlace(place)));
+                    round1(s.percent()), place, points));
         }
         return result;
     }
@@ -333,12 +342,16 @@ public class RatingService {
                 int[] s = sums.getOrDefault(u.getId(), new int[2]);
                 percents.put(u.getId(), overallPercent(s[1], s[0]));
             }
-            List<Map.Entry<Long, Double>> ranked = percents.entrySet().stream()
-                    .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
+            // Faqat shu oy uchun haqiqiy natija kiritilganlar ballanadi va joy oladi —
+            // natija kiritilmagan supervayzer 0% bo'lib ko'rinadi, lekin ball olmaydi.
+            List<Long> withData = supervayzerlar.stream()
+                    .map(User::getId)
+                    .filter(sums::containsKey)
+                    .sorted(Comparator.comparingDouble((Long id) -> percents.get(id)).reversed())
                     .toList();
             Map<Long, Integer> points = new HashMap<>();
-            for (int idx = 0; idx < ranked.size(); idx++) {
-                points.put(ranked.get(idx).getKey(), pointsForPlace(idx + 1));
+            for (int idx = 0; idx < withData.size(); idx++) {
+                points.put(withData.get(idx), pointsForPlace(idx + 1));
             }
             percentByMonth.put(month, percents);
             pointsByMonth.put(month, points);
