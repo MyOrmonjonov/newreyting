@@ -154,54 +154,6 @@ export function ProgressBar({ value, tone = "brand" }: { value: number; tone?: "
   );
 }
 
-export type Period = "kun" | "hafta" | "oy" | "yil";
-
-export function TimeFilter({
-  value,
-  onChange,
-  date,
-  onDate,
-}: {
-  value: Period;
-  onChange: (p: Period) => void;
-  date: string;
-  onDate: (d: string) => void;
-}) {
-  const items: Period[] = ["kun", "hafta", "oy", "yil"];
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="scrollbar-none relative flex max-w-full overflow-x-auto rounded-xl border border-border bg-card p-1">
-        {items.map((it) => (
-          <button
-            key={it}
-            onClick={() => onChange(it)}
-            className={cn(
-              "relative z-10 shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-all duration-300 sm:px-4",
-              value === it
-                ? "bg-brand text-brand-foreground shadow-glow"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {it}
-          </button>
-        ))}
-      </div>
-      <input
-        type="date"
-        value={date}
-        onChange={(e) => onDate(e.target.value)}
-        className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-brand"
-      />
-    </div>
-  );
-}
-
-/** Filtrga qarab demo raqamlarni "almashtirish" koeffitsienti */
-export function periodFactor(p: Period, date: string) {
-  const base = { kun: 0.82, hafta: 0.94, oy: 1, yil: 1.12 }[p];
-  const seed = date.split("-").reduce((s, x) => s + Number(x), 0);
-  return base * (0.96 + ((seed % 9) / 100) * 1.1);
-}
 
 export function Trend({ today, yesterday }: { today: number; yesterday: number }) {
   const diff = yesterday - today;

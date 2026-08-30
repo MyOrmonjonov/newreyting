@@ -6,7 +6,7 @@ import { KeyRound, UserPlus, UserCog, Loader2, ShieldAlert, UserX, UserCheck, Pe
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { PasswordDialog } from "@/components/PasswordDialog";
-import { Reveal, TimeFilter, type Period } from "@/components/motion";
+import { Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth-context";
 
@@ -41,8 +41,6 @@ const EMPTY_FORM = { ism: "", familiya: "", login: "", password: "" };
 function OperatorlarPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [period, setPeriod] = useState<Period>("oy");
-  const [date, setDate] = useState("2026-07-28");
   const [form, setForm] = useState(EMPTY_FORM);
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -135,11 +133,7 @@ function OperatorlarPage() {
 
   return (
     <AppShell>
-      <PageHeader
-        title="Operatorlar"
-        subtitle="Operator qo'shish · login-parol yaratish oqimi"
-        right={<TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />}
-      />
+      <PageHeader title="Operatorlar" subtitle="Operator qo'shish · login-parol yaratish oqimi" />
 
       <div className="grid grid-cols-1 gap-6">
         <Reveal className="block">

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { animate, stagger } from "animejs";
 import { Star, TrendingUp, History, Percent, Trophy, CalendarDays } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
-import { CountUp, Reveal, TimeFilter, Trend, type Period } from "@/components/motion";
+import { CountUp, Reveal, Trend } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
 import { LEAGUES, MONTHS, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
@@ -67,7 +67,6 @@ export const Route = createFileRoute("/reyting/ishchi")({
 
 function AgentRating() {
   const [league, setLeague] = useState<LeagueKey>("diamond");
-  const [period, setPeriod] = useState<Period>("oy");
   const [date, setDate] = useState("2026-07-28");
   const [selected, setSelected] = useState<Agent | null>(null);
   const oy = monthParam(date);
@@ -156,7 +155,12 @@ function AgentRating() {
               </button>
             ))}
           </div>
-          <TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />
+          <input
+            type="month"
+            value={date.slice(0, 7)}
+            onChange={(e) => setDate(`${e.target.value}-01`)}
+            className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-race-fg outline-none transition-colors focus:border-brand"
+          />
         </div>
 
         <div key={league} className="page-enter px-4 py-6 lg:px-8">

@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { Trophy, Medal } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { CountUp, Donut, Reveal, TimeFilter, periodFactor, type Period } from "@/components/motion";
+import { CountUp, Donut, Reveal } from "@/components/motion";
 import { LEAGUES, MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -55,9 +55,7 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
-  const [period, setPeriod] = useState<Period>("oy");
   const [date, setDate] = useState("2026-07-28");
-  const f = periodFactor(period, date);
   const oy = monthParam(date);
   const yil = Number(date.slice(0, 4));
 
@@ -92,9 +90,9 @@ function Dashboard() {
       yillikApi.map((m) => ({
         month: monthLabel(m.oy),
         plan: 100,
-        fakt: round1((m.plan === 0 ? 0 : (m.fakt / m.plan) * 100) * f),
+        fakt: round1(m.plan === 0 ? 0 : (m.fakt / m.plan) * 100),
       })),
-    [yillikApi, f],
+    [yillikApi],
   );
   const yillikBajarilish = useMemo(() => {
     const totalPlan = yillikApi.reduce((s, m) => s + m.plan, 0);
@@ -140,7 +138,7 @@ function Dashboard() {
   });
 
   const metrics = [
-    { label: "Yillik bajarilish", value: yillikBajarilish * f, donut: true },
+    { label: "Yillik bajarilish", value: yillikBajarilish, donut: true },
     ...(isAdmin
       ? [
           { label: "Operatorlar", value: operators.length, suffix: "" },
@@ -156,7 +154,14 @@ function Dashboard() {
       <PageHeader
         title="Bosh dashboard"
         subtitle="Yillik ko'rsatkichlar, oylik dinamika va liga yetakchilari"
-        right={<TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />}
+        right={
+          <input
+            type="month"
+            value={date.slice(0, 7)}
+            onChange={(e) => setDate(`${e.target.value}-01`)}
+            className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-brand"
+          />
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -194,9 +199,6 @@ function Dashboard() {
               <h2 className="text-lg font-semibold">Yillik statistika — 12 oy</h2>
               <p className="text-sm text-muted-foreground">Plan (100%) va fakt bajarilish dinamikasi</p>
             </div>
-            <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-medium text-brand capitalize">
-              {period} kesimida
-            </span>
           </div>
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">

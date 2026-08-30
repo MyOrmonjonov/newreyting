@@ -6,7 +6,7 @@ import { KeyRound, Loader2, ShieldAlert, ShieldCheck, UserPlus, UserX, UserCheck
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { PasswordDialog } from "@/components/PasswordDialog";
-import { Reveal, TimeFilter, type Period } from "@/components/motion";
+import { Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth-context";
 
@@ -57,8 +57,6 @@ const TAB_CONFIG: Record<Tab, { path: string; canManage: (role: Role) => boolean
 function TeamPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [period, setPeriod] = useState<Period>("oy");
-  const [date, setDate] = useState("2026-07-28");
   const [form, setForm] = useState(EMPTY_FORM);
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -160,7 +158,6 @@ function TeamPage() {
       <PageHeader
         title="Menejer / Supervayzer qo'shish"
         subtitle="Login-parol yaratish oqimi bilan · rol ierarxiyasi hurmat qilinadi"
-        right={<TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />}
       />
 
       <div className="mb-6 inline-flex rounded-xl border border-border bg-card p-1">

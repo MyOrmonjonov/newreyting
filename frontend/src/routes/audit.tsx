@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { Reveal, TimeFilter, type Period } from "@/components/motion";
+import { Reveal } from "@/components/motion";
 import { api } from "@/lib/api";
 
 type AuditEntryRow = {
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/audit")({
       {
         name: "description",
         content:
-          "Admin uchun to'liq audit jurnali: barcha foydalanuvchilar amallari rol va sana bo'yicha filtrlanadi.",
+          "Admin uchun to'liq audit jurnali: barcha foydalanuvchilar amallari rol, amal turi va qidiruv bo'yicha filtrlanadi.",
       },
       { property: "og:title", content: "MICCO audit log" },
       { property: "og:description", content: "Har bir qo'shish, o'zgartirish va o'chirish amali qayd etiladi." },
@@ -41,8 +41,6 @@ const ROLES = ["Barchasi", "Admin", "Operator", "Menejer", "Supervayzer"];
 const ACTIONS = ["Barchasi", "qo'shdi", "o'zgartirdi", "o'chirdi", "kirdi"];
 
 function AuditPage() {
-  const [period, setPeriod] = useState<Period>("oy");
-  const [date, setDate] = useState("2026-07-28");
   const [role, setRole] = useState("Barchasi");
   const [action, setAction] = useState("Barchasi");
   const [q, setQ] = useState("");
@@ -72,11 +70,7 @@ function AuditPage() {
 
   return (
     <AppShell>
-      <PageHeader
-        title="Audit log"
-        subtitle="Admin uchun · barcha foydalanuvchilarning barcha amallari"
-        right={<TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />}
-      />
+      <PageHeader title="Audit log" subtitle="Admin uchun · barcha foydalanuvchilarning barcha amallari" />
 
       <Reveal>
         <div className="card-surface mb-5 flex flex-wrap items-center gap-3 p-4">
