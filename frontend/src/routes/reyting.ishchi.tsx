@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate, stagger } from "animejs";
 import { Star, TrendingUp, History, Percent, Trophy, CalendarDays, Medal, Award } from "lucide-react";
@@ -54,6 +54,10 @@ type YillikAgent = {
   thirdPlaces: number;
   avgPercent: number;
 };
+
+// TV/monitor ekranida ko'rsatish uchun — sahifani qo'lda yangilamasdan, o'zi
+// vaqti-vaqti bilan yangi ma'lumot bor-yo'qligini tekshirib turadi.
+const LIVE_REFRESH_MS = 15_000;
 
 function formatOyLabel(oy: string): string {
   const [year, month] = oy.split("-");
@@ -163,12 +167,16 @@ function AgentRating() {
     queryKey: ["reyting", "ishchi", oy],
     queryFn: () => api.get<AgentApiRow[]>(`/api/reyting/ishchi?oy=${oy}`),
     enabled: view === "oylik",
+    refetchInterval: LIVE_REFRESH_MS,
+    refetchIntervalInBackground: true,
   });
 
   const { data: allYillikAgents = [] } = useQuery({
     queryKey: ["reyting", "ishchi", "yillik", yil],
     queryFn: () => api.get<YillikIshchiApiRow[]>(`/api/reyting/ishchi/yillik?yil=${yil}`),
     enabled: view === "yillik",
+    refetchInterval: LIVE_REFRESH_MS,
+    refetchIntervalInBackground: true,
   });
 
   const meta = LEAGUES.find((l) => l.key === league)!;
@@ -217,6 +225,32 @@ function AgentRating() {
       });
     }
   }, [rows]);
+
+  // FLIP: har LIVE_REFRESH_MS'da yangi ma'lumot kelganda o'rin almashgan qatorlar
+  // sakrab qolmasdan, eski joyidan yangi joyiga sirg'alib boradi (jonli tablo hissi).
+  const rowElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
+  const prevTopsRef = useRef<Map<number, number>>(new Map());
+  useLayoutEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      prevTopsRef.current.clear();
+      return;
+    }
+    const prevTops = prevTopsRef.current;
+    const nextTops = new Map<number, number>();
+    for (const r of rest) {
+      const el = rowElsRef.current.get(r.id);
+      if (!el) continue;
+      const top = el.getBoundingClientRect().top;
+      nextTops.set(r.id, top);
+      const prevTop = prevTops.get(r.id);
+      if (prevTop !== undefined && prevTop !== top) {
+        const delta = prevTop - top;
+        el.style.transform = `translateY(${delta}px)`;
+        animate(el, { translateY: [delta, 0], duration: 500, ease: "outQuad" });
+      }
+    }
+    prevTopsRef.current = nextTops;
+  }, [rest]);
 
   return (
     <PublicShell>
@@ -413,7 +447,13 @@ function AgentRating() {
               const dangerBoundary = leagueSize - 5;
               const inDanger = league !== "rising" && showZones && r.place > dangerBoundary;
               return (
-                <div key={r.id}>
+                <div
+                  key={r.id}
+                  ref={(el) => {
+                    if (el) rowElsRef.current.set(r.id, el);
+                    else rowElsRef.current.delete(r.id);
+                  }}
+                >
                   <Reveal delay={Math.min(i * 45, 500)}>
                     <div
                       role="button"

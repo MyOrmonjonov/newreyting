@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { animate } from "animejs";
 import { Percent } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, Trend } from "@/components/motion";
@@ -8,6 +9,10 @@ import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDet
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { avatarFor, monthParam, type RankedApiRow } from "@/lib/rating-api";
+
+// TV/monitor ekranida ko'rsatish uchun — sahifani qo'lda yangilamasdan, o'zi
+// vaqti-vaqti bilan yangi ma'lumot bor-yo'qligini tekshirib turadi.
+const LIVE_REFRESH_MS = 15_000;
 
 function formatOyLabel(oy: string): string {
   const [year, month] = oy.split("-");
@@ -37,11 +42,14 @@ function ManagerRating() {
   const { data: apiRows = [] } = useQuery({
     queryKey: ["reyting", "menejer", oy],
     queryFn: () => api.get<RankedApiRow[]>(`/api/reyting/menejer?oy=${oy}`),
+    refetchInterval: LIVE_REFRESH_MS,
+    refetchIntervalInBackground: true,
   });
 
   const rows = useMemo(
     () =>
       apiRows.map((r) => ({
+        id: r.id,
         place: r.place,
         name: r.fullName,
         avatar: avatarFor(`${r.fullName}-${r.id}`),
@@ -51,6 +59,31 @@ function ManagerRating() {
     [apiRows],
   );
   const avg = rows.length ? rows.reduce((s, r) => s + r.percent, 0) / rows.length : 0;
+
+  // FLIP: o'rin almashganda qator eski joyidan yangi joyiga sirg'alib boradi.
+  const rowElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
+  const prevTopsRef = useRef<Map<number, number>>(new Map());
+  useLayoutEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      prevTopsRef.current.clear();
+      return;
+    }
+    const prevTops = prevTopsRef.current;
+    const nextTops = new Map<number, number>();
+    for (const r of rows) {
+      const el = rowElsRef.current.get(r.id);
+      if (!el) continue;
+      const top = el.getBoundingClientRect().top;
+      nextTops.set(r.id, top);
+      const prevTop = prevTops.get(r.id);
+      if (prevTop !== undefined && prevTop !== top) {
+        const delta = prevTop - top;
+        el.style.transform = `translateY(${delta}px)`;
+        animate(el, { translateY: [delta, 0], duration: 500, ease: "outQuad" });
+      }
+    }
+    prevTopsRef.current = nextTops;
+  }, [rows]);
 
   return (
     <PublicShell>
@@ -78,7 +111,14 @@ function ManagerRating() {
 
           <div className="space-y-1.5">
             {rows.map((r, i) => (
-              <Reveal key={r.name} delay={i * 60}>
+              <div
+                key={r.id}
+                ref={(el) => {
+                  if (el) rowElsRef.current.set(r.id, el);
+                  else rowElsRef.current.delete(r.id);
+                }}
+              >
+              <Reveal delay={i * 60}>
                 <div
                   role="button"
                   tabIndex={0}
@@ -114,6 +154,7 @@ function ManagerRating() {
                   </span>
                 </div>
               </Reveal>
+              </div>
             ))}
           </div>
 
