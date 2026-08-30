@@ -2,6 +2,7 @@ package org.example.newreyting.config;
 
 import org.example.newreyting.auth.JwtAuthFilter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -75,6 +76,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/reyting/oy-yakunlash").hasRole("ADMIN")
                         .requestMatchers("/api/reyting/**").permitAll()
                         .anyRequest().authenticated()
                 )

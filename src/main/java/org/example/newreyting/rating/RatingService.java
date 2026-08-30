@@ -2,6 +2,7 @@ package org.example.newreyting.rating;
 
 import org.example.newreyting.employee.Ishchi;
 import org.example.newreyting.employee.IshchiRepository;
+import org.example.newreyting.employee.Liga;
 import org.example.newreyting.rating.dto.AgentResponse;
 import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
@@ -28,17 +29,18 @@ import java.util.*;
 public class RatingService {
 
     private static final String[] LEAGUE_KEYS = {"diamond", "gold", "silver", "bronze", "rising"};
-    // MICCO Sales League Nizomi II BOB: "Har bir liga ishtirokchilari 27 nafar agentdan iborat".
-    private static final int FIXED_LEAGUE_SIZE = 27;
 
     private final IshchiRepository ishchiRepository;
     private final OylikNatijaRepository natijaRepository;
     private final UserRepository userRepository;
+    private final OylikYakunRepository yakunRepository;
 
-    public RatingService(IshchiRepository ishchiRepository, OylikNatijaRepository natijaRepository, UserRepository userRepository) {
+    public RatingService(IshchiRepository ishchiRepository, OylikNatijaRepository natijaRepository,
+                          UserRepository userRepository, OylikYakunRepository yakunRepository) {
         this.ishchiRepository = ishchiRepository;
         this.natijaRepository = natijaRepository;
         this.userRepository = userRepository;
+        this.yakunRepository = yakunRepository;
     }
 
     // Mezon: 1-o'rin = 24, 2 = 22, 3 = 20, 4-22-o'rin = har biriga -1, 23+ = 0
@@ -92,8 +94,55 @@ public class RatingService {
         return sums;
     }
 
+    /**
+     * Ishchi reytingi. Agar bu oy allaqachon yakunlangan bo'lsa (finalizeMonth ishlagan —
+     * odatda avtomatik, oyning 1-kunida o'tgan oy uchun), MUZLATILGAN natija qaytariladi va
+     * qayta hisoblanmaydi (Nizomdagi apellyatsiya jarayoni — e'lon qilingan natija barqaror
+     * qolishi kerak). Joriy (hali yakunlanmagan) oy uchun har doim jonli hisoblanadi.
+     */
     public List<AgentResponse> computeIshchiReyting(LocalDate oy) {
         LocalDate month = oy.withDayOfMonth(1);
+        List<OylikYakun> frozen = yakunRepository.findAllByOy(month);
+        if (!frozen.isEmpty()) {
+            return frozenToResponse(frozen, month);
+        }
+        return computeLiveIshchiReyting(month);
+    }
+
+    private List<AgentResponse> frozenToResponse(List<OylikYakun> frozen, LocalDate month) {
+        Map<Long, Integer> trophiesByIshchi = computeTrophies(month);
+        Map<String, List<OylikYakun>> byLeague = new LinkedHashMap<>();
+        for (String key : LEAGUE_KEYS) {
+            byLeague.put(key, new ArrayList<>());
+        }
+        for (OylikYakun y : frozen) {
+            byLeague.get(y.getLiga()).add(y);
+        }
+        List<AgentResponse> result = new ArrayList<>();
+        for (String league : LEAGUE_KEYS) {
+            List<OylikYakun> group = byLeague.get(league).stream()
+                    .sorted(Comparator.comparingInt(OylikYakun::getPlace))
+                    .toList();
+            for (OylikYakun y : group) {
+                Ishchi i = y.getIshchi();
+                int years = Period.between(i.getIshGaKirganSana(), LocalDate.now()).getYears();
+                result.add(new AgentResponse(
+                        i.getId(), y.getPlace(), i.getIsm(), i.getFamiliya(),
+                        i.getIsm() + " " + i.getFamiliya(), i.getSupervayzer().getFullName(),
+                        round1(y.getPercent()), y.getBall(), y.getPlace(), y.getPlace(),
+                        trophiesByIshchi.getOrDefault(i.getId(), 0), years, y.getLiga(), i.getRasm()
+                ));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Jonli hisoblash: har bir ishchi o'zining HOZIRGI (saqlangan) ligasi ichida raqobat
+     * qiladi — Nizomga ko'ra liga faqat oy yakunlanganda (finalizeMonth) top-5/bottom-5
+     * qoidasi bilan o'zgaradi, har safar global % bo'yicha qayta taqsimlanmaydi.
+     */
+    private List<AgentResponse> computeLiveIshchiReyting(LocalDate month) {
         List<Ishchi> ishchilar = ishchiRepository.findAllWithRefs();
         Map<Long, int[]> sums = sumByIshchi(natijaRepository.findAllByOy(month));
         Map<Long, Integer> trophiesByIshchi = computeTrophies(month);
@@ -101,41 +150,17 @@ public class RatingService {
         record Scored(Ishchi ishchi, double percent) {
         }
 
-        // Shu oy uchun natija kiritilgan ishchilar — real % bo'yicha kvintil bilan ligaga bo'linadi.
-        // Natija hali kiritilmagan ishchilar (masalan, endigina qo'shilgan, tajribali xodim) — real
-        // % hisoblanmagani uchun global reytingga aralashtirilmaydi, o'rniga ularning qo'lda belgilangan
-        // `boshlangichLiga`si (yoki standart "rising") bo'yicha o'sha liganing oxiriga qo'shiladi.
-        List<Ishchi> hasData = new ArrayList<>();
-        List<Ishchi> noData = new ArrayList<>();
-        for (Ishchi i : ishchilar) {
-            if (sums.containsKey(i.getId())) hasData.add(i); else noData.add(i);
-        }
-
-        List<Scored> scored = hasData.stream()
-                .map(i -> {
-                    int[] s = sums.get(i.getId());
-                    return new Scored(i, overallPercent(s[1], s[0]));
-                })
-                .sorted(Comparator.comparingDouble(Scored::percent).reversed())
-                .toList();
-
-        int n = scored.size();
-
-        // MICCO Sales League Nizomi II BOB: har bir liga (diamond/gold/silver/bronze) qat'iy
-        // 27 nafar agentdan iborat, kvintil (n/5) emas — global % bo'yicha saralangan ro'yxatdan
-        // ketma-ket 27 tadan bo'lib olinadi, qolgani (odatda eng past %) rising ligaga tushadi.
         Map<String, List<Scored>> byLeague = new LinkedHashMap<>();
         for (String key : LEAGUE_KEYS) {
             byLeague.put(key, new ArrayList<>());
         }
-        for (int idx = 0; idx < n; idx++) {
-            int leagueIdx = Math.min(4, idx / FIXED_LEAGUE_SIZE);
-            String league = LEAGUE_KEYS[leagueIdx];
-            byLeague.get(league).add(scored.get(idx));
-        }
-        for (Ishchi i : noData) {
+        for (Ishchi i : ishchilar) {
             String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
-            byLeague.get(league).add(new Scored(i, 0.0));
+            int[] s = sums.getOrDefault(i.getId(), new int[2]);
+            byLeague.get(league).add(new Scored(i, overallPercent(s[1], s[0])));
+        }
+        for (List<Scored> group : byLeague.values()) {
+            group.sort(Comparator.comparingDouble(Scored::percent).reversed());
         }
 
         List<AgentResponse> result = new ArrayList<>();
@@ -163,6 +188,54 @@ public class RatingService {
             }
         }
         return result;
+    }
+
+    /**
+     * Oyni rasman yakunlaydi (MonthlySettlementScheduler tomonidan avtomatik chaqiriladi):
+     * shu oy uchun jonli natijani MUZLATILGAN holda saqlaydi (keyin qayta hisoblanmaydi) va
+     * Nizom V BOB'idagi qoida bo'yicha ligalarni almashtiradi — har chegarada pastdagi eng
+     * yaxshi 5 tasi yuqoriga, yuqoridagi eng past 5 tasi pastga tushadi. Ikki marta
+     * chaqirilsa (masalan backend qayta ishga tushsa) hech narsa qilmaydi.
+     */
+    @Transactional
+    public void finalizeMonth(LocalDate oy) {
+        LocalDate month = oy.withDayOfMonth(1);
+        if (yakunRepository.existsByOy(month)) {
+            return;
+        }
+        List<AgentResponse> live = computeLiveIshchiReyting(month);
+        Map<Long, Ishchi> ishchiById = ishchiRepository.findAllWithRefs().stream()
+                .collect(java.util.stream.Collectors.toMap(Ishchi::getId, i -> i));
+
+        for (AgentResponse a : live) {
+            yakunRepository.save(new OylikYakun(ishchiById.get(a.id()), month, a.league(), a.place(), a.points(), a.percent()));
+        }
+
+        Map<String, List<AgentResponse>> byLeague = live.stream()
+                .collect(java.util.stream.Collectors.groupingBy(AgentResponse::league));
+        Map<Long, String> nextLeague = new HashMap<>();
+        for (AgentResponse a : live) {
+            nextLeague.put(a.id(), a.league());
+        }
+        for (int i = 0; i < LEAGUE_KEYS.length - 1; i++) {
+            String upper = LEAGUE_KEYS[i];
+            String lower = LEAGUE_KEYS[i + 1];
+            List<AgentResponse> upperGroup = byLeague.getOrDefault(upper, List.of());
+            List<AgentResponse> lowerGroup = byLeague.getOrDefault(lower, List.of());
+
+            int promoteCount = Math.min(5, lowerGroup.size());
+            for (AgentResponse a : lowerGroup) {
+                if (a.place() <= promoteCount) nextLeague.put(a.id(), upper);
+            }
+            int demoteCount = Math.min(5, upperGroup.size());
+            int demoteThreshold = upperGroup.size() - demoteCount;
+            for (AgentResponse a : upperGroup) {
+                if (a.place() > demoteThreshold) nextLeague.put(a.id(), lower);
+            }
+        }
+        for (Map.Entry<Long, String> e : nextLeague.entrySet()) {
+            ishchiById.get(e.getKey()).setBoshlangichLiga(Liga.valueOf(e.getValue().toUpperCase()));
+        }
     }
 
     /** Har bir o'tgan oy uchun umumiy 1-o'rinni egallagan ishchi(lar)ga bittadan trophy qo'shiladi. */

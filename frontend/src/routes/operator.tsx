@@ -548,7 +548,7 @@ function OperatorPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Boshlang'ich liga</label>
+                  <label className="text-xs font-medium text-muted-foreground">Joriy liga</label>
                   <select
                     className="field"
                     value={ishchiForm.boshlangichLiga}
@@ -561,8 +561,9 @@ function OperatorPage() {
                     ))}
                   </select>
                   <p className="text-[11px] text-muted-foreground">
-                    Oylik natija hali kiritilmagan davrda shu liga bo'yicha ko'rsatiladi (masalan, tajribali xodim
-                    uchun) — natija kiritilgach, liga har doim haqiqiy % asosida qayta hisoblanadi.
+                    Ishchi shu liga ichida raqobat qiladi (masalan, tajribali xodim uchun boshqa liga tanlash
+                    mumkin). Har oy yakunida Nizom qoidasi bo'yicha (top-5 yuqoriga, bottom-5 pastga) avtomatik
+                    yangilanadi.
                   </p>
                 </div>
 

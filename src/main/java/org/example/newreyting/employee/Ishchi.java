@@ -38,7 +38,11 @@ public class Ishchi {
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
-    /** Natija hali kiritilmagan oylar uchun ko'rsatiladigan boshlang'ich liga (null = "rising"). */
+    /**
+     * Ishchining HOZIRGI ligasi (null = "rising"). Yangi ishchi qo'shilganda qo'lda
+     * belgilanadi (masalan, tajribali xodim uchun), keyin esa har oy MonthlySettlementScheduler
+     * tomonidan Nizom V BOB qoidasi (top-5/bottom-5) bo'yicha avtomatik yangilanadi.
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "boshlangich_liga")
     private Liga boshlangichLiga;
