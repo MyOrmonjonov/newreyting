@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicShell } from "@/components/PublicShell";
-import { CountUp, Reveal, TimeFilter, Trend, type Period } from "@/components/motion";
+import { CountUp, Reveal, Trend } from "@/components/motion";
+import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { avatarFor, monthParam, type RankedApiRow } from "@/lib/rating-api";
@@ -28,8 +29,8 @@ export const Route = createFileRoute("/reyting/menejer")({
 });
 
 function ManagerRating() {
-  const [period, setPeriod] = useState<Period>("oy");
   const [date, setDate] = useState("2026-07-28");
+  const [selected, setSelected] = useState<RankedDetailItem | null>(null);
   const oy = monthParam(date);
 
   const { data: apiRows = [] } = useQuery({
@@ -58,7 +59,12 @@ function ManagerRating() {
             <h1 className="text-2xl font-black tracking-tight lg:text-3xl">MENEJER REYTINGI</h1>
             <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-race-muted">{formatOyLabel(oy)}</p>
           </div>
-          <TimeFilter value={period} onChange={setPeriod} date={date} onDate={setDate} />
+          <input
+            type="month"
+            value={date.slice(0, 7)}
+            onChange={(e) => setDate(`${e.target.value}-01`)}
+            className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-race-fg outline-none transition-colors focus:border-brand"
+          />
         </div>
 
         <div className="px-4 py-6 lg:px-8">
@@ -72,7 +78,21 @@ function ManagerRating() {
           <div className="space-y-1.5">
             {rows.map((r, i) => (
               <Reveal key={r.name} delay={i * 60}>
-                <div className="race-row rounded-md">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    setSelected({
+                      name: r.name,
+                      avatar: r.avatar,
+                      place: r.place,
+                      percent: r.percent,
+                      stats: [{ label: "Umumiy ko'rsatgich", value: `${r.percent}%` }],
+                    })
+                  }
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.click()}
+                  className="race-row cursor-pointer rounded-md transition-transform duration-200 active:scale-[0.99]"
+                >
                   <span className="ml-0 h-8 w-1.5 shrink-0 rounded-r bg-white/70 sm:h-10" />
                   <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
                     {r.place}
@@ -106,6 +126,8 @@ function ManagerRating() {
           </Reveal>
         </div>
       </div>
+
+      <RankedDetailModal item={selected} subtitle={formatOyLabel(oy)} onClose={() => setSelected(null)} />
     </PublicShell>
   );
 }

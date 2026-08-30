@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, Trend } from "@/components/motion";
+import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { avatarFor, type ScoreboardApiRow } from "@/lib/rating-api";
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/reyting/supervayzer")({
 });
 
 function SupervisorRating() {
+  const [selected, setSelected] = useState<RankedDetailItem | null>(null);
   const { data: apiRows = [] } = useQuery({
     queryKey: ["reyting", "supervayzer", "tarix"],
     queryFn: () => api.get<ScoreboardApiRow[]>("/api/reyting/supervayzer/tarix?oyCount=7"),
@@ -81,7 +83,26 @@ function SupervisorRating() {
           <div className="space-y-1.5">
             {rows.map((r, i) => (
               <Reveal key={r.name} delay={i * 60}>
-                <div className="race-row rounded-md">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    setSelected({
+                      name: r.name,
+                      avatar: r.avatar,
+                      place: r.place,
+                      percent: r.percent,
+                      stats: [
+                        { label: "Kunlik o'zgarish", value: `${r.daily >= 0 ? "+" : ""}${r.daily}%` },
+                        { label: "Oylik ball", value: r.monthPoints },
+                        { label: "Jami ball", value: r.totalPoints },
+                        { label: "Umumiy ko'rsatgich", value: `${r.percent}%` },
+                      ],
+                    })
+                  }
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.click()}
+                  className="race-row cursor-pointer rounded-md transition-transform duration-200 active:scale-[0.99]"
+                >
                   <span className="ml-0 h-8 w-1.5 shrink-0 rounded-r bg-white/70 sm:h-10" />
                   <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
                     {r.place}
@@ -139,6 +160,8 @@ function SupervisorRating() {
           </div>
         </div>
       </div>
+
+      <RankedDetailModal item={selected} subtitle={formatOyLabel(currentOy)} onClose={() => setSelected(null)} />
     </PublicShell>
   );
 }

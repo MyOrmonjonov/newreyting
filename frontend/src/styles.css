@@ -198,7 +198,10 @@
 @media (max-width: 639px) {
   .race-row {
     gap: 0.5rem;
-    padding-right: 0.6rem;
+    /* clip-path bottom-right burchakdan 26px qiyshiq kesib tashlaydi (yuqorida) —
+       o'ng chetdagi matn (masalan foiz) shu qiyshiq ichiga tushib qirqilib
+       qolmasligi uchun padding shu inset'dan kattaroq bo'lishi shart. */
+    padding-right: 2rem;
   }
 }
 
