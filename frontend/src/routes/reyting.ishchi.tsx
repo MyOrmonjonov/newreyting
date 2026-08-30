@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate, stagger } from "animejs";
-import { Star, TrendingUp, History, Percent, Trophy, CalendarDays } from "lucide-react";
+import { Star, TrendingUp, History, Percent, Trophy, CalendarDays, Medal, Award } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, Trend } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
@@ -24,6 +24,35 @@ type Agent = {
   trophies: number;
   yearsActive: number;
   league: AgentApiRow["league"];
+};
+
+type YillikIshchiApiRow = {
+  id: number;
+  fullName: string;
+  supervisorFullName: string;
+  rasm: string | null;
+  league: AgentApiRow["league"];
+  place: number;
+  nomination: string | null;
+  totalBall: number;
+  firstPlaces: number;
+  secondPlaces: number;
+  thirdPlaces: number;
+  avgPercent: number;
+};
+
+type YillikAgent = {
+  id: number;
+  place: number;
+  fullName: string;
+  supervisor: string;
+  avatar: string;
+  nomination: string | null;
+  totalBall: number;
+  firstPlaces: number;
+  secondPlaces: number;
+  thirdPlaces: number;
+  avgPercent: number;
 };
 
 function formatOyLabel(oy: string): string {
@@ -49,6 +78,22 @@ function toAgent(row: AgentApiRow): Agent {
   };
 }
 
+function toYillikAgent(row: YillikIshchiApiRow): YillikAgent {
+  return {
+    id: row.id,
+    place: row.place,
+    fullName: row.fullName,
+    supervisor: row.supervisorFullName,
+    avatar: row.rasm || avatarFor(`${row.fullName}-${row.id}`),
+    nomination: row.nomination,
+    totalBall: row.totalBall,
+    firstPlaces: row.firstPlaces,
+    secondPlaces: row.secondPlaces,
+    thirdPlaces: row.thirdPlaces,
+    avgPercent: row.avgPercent,
+  };
+}
+
 export const Route = createFileRoute("/reyting/ishchi")({
   head: () => ({
     meta: [
@@ -67,11 +112,30 @@ export const Route = createFileRoute("/reyting/ishchi")({
 
 function AgentRating() {
   const [league, setLeague] = useState<LeagueKey>("diamond");
+  const [view, setView] = useState<"oylik" | "yillik">("oylik");
   const [date, setDate] = useState("2026-07-28");
   const [selected, setSelected] = useState<Agent | null>(null);
+  const [selectedYillik, setSelectedYillik] = useState<YillikAgent | null>(null);
   const oy = monthParam(date);
+  const yil = Number(date.slice(0, 4));
 
   const selectedDetail: RankedDetailItem | null = useMemo(() => {
+    if (selectedYillik) {
+      return {
+        name: selectedYillik.fullName,
+        avatar: selectedYillik.avatar,
+        place: selectedYillik.place,
+        percent: selectedYillik.avgPercent,
+        subtitle2: `Supervayzer: ${selectedYillik.supervisor}`,
+        stats: [
+          { label: "Jami ball", value: selectedYillik.totalBall, icon: Star },
+          { label: "O'rtacha %", value: `${selectedYillik.avgPercent}%`, icon: Percent },
+          { label: "1-o'rinlar", value: selectedYillik.firstPlaces, icon: Trophy },
+          { label: "2-o'rinlar", value: selectedYillik.secondPlaces, icon: Medal },
+          { label: "3-o'rinlar", value: selectedYillik.thirdPlaces, icon: Award },
+        ],
+      };
+    }
     if (!selected) return null;
     return {
       name: selected.fullName,
@@ -88,17 +152,37 @@ function AgentRating() {
         { label: "Necha yildan beri", value: `${selected.yearsActive} yil`, icon: CalendarDays },
       ],
     };
-  }, [selected]);
+  }, [selected, selectedYillik]);
+
+  function closeDetail() {
+    setSelected(null);
+    setSelectedYillik(null);
+  }
 
   const { data: allAgents = [] } = useQuery({
     queryKey: ["reyting", "ishchi", oy],
     queryFn: () => api.get<AgentApiRow[]>(`/api/reyting/ishchi?oy=${oy}`),
+    enabled: view === "oylik",
+  });
+
+  const { data: allYillikAgents = [] } = useQuery({
+    queryKey: ["reyting", "ishchi", "yillik", yil],
+    queryFn: () => api.get<YillikIshchiApiRow[]>(`/api/reyting/ishchi/yillik?yil=${yil}`),
+    enabled: view === "yillik",
   });
 
   const meta = LEAGUES.find((l) => l.key === league)!;
   const rows = useMemo(
     () => allAgents.filter((r) => r.league === league).map(toAgent),
     [allAgents, league],
+  );
+  const yillikRows = useMemo(
+    () =>
+      allYillikAgents
+        .filter((r) => r.league === league)
+        .map(toYillikAgent)
+        .sort((a, b) => a.place - b.place),
+    [allYillikAgents, league],
   );
 
   const leagueSize = rows.length;
@@ -155,12 +239,39 @@ function AgentRating() {
               </button>
             ))}
           </div>
-          <input
-            type="month"
-            value={date.slice(0, 7)}
-            onChange={(e) => setDate(`${e.target.value}-01`)}
-            className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-race-fg outline-none transition-colors focus:border-brand"
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex rounded-xl border border-white/15 bg-white/5 p-1">
+              {(["oylik", "yillik"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className="rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-all duration-300"
+                  style={
+                    view === v
+                      ? { backgroundColor: "var(--color-race-red)", color: "white" }
+                      : { color: "var(--color-race-muted)" }
+                  }
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            {view === "oylik" ? (
+              <input
+                type="month"
+                value={date.slice(0, 7)}
+                onChange={(e) => setDate(`${e.target.value}-01`)}
+                className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-race-fg outline-none transition-colors focus:border-brand"
+              />
+            ) : (
+              <input
+                type="number"
+                value={yil}
+                onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
+                className="w-24 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-race-fg outline-none transition-colors focus:border-brand"
+              />
+            )}
+          </div>
         </div>
 
         <div key={league} className="page-enter px-4 py-6 lg:px-8">
@@ -177,11 +288,62 @@ function AgentRating() {
                 {meta.name} LEAGUE
               </h1>
               <p className="text-[11px] uppercase tracking-[0.28em] text-race-muted">{meta.slogan}</p>
-              <p className="mt-1 text-xs font-bold tracking-[0.3em] text-race-muted">{formatOyLabel(oy)}</p>
+              <p className="mt-1 text-xs font-bold tracking-[0.3em] text-race-muted">
+                {view === "oylik" ? formatOyLabel(oy) : `${yil}-YIL YAKUNI`}
+              </p>
             </div>
           </div>
 
-          {leader ? (
+          {view === "yillik" ? (
+            yillikRows.length ? (
+              <div className="space-y-1.5">
+                {yillikRows.map((r, i) => (
+                  <Reveal key={r.id} delay={Math.min(i * 45, 500)}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedYillik(r)}
+                      onKeyDown={(e) => e.key === "Enter" && setSelectedYillik(r)}
+                      className={`race-row cursor-pointer rounded-md transition-transform duration-200 active:scale-[0.99] ${
+                        r.place === 1 ? "podium-glow" : ""
+                      }`}
+                    >
+                      <span
+                        className="h-8 w-1.5 shrink-0 rounded-r sm:h-11"
+                        style={{ backgroundColor: r.place === 1 ? meta.accent : "rgba(255,255,255,.5)" }}
+                      />
+                      <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
+                        {r.place}
+                      </span>
+                      <img src={r.avatar} alt={r.fullName} className="cutout-avatar h-8 w-8 shrink-0 sm:h-11 sm:w-11" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">{r.fullName}</p>
+                        <p className="truncate text-[10px] text-white/70 sm:text-[11px]">
+                          {r.nomination ?? `Supervayzer: ${r.supervisor}`}
+                        </p>
+                      </div>
+                      <div className="hidden w-16 text-right md:block">
+                        <p className="text-[10px] uppercase tracking-widest text-white/60">1-o'rin</p>
+                        <p className="text-sm font-bold tabular-nums">{r.firstPlaces}</p>
+                      </div>
+                      <div className="hidden w-20 text-right sm:block">
+                        <p className="text-[10px] uppercase tracking-widest text-white/60">O'rtacha %</p>
+                        <p className="text-sm font-bold tabular-nums">{r.avgPercent}%</p>
+                      </div>
+                      <div className="w-16 shrink-0 text-right sm:w-24">
+                        <p className="text-[10px] uppercase tracking-widest text-white/60">Jami ball</p>
+                        <p className="text-base font-black tabular-nums sm:text-xl">{r.totalBall}</p>
+                      </div>
+                    </div>
+                  </Reveal>
+                ))}
+              </div>
+            ) : (
+              <p className="py-16 text-center text-sm text-race-muted">
+                Bu ligada hali ishchi yo'q.
+              </p>
+            )
+          ) : leader ? (
           <>
           {/* 1-o'rin bloki */}
           <Reveal>
@@ -323,7 +485,11 @@ function AgentRating() {
         </div>
       </div>
 
-      <RankedDetailModal item={selectedDetail} subtitle={formatOyLabel(oy)} onClose={() => setSelected(null)} />
+      <RankedDetailModal
+        item={selectedDetail}
+        subtitle={selectedYillik ? `${yil}-yil` : formatOyLabel(oy)}
+        onClose={closeDetail}
+      />
     </PublicShell>
   );
 }

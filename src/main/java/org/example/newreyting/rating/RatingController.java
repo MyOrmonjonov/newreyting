@@ -3,6 +3,7 @@ package org.example.newreyting.rating;
 import org.example.newreyting.rating.dto.AgentResponse;
 import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
+import org.example.newreyting.rating.dto.YillikIshchiResponse;
 import org.example.newreyting.rating.dto.YillikOyResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -50,6 +51,11 @@ public class RatingController {
     @GetMapping("/yillik")
     public List<YillikOyResponse> yillik(@RequestParam int yil) {
         return ratingService.computeYillikStatistika(yil);
+    }
+
+    @GetMapping("/ishchi/yillik")
+    public List<YillikIshchiResponse> ishchiYillik(@RequestParam int yil) {
+        return ratingService.computeYillikIshchiReyting(yil);
     }
 
     /**

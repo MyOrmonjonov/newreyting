@@ -6,6 +6,7 @@ import org.example.newreyting.employee.Liga;
 import org.example.newreyting.rating.dto.AgentResponse;
 import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
+import org.example.newreyting.rating.dto.YillikIshchiResponse;
 import org.example.newreyting.rating.dto.YillikOyResponse;
 import org.example.newreyting.result.OylikNatija;
 import org.example.newreyting.result.OylikNatijaRepository;
@@ -29,6 +30,14 @@ import java.util.*;
 public class RatingService {
 
     private static final String[] LEAGUE_KEYS = {"diamond", "gold", "silver", "bronze", "rising"};
+    // MICCO Sales League Nizomi VII BOB — har liganing yillik g'olibiga beriladigan unvon.
+    private static final Map<String, String> LEAGUE_NOMINATIONS = Map.of(
+            "diamond", "Diamond Champion",
+            "gold", "Sales King",
+            "silver", "Fast Promotion",
+            "bronze", "Bronze Champion",
+            "rising", "Rising Star"
+    );
 
     private final IshchiRepository ishchiRepository;
     private final OylikNatijaRepository natijaRepository;
@@ -394,6 +403,93 @@ public class RatingService {
                 fakt += n.getBajarildi();
             }
             result.add(new YillikOyResponse(month.toString(), plan, fakt));
+        }
+        return result;
+    }
+
+    /**
+     * Yillik yakuniy reyting (Nizom "Atamalar" — Yillik reyting, XIII BOB, VII BOB nominatsiyalari):
+     * har ishchining 12 oylik ballari jamlanadi, har ishchi o'zining HOZIRGI (yil oxiridagi) ligasi
+     * ichida X BOB'dagi teng ball tartibi bo'yicha saralanadi — jami ball, so'ng ko'proq 1-o'rin,
+     * so'ng ko'proq 2-o'rin, so'ng ko'proq 3-o'rin, so'ng o'rtacha % (barchasi teng bo'lsa yakuniy
+     * qaror Tashkilotchiga qoladi — bu avtomatlashtirilmaydi). Liga ichidagi 1-o'rin shu liganing
+     * yillik nominatsiya g'olibi hisoblanadi.
+     */
+    public List<YillikIshchiResponse> computeYillikIshchiReyting(int yil) {
+        List<Ishchi> ishchilar = ishchiRepository.findAllWithRefs();
+
+        Map<Long, Integer> totalBall = new HashMap<>();
+        Map<Long, Integer> firstPlaces = new HashMap<>();
+        Map<Long, Integer> secondPlaces = new HashMap<>();
+        Map<Long, Integer> thirdPlaces = new HashMap<>();
+        Map<Long, Double> percentSum = new HashMap<>();
+
+        for (int oy = 1; oy <= 12; oy++) {
+            LocalDate month = LocalDate.of(yil, oy, 1);
+            for (AgentResponse a : computeIshchiReyting(month)) {
+                totalBall.merge(a.id(), a.points(), Integer::sum);
+                percentSum.merge(a.id(), a.percent(), Double::sum);
+                // Ma'lumot bo'lmagan oyda ham "1-o'rin" bo'lib chiqishi mumkin (masalan liga bo'sh
+                // bo'lsa), lekin bu haqiqiy g'alaba emas — shuning uchun faqat ball>0 (haqiqiy
+                // natija bo'lgan) oylardagi o'rinlar teng ball tartibida hisobga olinadi.
+                if (a.points() > 0) {
+                    if (a.place() == 1) firstPlaces.merge(a.id(), 1, Integer::sum);
+                    else if (a.place() == 2) secondPlaces.merge(a.id(), 1, Integer::sum);
+                    else if (a.place() == 3) thirdPlaces.merge(a.id(), 1, Integer::sum);
+                }
+            }
+        }
+
+        record Scored(Ishchi ishchi, int total, int firsts, int seconds, int thirds, double avgPercent) {
+        }
+
+        Map<String, List<Scored>> byLeague = new LinkedHashMap<>();
+        for (String key : LEAGUE_KEYS) {
+            byLeague.put(key, new ArrayList<>());
+        }
+        for (Ishchi i : ishchilar) {
+            String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
+            double avg = percentSum.getOrDefault(i.getId(), 0.0) / 12.0;
+            byLeague.get(league).add(new Scored(
+                    i,
+                    totalBall.getOrDefault(i.getId(), 0),
+                    firstPlaces.getOrDefault(i.getId(), 0),
+                    secondPlaces.getOrDefault(i.getId(), 0),
+                    thirdPlaces.getOrDefault(i.getId(), 0),
+                    avg
+            ));
+        }
+        for (List<Scored> group : byLeague.values()) {
+            group.sort(Comparator.comparingInt(Scored::total).reversed()
+                    .thenComparing(Comparator.comparingInt(Scored::firsts).reversed())
+                    .thenComparing(Comparator.comparingInt(Scored::seconds).reversed())
+                    .thenComparing(Comparator.comparingInt(Scored::thirds).reversed())
+                    .thenComparing(Comparator.comparingDouble(Scored::avgPercent).reversed()));
+        }
+
+        List<YillikIshchiResponse> result = new ArrayList<>();
+        for (String league : LEAGUE_KEYS) {
+            int place = 0;
+            for (Scored s : byLeague.get(league)) {
+                place++;
+                String nomination = place == 1 && s.total() > 0 ? LEAGUE_NOMINATIONS.get(league) : null;
+                result.add(new YillikIshchiResponse(
+                        s.ishchi().getId(),
+                        s.ishchi().getIsm(),
+                        s.ishchi().getFamiliya(),
+                        s.ishchi().getIsm() + " " + s.ishchi().getFamiliya(),
+                        s.ishchi().getSupervayzer().getFullName(),
+                        s.ishchi().getRasm(),
+                        league,
+                        place,
+                        nomination,
+                        s.total(),
+                        s.firsts(),
+                        s.seconds(),
+                        s.thirds(),
+                        round1(s.avgPercent())
+                ));
+            }
         }
         return result;
     }
