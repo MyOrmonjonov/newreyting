@@ -8,6 +8,7 @@ const TABS = [
   { to: "/reyting/ishchi", label: "Ishchi reytingi" },
   { to: "/reyting/supervayzer", label: "Supervayzer reytingi" },
   { to: "/reyting/menejer", label: "Menejer reytingi" },
+  { to: "/nizom", label: "Nizom" },
 ] as const;
 
 const AUTO_KEY = "micco-reyting-auto";

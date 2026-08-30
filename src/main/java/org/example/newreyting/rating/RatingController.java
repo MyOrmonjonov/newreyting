@@ -3,6 +3,7 @@ package org.example.newreyting.rating;
 import org.example.newreyting.rating.dto.AgentResponse;
 import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
+import org.example.newreyting.rating.dto.YillikOyResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,5 +41,10 @@ public class RatingController {
     @GetMapping("/supervayzer/tarix")
     public List<ScoreboardRowResponse> supervayzerTarix(@RequestParam(defaultValue = "5") int oyCount) {
         return ratingService.computeSupervayzerTarix(oyCount);
+    }
+
+    @GetMapping("/yillik")
+    public List<YillikOyResponse> yillik(@RequestParam int yil) {
+        return ratingService.computeYillikStatistika(yil);
     }
 }

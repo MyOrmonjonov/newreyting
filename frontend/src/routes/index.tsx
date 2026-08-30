@@ -14,14 +14,23 @@ import {
 import { Trophy, Medal } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { CountUp, Donut, Reveal, TimeFilter, periodFactor, type Period } from "@/components/motion";
-import { LEAGUES, MONTHS, YEAR_STATS, buildLeague } from "@/lib/micco-data";
+import { LEAGUES, MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { type ScoreboardApiRow } from "@/lib/rating-api";
+import { useAuth } from "@/lib/auth-context";
+import { avatarFor, monthParam, type AgentApiRow, type ScoreboardApiRow } from "@/lib/rating-api";
 import { cn } from "@/lib/utils";
+
+type YillikOyRow = { oy: string; plan: number; fakt: number };
+type IshchiListRow = { id: number };
+type UserListRow = { id: number };
 
 function monthLabel(oy: string): string {
   const month = Number(oy.split("-")[1]);
   return MONTHS[month - 1] ?? oy;
+}
+
+function round1(v: number): number {
+  return Math.round(v * 10) / 10;
 }
 
 export const Route = createFileRoute("/")({
@@ -44,19 +53,54 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [period, setPeriod] = useState<Period>("oy");
   const [date, setDate] = useState("2026-07-28");
   const f = periodFactor(period, date);
+  const oy = monthParam(date);
+  const yil = Number(date.slice(0, 4));
 
+  const { data: agents = [] } = useQuery({
+    queryKey: ["reyting", "ishchi", oy],
+    queryFn: () => api.get<AgentApiRow[]>(`/api/reyting/ishchi?oy=${oy}`),
+  });
   const tops = useMemo(
-    () => LEAGUES.map((l) => ({ league: l, rows: buildLeague(l.key, 3) })),
-    [],
+    () =>
+      LEAGUES.map((l) => ({
+        league: l,
+        rows: agents
+          .filter((a) => a.league === l.key && a.place <= 3)
+          .map((a) => ({
+            id: a.id,
+            place: a.place,
+            fullName: a.fullName,
+            supervisor: a.supervisorFullName,
+            percent: a.percent,
+            avatar: a.rasm || avatarFor(`${a.fullName}-${a.id}`),
+          })),
+      })),
+    [agents],
   );
 
+  const { data: yillikApi = [] } = useQuery({
+    queryKey: ["reyting", "yillik", yil],
+    queryFn: () => api.get<YillikOyRow[]>(`/api/reyting/yillik?yil=${yil}`),
+  });
   const chart = useMemo(
-    () => YEAR_STATS.map((m) => ({ ...m, fakt: Math.round(m.fakt * f) })),
-    [f],
+    () =>
+      yillikApi.map((m) => ({
+        month: monthLabel(m.oy),
+        plan: 100,
+        fakt: round1((m.plan === 0 ? 0 : (m.fakt / m.plan) * 100) * f),
+      })),
+    [yillikApi, f],
   );
+  const yillikBajarilish = useMemo(() => {
+    const totalPlan = yillikApi.reduce((s, m) => s + m.plan, 0);
+    const totalFakt = yillikApi.reduce((s, m) => s + m.fakt, 0);
+    return totalPlan === 0 ? 0 : (totalFakt / totalPlan) * 100;
+  }, [yillikApi]);
 
   const { data: scoreboardApi = [] } = useQuery({
     queryKey: ["reyting", "supervayzer", "tarix", "dashboard"],
@@ -75,12 +119,36 @@ function Dashboard() {
   );
   const scoreboardMonths = scoreboard[0]?.months.map((m) => m.month) ?? [];
 
+  const { data: operators = [] } = useQuery({
+    queryKey: ["users", "operators"],
+    queryFn: () => api.get<UserListRow[]>("/api/users/operators"),
+    enabled: isAdmin,
+  });
+  const { data: menejerlar = [] } = useQuery({
+    queryKey: ["users", "menejer"],
+    queryFn: () => api.get<UserListRow[]>("/api/users/menejers"),
+    enabled: isAdmin,
+  });
+  const { data: supervayzerlar = [] } = useQuery({
+    queryKey: ["users", "supervayzer"],
+    queryFn: () => api.get<UserListRow[]>("/api/users/supervayzers"),
+    enabled: isAdmin,
+  });
+  const { data: ishchilar = [] } = useQuery({
+    queryKey: ["ishchilar"],
+    queryFn: () => api.get<IshchiListRow[]>("/api/ishchilar"),
+  });
+
   const metrics = [
-    { label: "Yillik bajarilish", value: 118.4 * f, donut: true },
-    { label: "Operatorlar", value: 4, suffix: "" },
-    { label: "Menejerlar", value: 6, suffix: "" },
-    { label: "Supervayzerlar", value: 10, suffix: "" },
-    { label: "Ishchilar", value: Math.round(135 * f), suffix: "" },
+    { label: "Yillik bajarilish", value: yillikBajarilish * f, donut: true },
+    ...(isAdmin
+      ? [
+          { label: "Operatorlar", value: operators.length, suffix: "" },
+          { label: "Menejerlar", value: menejerlar.length, suffix: "" },
+          { label: "Supervayzerlar", value: supervayzerlar.length, suffix: "" },
+        ]
+      : []),
+    { label: "Ishchilar", value: ishchilar.length, suffix: "" },
   ];
 
   return (

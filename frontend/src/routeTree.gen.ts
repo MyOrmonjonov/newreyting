@@ -15,6 +15,7 @@ import { Route as FonTestRouteImport } from './routes/fon-test'
 import { Route as JamoaRouteImport } from './routes/jamoa'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MahsulotlarRouteImport } from './routes/mahsulotlar'
+import { Route as NizomRouteImport } from './routes/nizom'
 import { Route as OperatorRouteImport } from './routes/operator'
 import { Route as OperatorlarRouteImport } from './routes/operatorlar'
 import { Route as ReytingIshchiRouteImport } from './routes/reyting.ishchi'
@@ -51,6 +52,11 @@ const MahsulotlarRoute = MahsulotlarRouteImport.update({
   path: '/mahsulotlar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NizomRoute = NizomRouteImport.update({
+  id: '/nizom',
+  path: '/nizom',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OperatorRoute = OperatorRouteImport.update({
   id: '/operator',
   path: '/operator',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/jamoa': typeof JamoaRoute
   '/login': typeof LoginRoute
   '/mahsulotlar': typeof MahsulotlarRoute
+  '/nizom': typeof NizomRoute
   '/operator': typeof OperatorRoute
   '/operatorlar': typeof OperatorlarRoute
   '/reyting/ishchi': typeof ReytingIshchiRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/jamoa': typeof JamoaRoute
   '/login': typeof LoginRoute
   '/mahsulotlar': typeof MahsulotlarRoute
+  '/nizom': typeof NizomRoute
   '/operator': typeof OperatorRoute
   '/operatorlar': typeof OperatorlarRoute
   '/reyting/ishchi': typeof ReytingIshchiRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/jamoa': typeof JamoaRoute
   '/login': typeof LoginRoute
   '/mahsulotlar': typeof MahsulotlarRoute
+  '/nizom': typeof NizomRoute
   '/operator': typeof OperatorRoute
   '/operatorlar': typeof OperatorlarRoute
   '/reyting/ishchi': typeof ReytingIshchiRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/jamoa'
     | '/login'
     | '/mahsulotlar'
+    | '/nizom'
     | '/operator'
     | '/operatorlar'
     | '/reyting/ishchi'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/jamoa'
     | '/login'
     | '/mahsulotlar'
+    | '/nizom'
     | '/operator'
     | '/operatorlar'
     | '/reyting/ishchi'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/jamoa'
     | '/login'
     | '/mahsulotlar'
+    | '/nizom'
     | '/operator'
     | '/operatorlar'
     | '/reyting/ishchi'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   JamoaRoute: typeof JamoaRoute
   LoginRoute: typeof LoginRoute
   MahsulotlarRoute: typeof MahsulotlarRoute
+  NizomRoute: typeof NizomRoute
   OperatorRoute: typeof OperatorRoute
   OperatorlarRoute: typeof OperatorlarRoute
   ReytingIshchiRoute: typeof ReytingIshchiRoute
@@ -217,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MahsulotlarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/nizom': {
+      id: '/nizom'
+      path: '/nizom'
+      fullPath: '/nizom'
+      preLoaderRoute: typeof NizomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/operator': {
       id: '/operator'
       path: '/operator'
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   JamoaRoute: JamoaRoute,
   LoginRoute: LoginRoute,
   MahsulotlarRoute: MahsulotlarRoute,
+  NizomRoute: NizomRoute,
   OperatorRoute: OperatorRoute,
   OperatorlarRoute: OperatorlarRoute,
   ReytingIshchiRoute: ReytingIshchiRoute,

@@ -5,6 +5,7 @@ import org.example.newreyting.employee.IshchiRepository;
 import org.example.newreyting.rating.dto.AgentResponse;
 import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
+import org.example.newreyting.rating.dto.YillikOyResponse;
 import org.example.newreyting.result.OylikNatija;
 import org.example.newreyting.result.OylikNatijaRepository;
 import org.example.newreyting.user.Role;
@@ -27,6 +28,8 @@ import java.util.*;
 public class RatingService {
 
     private static final String[] LEAGUE_KEYS = {"diamond", "gold", "silver", "bronze", "rising"};
+    // MICCO Sales League Nizomi II BOB: "Har bir liga ishtirokchilari 27 nafar agentdan iborat".
+    private static final int FIXED_LEAGUE_SIZE = 27;
 
     private final IshchiRepository ishchiRepository;
     private final OylikNatijaRepository natijaRepository;
@@ -39,12 +42,35 @@ public class RatingService {
     }
 
     // Mezon: 1-o'rin = 24, 2 = 22, 3 = 20, 4-22-o'rin = har biriga -1, 23+ = 0
+    // (MICCO Supervisor League Nizomi, 1-ilova — supervayzer/menejer reytingida ishlatiladi)
     public static int pointsForPlace(int place) {
         if (place == 1) return 24;
         if (place == 2) return 22;
         if (place == 3) return 20;
         if (place >= 4 && place <= 22) return 23 - place;
         return 0;
+    }
+
+    /**
+     * Ishchi (agent) ligalari uchun MICCO Sales League Nizomi IV BOB'idagi ball jadvali —
+     * har bir liganing o'z 1/2/3-o'rin ballari va pastki "polkasi" bor (jadvaldagi "...N"):
+     * diamond 34/31/30...6, gold 33/31/29...5, silver 32/30/28...4, bronze 31/29/27...3,
+     * rising 29/27/25...2. 4-o'rindan boshlab har o'ringa -1, "polka"dan pastga tushmaydi
+     * (rising doimiy 27 kishilik bo'lmagani uchun muhim — katta ro'yxatda ham 2 balda to'xtaydi).
+     */
+    static int pointsForLeague(String league, int place) {
+        int p1, p2, p3, floor;
+        switch (league) {
+            case "diamond" -> { p1 = 34; p2 = 31; p3 = 30; floor = 6; }
+            case "gold" -> { p1 = 33; p2 = 31; p3 = 29; floor = 5; }
+            case "silver" -> { p1 = 32; p2 = 30; p3 = 28; floor = 4; }
+            case "bronze" -> { p1 = 31; p2 = 29; p3 = 27; floor = 3; }
+            default -> { p1 = 29; p2 = 27; p3 = 25; floor = 2; } // rising
+        }
+        if (place == 1) return p1;
+        if (place == 2) return p2;
+        if (place == 3) return p3;
+        return Math.max(floor, p3 + 3 - place);
     }
 
     /** Umumiy foiz = jami bajarilgan / jami plan * 100 (og'irlikli). */
@@ -94,17 +120,17 @@ public class RatingService {
                 .toList();
 
         int n = scored.size();
-        int bucketSize = n == 0 ? 1 : (int) Math.ceil(n / 5.0);
 
-        // Avval global % bo'yicha kvintil bilan liga belgilanadi, so'ng har bir liga o'z ichida
-        // mustaqil qayta raqamlanadi (1-o'rin har ligada ham 24 ball) — demo'dagi buildLeague()
-        // xatti-harakati bilan bir xil (har liga alohida mustaqil reyting).
+        // MICCO Sales League Nizomi II BOB: har bir liga (diamond/gold/silver/bronze) qat'iy
+        // 27 nafar agentdan iborat, kvintil (n/5) emas — global % bo'yicha saralangan ro'yxatdan
+        // ketma-ket 27 tadan bo'lib olinadi, qolgani (odatda eng past %) rising ligaga tushadi.
         Map<String, List<Scored>> byLeague = new LinkedHashMap<>();
         for (String key : LEAGUE_KEYS) {
             byLeague.put(key, new ArrayList<>());
         }
         for (int idx = 0; idx < n; idx++) {
-            String league = LEAGUE_KEYS[Math.min(4, idx / bucketSize)];
+            int leagueIdx = Math.min(4, idx / FIXED_LEAGUE_SIZE);
+            String league = LEAGUE_KEYS[leagueIdx];
             byLeague.get(league).add(scored.get(idx));
         }
         for (Ishchi i : noData) {
@@ -126,7 +152,7 @@ public class RatingService {
                         s.ishchi().getIsm() + " " + s.ishchi().getFamiliya(),
                         s.ishchi().getSupervayzer().getFullName(),
                         round1(s.percent()),
-                        pointsForPlace(place),
+                        pointsForLeague(league, place),
                         place,
                         place,
                         trophiesByIshchi.getOrDefault(s.ishchi().getId(), 0),
@@ -268,5 +294,21 @@ public class RatingService {
             withPlace.add(new ScoreboardRowResponse(r.id(), i + 1, r.fullName(), r.oylar(), r.ortachaPercent(), r.jamiBall()));
         }
         return withPlace;
+    }
+
+    /** Berilgan yilning 12 oyi bo'yicha jami plan/bajarildi (barcha ishchilar kesimida) — dashboard grafigi uchun. */
+    public List<YillikOyResponse> computeYillikStatistika(int yil) {
+        List<YillikOyResponse> result = new ArrayList<>();
+        for (int oy = 1; oy <= 12; oy++) {
+            LocalDate month = LocalDate.of(yil, oy, 1);
+            int plan = 0;
+            int fakt = 0;
+            for (OylikNatija n : natijaRepository.findAllByOy(month)) {
+                plan += n.getPlan();
+                fakt += n.getBajarildi();
+            }
+            result.add(new YillikOyResponse(month.toString(), plan, fakt));
+        }
+        return result;
     }
 }
