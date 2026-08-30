@@ -104,7 +104,7 @@ export function RankedDetailModal({
   return createPortal(
     <div
       ref={backdropRef}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 pb-6 backdrop-blur-sm sm:items-center sm:p-4"
       style={{ opacity: 0 }}
       onClick={handleClose}
     >
@@ -113,7 +113,7 @@ export function RankedDetailModal({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm overflow-hidden rounded-t-2xl border border-white/10 bg-race-panel text-race-fg sm:rounded-2xl"
+        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-race-panel text-race-fg"
         style={{ opacity: 0 }}
       >
         <div className="relative overflow-hidden px-5 pb-2 pt-5">
@@ -190,14 +190,22 @@ export function RankedDetailModal({
                 aria-label="Zarrachalar"
                 onKeyDown={(e) => e.key === "Enter" && burstParticles()}
               >
-                <div className="cube-face cube-face-front" style={{ transform: "translateZ(48px)" }}>
-                  <img src={item.avatar} alt={item.name} className="cutout-avatar h-full w-full" />
-                </div>
-                <div className="cube-face" style={{ transform: "rotateY(180deg) translateZ(48px)" }} />
-                <div className="cube-face" style={{ transform: "rotateY(90deg) translateZ(48px)" }} />
-                <div className="cube-face" style={{ transform: "rotateY(-90deg) translateZ(48px)" }} />
-                <div className="cube-face" style={{ transform: "rotateX(90deg) translateZ(48px)" }} />
-                <div className="cube-face" style={{ transform: "rotateX(-90deg) translateZ(48px)" }} />
+                {[
+                  { key: "front", transform: "translateZ(48px)", front: true },
+                  { key: "back", transform: "rotateY(180deg) translateZ(48px)" },
+                  { key: "right", transform: "rotateY(90deg) translateZ(48px)" },
+                  { key: "left", transform: "rotateY(-90deg) translateZ(48px)" },
+                  { key: "top", transform: "rotateX(90deg) translateZ(48px)" },
+                  { key: "bottom", transform: "rotateX(-90deg) translateZ(48px)" },
+                ].map((face) => (
+                  <div
+                    key={face.key}
+                    className={`cube-face${face.front ? " cube-face-front" : ""}`}
+                    style={{ transform: face.transform, backgroundImage: `url(${item.avatar})` }}
+                  >
+                    <div className="cube-face-tint" />
+                  </div>
+                ))}
               </div>
             </div>
 

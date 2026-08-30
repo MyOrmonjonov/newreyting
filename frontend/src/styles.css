@@ -196,19 +196,30 @@
 .cube-face {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   border-radius: 1rem;
   border: 1px solid color-mix(in oklab, white 22%, transparent);
+  background-color: var(--color-race-panel);
+  background-size: cover;
+  background-position: center;
+}
+
+.cube-face-tint {
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
     145deg,
     color-mix(in oklab, var(--color-race-red) 45%, transparent),
     color-mix(in oklab, var(--race-red-deep) 55%, transparent)
   );
-  backdrop-filter: blur(1px);
 }
 
-.cube-face-front {
-  overflow: hidden;
-  background: var(--color-race-panel);
+.cube-face-front .cube-face-tint {
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--color-race-red) 12%, transparent),
+    transparent 60%
+  );
 }
 
 
