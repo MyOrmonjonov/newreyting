@@ -58,7 +58,15 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(allowedOrigin));
+        // allowedOrigin (application.properties) + xuddi shu portdagi lokal tarmoq IP'lari —
+        // telefon/boshqa qurilmadan (masalan http://192.168.1.8:5173) ochish uchun kerak,
+        // aks holda preflight (OPTIONS) so'rovi 403 bilan rad etiladi.
+        config.setAllowedOriginPatterns(List.of(
+                allowedOrigin,
+                "http://192.168.*.*:5173",
+                "http://10.*.*.*:5173",
+                "http://172.16.*.*:5173"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
