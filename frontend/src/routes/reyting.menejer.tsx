@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Percent } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, Trend } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
@@ -87,7 +88,7 @@ function ManagerRating() {
                       avatar: r.avatar,
                       place: r.place,
                       percent: r.percent,
-                      stats: [{ label: "Umumiy ko'rsatgich", value: `${r.percent}%` }],
+                      stats: [{ label: "Umumiy ko'rsatgich", value: `${r.percent}%`, icon: Percent }],
                     })
                   }
                   onKeyDown={(e) => e.key === "Enter" && e.currentTarget.click()}

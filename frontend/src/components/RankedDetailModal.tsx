@@ -1,18 +1,21 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { animate } from "animejs";
-import { X } from "lucide-react";
+import { X, CalendarDays, type LucideIcon } from "lucide-react";
+
+export type RankedDetailStat = { label: string; value: string | number; icon: LucideIcon };
 
 export type RankedDetailItem = {
   name: string;
   avatar: string;
   place: number;
   percent: number;
-  stats: { label: string; value: string | number }[];
+  /** Ism ostida ko'rsatiladigan qo'shimcha qator, masalan "Supervayzer: X". */
+  subtitle2?: string;
+  stats: RankedDetailStat[];
 };
 
-/** Supervayzer/menejer reytingi qatoriga bosilganda ochiladigan to'liq ma'lumot paneli —
- * reyting.ishchi.tsx'dagi AgentDetailModal bilan bir xil uslub, umumlashtirilgan holda. */
+/** Supervayzer/menejer/ishchi reytingi qatoriga bosilganda ochiladigan to'liq ma'lumot paneli. */
 export function RankedDetailModal({
   item,
   subtitle,
@@ -76,40 +79,92 @@ export function RankedDetailModal({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm overflow-hidden rounded-t-2xl border border-white/10 bg-race-panel text-race-fg sm:rounded-2xl"
+        className="relative w-full max-w-sm overflow-hidden rounded-t-2xl border border-white/10 bg-race-panel text-race-fg sm:rounded-2xl"
         style={{ opacity: 0 }}
       >
-        <div
-          className="relative px-5 pb-14 pt-5"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-race-red) 0%, color-mix(in oklab, var(--race-red-deep) 90%, black) 100%)",
-          }}
-        >
-          <button
-            onClick={handleClose}
-            aria-label="Yopish"
-            className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-black/20 text-white transition-colors hover:bg-black/35"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/85">
-            {subtitle} · {item.place}-o'rin
-          </span>
+        <div className="relative overflow-hidden px-5 pb-2 pt-5">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(120% 100% at 50% -10%, color-mix(in oklab, var(--color-race-red) 55%, transparent), transparent 60%)",
+            }}
+          />
+          <div className="relative flex items-center justify-between">
+            <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/85">
+              <CalendarDays className="h-3 w-3" />
+              {subtitle} · {item.place}-o'rin
+            </span>
+            <button
+              onClick={handleClose}
+              aria-label="Yopish"
+              className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Avatar — porloq romka + p'edestal effektida */}
+          <div className="relative mx-auto mt-4 flex h-40 w-40 items-center justify-center">
+            <div
+              className="absolute inset-0 rounded-full opacity-70 blur-2xl"
+              style={{ background: "var(--color-race-red)" }}
+            />
+            <div
+              className="absolute h-28 w-28 rounded-2xl border border-white/25"
+              style={{
+                transform: "rotate(45deg)",
+                background:
+                  "linear-gradient(135deg, color-mix(in oklab, var(--color-race-red) 35%, transparent), transparent 60%)",
+                boxShadow: "0 0 30px -4px color-mix(in oklab, var(--color-race-red) 70%, transparent)",
+              }}
+            />
+            <div
+              className="absolute h-14 w-14 rounded-lg border border-white/20 opacity-60"
+              style={{ transform: "translate(-46px, -38px) rotate(20deg)" }}
+            />
+            <div
+              className="absolute h-9 w-9 rounded-md border border-white/20 opacity-50"
+              style={{ transform: "translate(50px, 34px) rotate(-15deg)" }}
+            />
+            <div className="relative h-24 w-24 overflow-hidden rounded-full ring-4 ring-race-panel">
+              <img src={item.avatar} alt={item.name} className="cutout-avatar h-full w-full" />
+            </div>
+            <div
+              className="absolute -bottom-2 h-4 w-28 rounded-full opacity-80 blur-md"
+              style={{ background: "var(--color-race-red)" }}
+            />
+          </div>
         </div>
 
-        <div className="-mt-12 flex flex-col items-center px-5 text-center">
-          <div className="h-24 w-24 overflow-hidden rounded-full ring-4 ring-race-panel">
-            <img src={item.avatar} alt={item.name} className="cutout-avatar h-full w-full" />
-          </div>
-          <h3 className="mt-3 text-xl font-black uppercase tracking-tight">{item.name}</h3>
-          <p className="mt-1 text-xs uppercase tracking-[0.2em] text-race-muted">Umumiy ko'rsatgich: {item.percent}%</p>
+        <div className="flex flex-col items-center px-5 pb-6 text-center">
+          <h3 className="mt-1 text-xl font-black uppercase tracking-tight">{item.name}</h3>
+          {item.subtitle2 ? (
+            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-race-muted">
+              {item.subtitle2.split(":")[0]}:{" "}
+              <span className="text-brand">{item.subtitle2.split(":").slice(1).join(":").trim()}</span>
+            </p>
+          ) : null}
 
-          <div className="mt-5 grid w-full grid-cols-2 gap-2.5 pb-6">
+          <div className="mt-5 grid w-full grid-cols-2 gap-2.5">
             {item.stats.map((s) => (
-              <div key={s.label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                <p className="text-lg font-black tabular-nums">{s.value}</p>
-                <p className="mt-0.5 text-[10px] uppercase tracking-widest text-race-muted">{s.label}</p>
+              <div
+                key={s.label}
+                className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-left"
+              >
+                <div
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+                  style={{
+                    backgroundColor: "color-mix(in oklab, var(--color-race-red) 18%, transparent)",
+                    color: "var(--color-race-red)",
+                  }}
+                >
+                  <s.icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-black leading-tight tabular-nums">{s.value}</p>
+                  <p className="truncate text-[10px] uppercase tracking-widest text-race-muted">{s.label}</p>
+                </div>
               </div>
             ))}
           </div>

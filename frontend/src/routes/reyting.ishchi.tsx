@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { animate, stagger } from "animejs";
-import { X, Trophy, CalendarDays } from "lucide-react";
+import { Star, TrendingUp, History, Percent, Trophy, CalendarDays } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, TimeFilter, Trend, type Period } from "@/components/motion";
+import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
 import { LEAGUES, MONTHS, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { avatarFor, monthParam, stripeFor, type AgentApiRow } from "@/lib/rating-api";
@@ -71,6 +71,25 @@ function AgentRating() {
   const [date, setDate] = useState("2026-07-28");
   const [selected, setSelected] = useState<Agent | null>(null);
   const oy = monthParam(date);
+
+  const selectedDetail: RankedDetailItem | null = useMemo(() => {
+    if (!selected) return null;
+    return {
+      name: selected.fullName,
+      avatar: selected.avatar,
+      place: selected.place,
+      percent: selected.percent,
+      subtitle2: `Supervayzer: ${selected.supervisor}`,
+      stats: [
+        { label: "Reyting ball", value: selected.points, icon: Star },
+        { label: "Bugun", value: selected.today, icon: TrendingUp },
+        { label: "Kecha", value: selected.yesterday, icon: History },
+        { label: "Foizi", value: `${selected.percent}%`, icon: Percent },
+        { label: "Nechta kubok", value: selected.trophies, icon: Trophy },
+        { label: "Necha yildan beri", value: `${selected.yearsActive} yil`, icon: CalendarDays },
+      ],
+    };
+  }, [selected]);
 
   const { data: allAgents = [] } = useQuery({
     queryKey: ["reyting", "ishchi", oy],
@@ -300,125 +319,8 @@ function AgentRating() {
         </div>
       </div>
 
-      <AgentDetailModal agent={selected} oy={oy} onClose={() => setSelected(null)} />
+      <RankedDetailModal item={selectedDetail} subtitle={formatOyLabel(oy)} onClose={() => setSelected(null)} />
     </PublicShell>
-  );
-}
-
-/** Kartochka/qatorga bosilganda ochiladigan to'liq ma'lumot paneli (asosan telefon uchun). */
-function AgentDetailModal({ agent, oy, onClose }: { agent: Agent | null; oy: string; onClose: () => void }) {
-  const backdropRef = useRef<HTMLDivElement | null>(null);
-  const cardRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!agent || !backdropRef.current || !cardRef.current) return;
-    animate(backdropRef.current, { opacity: [0, 1], duration: 220, ease: "outQuad" });
-    animate(cardRef.current, {
-      opacity: [0, 1],
-      translateY: [28, 0],
-      scale: [0.94, 1],
-      duration: 420,
-      ease: "outExpo",
-    });
-  }, [agent]);
-
-  function handleClose() {
-    if (!backdropRef.current || !cardRef.current) {
-      onClose();
-      return;
-    }
-    animate(backdropRef.current, { opacity: [1, 0], duration: 180, ease: "inQuad" });
-    animate(cardRef.current, {
-      opacity: [1, 0],
-      translateY: [0, 20],
-      scale: [1, 0.95],
-      duration: 200,
-      ease: "inQuad",
-      onComplete: onClose,
-    });
-    // Zaxira: agar sahifa fonda bo'lib animatsiya kadrlari to'xtab qolsa
-    // (masalan tab background'ga o'tsa), panel baribir yopilishi kerak.
-    window.setTimeout(onClose, 260);
-  }
-
-  useEffect(() => {
-    if (!agent) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && handleClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent]);
-
-  if (!agent || typeof document === "undefined") return null;
-
-  const stats = [
-    { label: "Reyting ball", value: agent.points },
-    { label: "Bugun", value: agent.today },
-    { label: "Kecha", value: agent.yesterday },
-    { label: "Foizi", value: `${agent.percent}%` },
-    { label: "Nechta kubok", value: agent.trophies },
-    { label: "Necha yildan beri", value: `${agent.yearsActive} yil` },
-  ];
-
-  return createPortal(
-    <div
-      ref={backdropRef}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
-      style={{ opacity: 0 }}
-      onClick={handleClose}
-    >
-      <div
-        ref={cardRef}
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm overflow-hidden rounded-t-2xl border border-white/10 bg-race-panel text-race-fg sm:rounded-2xl"
-        style={{ opacity: 0 }}
-      >
-        <div
-          className="relative px-5 pb-14 pt-5"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-race-red) 0%, color-mix(in oklab, var(--race-red-deep) 90%, black) 100%)",
-          }}
-        >
-          <button
-            onClick={handleClose}
-            aria-label="Yopish"
-            className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-black/20 text-white transition-colors hover:bg-black/35"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/85">
-            {formatOyLabel(oy)} · {agent.place}-o'rin
-          </span>
-        </div>
-
-        <div className="-mt-12 flex flex-col items-center px-5 text-center">
-          <div className="h-24 w-24 overflow-hidden rounded-full ring-4 ring-race-panel">
-            <img src={agent.avatar} alt={agent.fullName} className="cutout-avatar h-full w-full" />
-          </div>
-          <h3 className="mt-3 text-xl font-black uppercase tracking-tight">{agent.fullName}</h3>
-          <p className="mt-1 text-xs uppercase tracking-[0.2em] text-race-muted">
-            Supervayzer: {agent.supervisor}
-          </p>
-
-          <div className="mt-5 grid w-full grid-cols-2 gap-2.5 pb-6">
-            {stats.map((s) => (
-              <div key={s.label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                <p className="text-lg font-black tabular-nums">{s.value}</p>
-                <p className="mt-0.5 flex items-center justify-center gap-1 text-[10px] uppercase tracking-widest text-race-muted">
-                  {s.label === "Nechta kubok" ? <Trophy className="h-3 w-3" /> : null}
-                  {s.label === "Necha yildan beri" ? <CalendarDays className="h-3 w-3" /> : null}
-                  {s.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
   );
 }
 

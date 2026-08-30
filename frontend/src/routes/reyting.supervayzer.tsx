@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { TrendingUp, Star, Trophy, Percent } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, Trend } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
@@ -93,10 +94,10 @@ function SupervisorRating() {
                       place: r.place,
                       percent: r.percent,
                       stats: [
-                        { label: "Kunlik o'zgarish", value: `${r.daily >= 0 ? "+" : ""}${r.daily}%` },
-                        { label: "Oylik ball", value: r.monthPoints },
-                        { label: "Jami ball", value: r.totalPoints },
-                        { label: "Umumiy ko'rsatgich", value: `${r.percent}%` },
+                        { label: "Kunlik o'zgarish", value: `${r.daily >= 0 ? "+" : ""}${r.daily}%`, icon: TrendingUp },
+                        { label: "Oylik ball", value: r.monthPoints, icon: Star },
+                        { label: "Jami ball", value: r.totalPoints, icon: Trophy },
+                        { label: "Umumiy ko'rsatgich", value: `${r.percent}%`, icon: Percent },
                       ],
                     })
                   }
