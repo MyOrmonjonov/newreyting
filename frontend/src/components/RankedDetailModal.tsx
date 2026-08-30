@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { animate } from "animejs";
-import { X, CalendarDays, type LucideIcon } from "lucide-react";
+import { X, CalendarDays, Trophy, type LucideIcon } from "lucide-react";
 
 export type RankedDetailStat = { label: string; value: string | number; icon: LucideIcon };
 
@@ -27,6 +27,40 @@ export function RankedDetailModal({
 }) {
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const particleHostRef = useRef<HTMLDivElement | null>(null);
+
+  /** Kub bosilganda atrofga zarrachalar sochiladi — sof bezak, hech narsani o'zgartirmaydi. */
+  function burstParticles() {
+    const host = particleHostRef.current;
+    if (!host || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const colors = ["#ff4136", "#ffd54a", "#ffffff"];
+    const count = 12;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement("span");
+      el.style.position = "absolute";
+      el.style.left = "50%";
+      el.style.top = "50%";
+      el.style.width = "6px";
+      el.style.height = "6px";
+      el.style.marginLeft = "-3px";
+      el.style.marginTop = "-3px";
+      el.style.borderRadius = "9999px";
+      el.style.background = colors[i % colors.length]!;
+      el.style.boxShadow = `0 0 6px 1px ${colors[i % colors.length]}`;
+      host.appendChild(el);
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      const distance = 46 + Math.random() * 30;
+      animate(el, {
+        translateX: [0, Math.cos(angle) * distance],
+        translateY: [0, Math.sin(angle) * distance],
+        scale: [1, 0],
+        opacity: [1, 0],
+        duration: 650 + Math.random() * 300,
+        ease: "outExpo",
+        onComplete: () => el.remove(),
+      });
+    }
+  }
 
   useEffect(() => {
     if (!item || !backdropRef.current || !cardRef.current) return;
@@ -104,32 +138,71 @@ export function RankedDetailModal({
             </button>
           </div>
 
-          {/* Avatar — porloq romka + p'edestal effektida */}
+          {/* Avatar — 3D shaffof kub ichida, atrofda suzuvchi kubok belgilari */}
           <div className="relative mx-auto mt-4 flex h-40 w-40 items-center justify-center">
             <div
-              className="absolute inset-0 rounded-full opacity-70 blur-2xl"
+              className="absolute inset-0 rounded-full opacity-60 blur-2xl"
               style={{ background: "var(--color-race-red)" }}
             />
-            <div
-              className="absolute h-28 w-28 rounded-2xl border border-white/25"
-              style={{
-                transform: "rotate(45deg)",
-                background:
-                  "linear-gradient(135deg, color-mix(in oklab, var(--color-race-red) 35%, transparent), transparent 60%)",
-                boxShadow: "0 0 30px -4px color-mix(in oklab, var(--color-race-red) 70%, transparent)",
-              }}
+            <Trophy
+              className="absolute h-5 w-5 text-white/25"
+              style={
+                {
+                  top: "8%",
+                  left: "4%",
+                  "--drift-x": "5px",
+                  "--drift-r": "14deg",
+                  animation: "micco-trophy-drift 5.5s ease-in-out infinite",
+                } as CSSProperties
+              }
             />
-            <div
-              className="absolute h-14 w-14 rounded-lg border border-white/20 opacity-60"
-              style={{ transform: "translate(-46px, -38px) rotate(20deg)" }}
+            <Trophy
+              className="absolute h-4 w-4 text-white/20"
+              style={
+                {
+                  bottom: "12%",
+                  right: "2%",
+                  "--drift-x": "-6px",
+                  "--drift-r": "-12deg",
+                  animation: "micco-trophy-drift 6.5s ease-in-out infinite 0.6s",
+                } as CSSProperties
+              }
             />
-            <div
-              className="absolute h-9 w-9 rounded-md border border-white/20 opacity-50"
-              style={{ transform: "translate(50px, 34px) rotate(-15deg)" }}
+            <Trophy
+              className="absolute h-3.5 w-3.5 text-white/15"
+              style={
+                {
+                  top: "14%",
+                  right: "8%",
+                  "--drift-x": "4px",
+                  "--drift-r": "10deg",
+                  animation: "micco-trophy-drift 4.8s ease-in-out infinite 1.1s",
+                } as CSSProperties
+              }
             />
-            <div className="relative h-24 w-24 overflow-hidden rounded-full ring-4 ring-race-panel">
-              <img src={item.avatar} alt={item.name} className="cutout-avatar h-full w-full" />
+
+            <div className="cube-scene relative h-24 w-24">
+              <div
+                className="cube-3d h-24 w-24 cursor-pointer"
+                onClick={burstParticles}
+                role="button"
+                tabIndex={0}
+                aria-label="Zarrachalar"
+                onKeyDown={(e) => e.key === "Enter" && burstParticles()}
+              >
+                <div className="cube-face cube-face-front" style={{ transform: "translateZ(48px)" }}>
+                  <img src={item.avatar} alt={item.name} className="cutout-avatar h-full w-full" />
+                </div>
+                <div className="cube-face" style={{ transform: "rotateY(180deg) translateZ(48px)" }} />
+                <div className="cube-face" style={{ transform: "rotateY(90deg) translateZ(48px)" }} />
+                <div className="cube-face" style={{ transform: "rotateY(-90deg) translateZ(48px)" }} />
+                <div className="cube-face" style={{ transform: "rotateX(90deg) translateZ(48px)" }} />
+                <div className="cube-face" style={{ transform: "rotateX(-90deg) translateZ(48px)" }} />
+              </div>
             </div>
+
+            <div ref={particleHostRef} className="pointer-events-none absolute inset-0" />
+
             <div
               className="absolute -bottom-2 h-4 w-28 rounded-full opacity-80 blur-md"
               style={{ background: "var(--color-race-red)" }}

@@ -163,6 +163,54 @@
   }
 }
 
+@keyframes micco-cube-float {
+  0%,
+  100% {
+    transform: translateY(0) rotateX(-8deg) rotateY(-22deg);
+  }
+  50% {
+    transform: translateY(-6px) rotateX(-8deg) rotateY(22deg);
+  }
+}
+
+@keyframes micco-trophy-drift {
+  0%,
+  100% {
+    transform: translate(var(--drift-x, 0), 0) rotate(var(--drift-r, 0deg));
+  }
+  50% {
+    transform: translate(calc(var(--drift-x, 0) * -1), -8px) rotate(calc(var(--drift-r, 0deg) * -1));
+  }
+}
+
+.cube-scene {
+  perspective: 700px;
+}
+
+.cube-3d {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: micco-cube-float 7s ease-in-out infinite;
+}
+
+.cube-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklab, white 22%, transparent);
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--color-race-red) 45%, transparent),
+    color-mix(in oklab, var(--race-red-deep) 55%, transparent)
+  );
+  backdrop-filter: blur(1px);
+}
+
+.cube-face-front {
+  overflow: hidden;
+  background: var(--color-race-panel);
+}
+
 
 .reveal {
   opacity: 0;
