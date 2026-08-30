@@ -170,13 +170,13 @@ export function TimeFilter({
   const items: Period[] = ["kun", "hafta", "oy", "yil"];
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="relative flex rounded-xl border border-border bg-card p-1">
+      <div className="scrollbar-none relative flex max-w-full overflow-x-auto rounded-xl border border-border bg-card p-1">
         {items.map((it) => (
           <button
             key={it}
             onClick={() => onChange(it)}
             className={cn(
-              "relative z-10 rounded-lg px-4 py-1.5 text-sm font-medium capitalize transition-all duration-300",
+              "relative z-10 shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-all duration-300 sm:px-4",
               value === it
                 ? "bg-brand text-brand-foreground shadow-glow"
                 : "text-muted-foreground hover:text-foreground",
