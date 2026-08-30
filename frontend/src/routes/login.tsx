@@ -63,6 +63,10 @@ function LoginPage() {
               onChange={(e) => setForm((s) => ({ ...s, login: e.target.value }))}
               autoFocus
               required
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </div>
           <div className="space-y-1.5">
@@ -73,6 +77,10 @@ function LoginPage() {
               value={form.password}
               onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
               required
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </div>
 
