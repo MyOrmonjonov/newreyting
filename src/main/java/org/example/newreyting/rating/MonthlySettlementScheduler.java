@@ -32,6 +32,16 @@ public class MonthlySettlementScheduler {
         }
         LocalDate previousMonth = today.minusMonths(1).withDayOfMonth(1);
         log.info("Oylik yakunlash: {} oyi avtomatik yakunlanmoqda", previousMonth);
-        ratingService.finalizeMonth(previousMonth);
+        try {
+            ratingService.finalizeMonth(previousMonth);
+            log.info("Oylik yakunlash: {} oyi muvaffaqiyatli yakunlandi", previousMonth);
+        } catch (Exception e) {
+            // finalizeMonth @Transactional — xato bo'lsa hech narsa yarim saqlanmaydi (butunlay
+            // orqaga qaytadi), shuning uchun keyingi kunlarda admin /api/reyting/oy-yakunlash
+            // orqali qo'lda qayta urinib ko'rishi mumkin. Bu yerda xatoni yutib yuborish — bitta
+            // oy yakunlanmay qolishi butun backend/keyingi kunlik tekshiruvlarni to'xtatib
+            // qo'ymasligi uchun muhim.
+            log.error("Oylik yakunlash: {} oyini yakunlashda xatolik — keyinroq /api/reyting/oy-yakunlash orqali qo'lda urinib ko'ring", previousMonth, e);
+        }
     }
 }
