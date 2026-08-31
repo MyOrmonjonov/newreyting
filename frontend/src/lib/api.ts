@@ -1,9 +1,8 @@
-// Bo'sh — nisbiy "/api/..." yo'llar ishlatiladi, ular Vite dev serverning
-// o'zidagi proksi orqali backendga yo'naltiriladi (vite.config.ts). Shu tufayli
-// sayt qaysi manzildan ochilsa (localhost yoki lokal tarmoq IP'i), API so'rovi
-// ham o'sha manzilga (bir xil origin) ketadi — CORS yoki "localhost telefonda
-// telefonning o'zini anglatadi" muammosi bo'lmaydi.
-const API_BASE = "";
+// Lokal dev'da bo'sh — nisbiy "/api/..." yo'llar Vite proksi orqali backendga
+// ketadi (vite.config.ts). Production'da (frontend Cloudflare Pages'da, backend
+// alohida AWS manzilida bo'lgani uchun) build vaqtida VITE_API_BASE muhit
+// o'zgaruvchisi orqali backend manzili beriladi (masalan https://api.micco.uz).
+const API_BASE = import.meta.env["VITE_API_BASE"] ?? "";
 const TOKEN_KEY = "micco-token";
 
 export class ApiError extends Error {

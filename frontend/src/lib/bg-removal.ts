@@ -200,34 +200,10 @@ export async function cutoutPersonFromImage(image: HTMLImageElement): Promise<Cu
   }
 
   const gray = new Uint8ClampedArray(width * height);
-  let grayMax = 0;
-  let graySum = 0;
   for (let i = 0, p = 0; i < maskPixels.length; i += 4, p++) {
     gray[p] = maskPixels[i]!;
-    if (gray[p]! > grayMax) grayMax = gray[p]!;
-    graySum += gray[p]!;
   }
   const refined = refineMask(gray, width, height);
-  let refinedMax = 0;
-  let refinedSum = 0;
-  for (let p = 0; p < refined.length; p++) {
-    if (refined[p]! > refinedMax) refinedMax = refined[p]!;
-    refinedSum += refined[p]!;
-  }
-console.log(
-    "[bg-removal-debug] " +
-      JSON.stringify({
-        inferenceWidth,
-        inferenceHeight,
-        maskDataWidth: maskData.width,
-        maskDataHeight: maskData.height,
-        grayMax,
-        grayAvg: Math.round((graySum / gray.length) * 100) / 100,
-        refinedMax,
-        refinedAvg: Math.round((refinedSum / refined.length) * 100) / 100,
-      }),
-  );
-
   for (let p = 0, i = 0; p < refined.length; p++, i += 4) {
     frame.data[i + 3] = refined[p]!;
   }

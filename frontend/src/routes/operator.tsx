@@ -8,8 +8,12 @@ import { AppShell, PageHeader } from "@/components/AppShell";
 import { Donut, Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { cutoutPersonFromImage, warmUpSegmenter } from "@/lib/bg-removal";
 import { LEAGUES } from "@/lib/micco-data";
+
+// Fon-olib-tashlash kutubxonasi (~2.5MB, tensorflow) sahifa ochilganda emas,
+// faqat foydalanuvchi surat yuklashni boshlaganda yuklanadi — aks holda
+// "Ishchilar" sahifasiga o'tish sezilarli sekinlashadi.
+const loadBgRemoval = () => import("@/lib/bg-removal");
 
 export const Route = createFileRoute("/operator")({
   head: () => ({
@@ -223,6 +227,7 @@ function OperatorPage() {
       const image = new Image();
       image.src = url;
       await image.decode();
+      const { cutoutPersonFromImage } = await loadBgRemoval();
       const cutout = await cutoutPersonFromImage(image);
       setPhoto(cutout.dataUrl);
       setPhotoStatus("idle");
@@ -478,7 +483,7 @@ function OperatorPage() {
                         type="button"
                         className="btn-ghost"
                         onClick={() => {
-                          warmUpSegmenter();
+                          void loadBgRemoval().then((m) => m.warmUpSegmenter());
                           photoInputRef.current?.click();
                         }}
                       >

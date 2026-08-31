@@ -37,6 +37,12 @@ public class SecurityConfig {
         this.allowedOrigin = allowedOrigin;
     }
 
+    // allowedOrigin bitta yoki vergul bilan ajratilgan bir nechta manzil bo'lishi mumkin
+    // (masalan lokal dev manzili + production Cloudflare Pages domeni bir vaqtda).
+    private List<String> allowedOriginList() {
+        return List.of(allowedOrigin.split("\\s*,\\s*"));
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -58,15 +64,15 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // allowedOrigin (application.properties) + xuddi shu portdagi lokal tarmoq IP'lari —
-        // telefon/boshqa qurilmadan (masalan http://192.168.1.8:5173) ochish uchun kerak,
-        // aks holda preflight (OPTIONS) so'rovi 403 bilan rad etiladi.
-        config.setAllowedOriginPatterns(List.of(
-                allowedOrigin,
-                "http://192.168.*.*:5173",
-                "http://10.*.*.*:5173",
-                "http://172.16.*.*:5173"
-        ));
+        // allowedOrigin (application.properties, bitta yoki vergul bilan ajratilgan bir nechta
+        // manzil) + xuddi shu portdagi lokal tarmoq IP'lari (telefondan ochish uchun) +
+        // Cloudflare Pages'ning *.pages.dev subdomeni (production frontend shu yerda joylashadi).
+        List<String> patterns = new java.util.ArrayList<>(allowedOriginList());
+        patterns.add("http://192.168.*.*:5173");
+        patterns.add("http://10.*.*.*:5173");
+        patterns.add("http://172.16.*.*:5173");
+        patterns.add("https://*.pages.dev");
+        config.setAllowedOriginPatterns(patterns);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

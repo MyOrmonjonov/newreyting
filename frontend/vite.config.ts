@@ -13,6 +13,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Production'da AWS'ning o'zida (Cloudflare'siz) oddiy Node.js server sifatida
+  // ishga tushirish uchun — .output/server/index.mjs chiqadi, "node index.mjs" bilan ishga tushadi.
+  nitro: { preset: "node-server" },
   vite: {
     server: {
       // 8080 is reserved for the Spring Boot backend (see /frontend proxying it under /api).
