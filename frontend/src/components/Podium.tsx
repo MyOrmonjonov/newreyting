@@ -43,6 +43,17 @@ export function PodiumSlot({
     };
   });
 
+  const crownSparkCount = crown ? 5 : 0;
+  const crownSparks = Array.from({ length: crownSparkCount }, (_, i) => {
+    const angle = (i / crownSparkCount) * Math.PI * 2;
+    const radius = 22;
+    return {
+      dx: Math.round(Math.cos(angle) * radius),
+      dy: Math.round(Math.sin(angle) * radius) - 6,
+      delay: (i / crownSparkCount) * 1.4,
+    };
+  });
+
   return (
     <Reveal delay={rank * 60}>
       <div
@@ -54,11 +65,29 @@ export function PodiumSlot({
       >
         <div className="relative">
           {crown ? (
-            <Crown
-              className="podium-pulse absolute -top-7 left-1/2 h-6 w-6 -translate-x-1/2 sm:-top-8 sm:h-7 sm:w-7"
-              style={{ color: CROWN_COLOR }}
-              fill={CROWN_COLOR}
-            />
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 sm:-top-8">
+              {crownSparks.map((s, i) => (
+                <span
+                  key={i}
+                  className="podium-spark"
+                  style={
+                    {
+                      color: CROWN_COLOR,
+                      left: "50%",
+                      top: "50%",
+                      "--spark-dx": `${s.dx}px`,
+                      "--spark-dy": `${s.dy}px`,
+                      animationDelay: `${s.delay}s`,
+                    } as CSSProperties
+                  }
+                />
+              ))}
+              <Crown
+                className="podium-pulse relative h-6 w-6 sm:h-7 sm:w-7"
+                style={{ color: CROWN_COLOR }}
+                fill={CROWN_COLOR}
+              />
+            </div>
           ) : null}
 
           <div
@@ -98,7 +127,7 @@ export function PodiumSlot({
         </div>
 
         <span
-          className="mt-2.5 rounded-full border px-2.5 py-0.5 text-[10px] font-black tabular-nums sm:text-xs"
+          className="mt-2.5 min-w-[2.75rem] rounded-lg border px-2.5 py-1 text-center text-[10px] font-black tabular-nums sm:min-w-[3.25rem] sm:text-xs"
           style={
             muted
               ? {
