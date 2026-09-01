@@ -4,10 +4,11 @@ import { CountUp, Reveal } from "@/components/motion";
 
 const CROWN_COLOR = "var(--color-accent-gold)";
 
-/** Faqat 1-o'rin brend (ko'k/moviy) urg'u rangini oladi — 2/3-o'rin neytral/muted. */
-function accentFor(rank: number): { color: string; glow: string; muted: boolean } {
-  if (rank === 1) return { color: "var(--color-brand)", glow: "var(--color-brand)", muted: false };
-  return { color: "color-mix(in oklab, white 55%, transparent)", glow: "transparent", muted: true };
+/** Rank-asosidagi medal ranglari: 1-oltin, 2-ko'k, 3-to'q sariq (MICCO dizayn spetsifikatsiyasi). */
+function accentFor(rank: number): { color: string; glow: string } {
+  if (rank === 1) return { color: "var(--color-accent-gold)", glow: "var(--color-accent-gold)" };
+  if (rank === 2) return { color: "var(--color-brand)", glow: "var(--color-brand)" };
+  return { color: "var(--color-accent-warm)", glow: "var(--color-accent-warm)" };
 }
 
 /** Podiumdagi bitta o'rin — avatar (1-o'rinda neon halqa) + ostida "#N" pill + ism + foiz. */
@@ -30,10 +31,10 @@ export function PodiumSlot({
   avatarRef: Ref<HTMLImageElement>;
   onSelect: () => void;
 }) {
-  const { color, glow, muted } = accentFor(rank);
+  const { color, glow } = accentFor(rank);
   const avatarSize = size === "lg" ? "h-20 w-20 sm:h-24 sm:w-24" : "h-14 w-14 sm:h-16 sm:w-16";
   const sparkRadius = size === "lg" ? 50 : 38;
-  const sparkCount = muted ? 0 : 6;
+  const sparkCount = 6;
   const sparks = Array.from({ length: sparkCount }, (_, i) => {
     const angle = (i / sparkCount) * Math.PI * 2;
     return {
@@ -95,10 +96,8 @@ export function PodiumSlot({
             style={
               {
                 color,
-                background: muted
-                  ? "color-mix(in oklab, white 22%, transparent)"
-                  : `conic-gradient(from 180deg, color-mix(in oklab, white 75%, ${color}), ${color}, color-mix(in oklab, black 35%, ${color}), ${color}, color-mix(in oklab, white 75%, ${color}))`,
-                boxShadow: muted ? undefined : `0 0 26px -6px ${glow}`,
+                background: `conic-gradient(from 180deg, color-mix(in oklab, white 75%, ${color}), ${color}, color-mix(in oklab, black 35%, ${color}), ${color}, color-mix(in oklab, white 75%, ${color}))`,
+                boxShadow: `0 0 26px -6px ${glow}`,
               } as CSSProperties
             }
           >
@@ -128,19 +127,11 @@ export function PodiumSlot({
 
         <span
           className="mt-2.5 min-w-[2.75rem] rounded-lg border px-2.5 py-1 text-center text-[10px] font-black tabular-nums sm:min-w-[3.25rem] sm:text-xs"
-          style={
-            muted
-              ? {
-                  borderColor: "color-mix(in oklab, white 18%, transparent)",
-                  backgroundColor: "color-mix(in oklab, white 6%, transparent)",
-                  color: "var(--color-race-muted)",
-                }
-              : {
-                  borderColor: `color-mix(in oklab, ${color} 55%, transparent)`,
-                  backgroundColor: `color-mix(in oklab, ${color} 18%, transparent)`,
-                  color,
-                }
-          }
+          style={{
+            borderColor: `color-mix(in oklab, ${color} 55%, transparent)`,
+            backgroundColor: `color-mix(in oklab, ${color} 18%, transparent)`,
+            color,
+          }}
         >
           #{rank}
         </span>
@@ -154,10 +145,7 @@ export function PodiumSlot({
           style={{ backgroundColor: "color-mix(in oklab, white 18%, transparent)" }}
         />
 
-        <p
-          className="text-lg font-black tabular-nums sm:text-2xl"
-          style={{ color: muted ? "var(--color-race-fg)" : color }}
-        >
+        <p className="text-lg font-black tabular-nums sm:text-2xl" style={{ color }}>
           <CountUp value={percent} decimals={1} suffix="%" />
         </p>
       </div>

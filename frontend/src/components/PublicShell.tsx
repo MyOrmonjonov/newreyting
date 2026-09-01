@@ -96,8 +96,17 @@ export function PublicShell({
               to={t.to}
               className={cn(
                 "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-all duration-300 sm:px-4 sm:text-xs",
-                pathname === t.to ? "bg-white/10 text-brand shadow-glow" : "text-race-muted hover:text-race-fg",
+                pathname !== t.to && "text-race-muted hover:text-race-fg",
               )}
+              style={
+                pathname === t.to
+                  ? {
+                      background: "linear-gradient(90deg, var(--color-accent-cyan), var(--color-brand))",
+                      color: "white",
+                      boxShadow: "0 0 16px -4px var(--color-brand)",
+                    }
+                  : undefined
+              }
             >
               <t.icon className="h-3.5 w-3.5 shrink-0" />
               {t.label}

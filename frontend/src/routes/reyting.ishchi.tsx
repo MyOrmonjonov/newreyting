@@ -307,7 +307,11 @@ function AgentRating() {
                   className="flex-1 rounded-lg px-3 py-2 text-[11px] font-bold uppercase tracking-widest transition-all duration-300"
                   style={
                     view === v
-                      ? { backgroundColor: "var(--color-race-red)", color: "white" }
+                      ? {
+                          background: "linear-gradient(90deg, var(--color-accent-cyan), var(--color-brand))",
+                          color: "white",
+                          boxShadow: "0 0 16px -4px var(--color-brand)",
+                        }
                       : { color: "var(--color-race-muted)" }
                   }
                 >
@@ -379,7 +383,11 @@ function AgentRating() {
                   className="rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-all duration-300"
                   style={
                     view === v
-                      ? { backgroundColor: "var(--color-race-red)", color: "white" }
+                      ? {
+                          background: "linear-gradient(90deg, var(--color-accent-cyan), var(--color-brand))",
+                          color: "white",
+                          boxShadow: "0 0 16px -4px var(--color-brand)",
+                        }
                       : { color: "var(--color-race-muted)" }
                   }
                 >
