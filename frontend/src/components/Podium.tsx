@@ -78,7 +78,7 @@ export function PodiumSlot({
       >
         <div className="relative">
           {crown ? (
-            <div className="absolute -top-9 left-1/2 -translate-x-1/2 sm:-top-10">
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 sm:-top-8">
               {crownSparks.map((s, i) => (
                 <span
                   key={i}
