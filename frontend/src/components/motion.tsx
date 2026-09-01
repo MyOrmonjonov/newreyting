@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronsUp, ChevronsDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Intersection-Observer asosidagi scroll reveal + stagger */
@@ -161,14 +162,19 @@ export function Trend({ today, yesterday }: { today: number; yesterday: number }
   return (
     <span
       className={cn(
-        "trend-arrow items-center gap-1 text-sm font-semibold",
+        "trend-arrow inline-flex items-center gap-0.5 text-sm font-black",
         tone === "up" && "trend-up text-success",
         tone === "down" && "trend-down text-danger",
         tone === "flat" && "trend-flat text-warning",
       )}
     >
-      {tone === "up" ? "▲" : tone === "down" ? "▼" : "—"}
-      {diff !== 0 ? Math.abs(diff) : ""}
+      {tone === "up" ? (
+        <ChevronsUp className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={3} />
+      ) : tone === "down" ? (
+        <ChevronsDown className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={3} />
+      ) : (
+        <Minus className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={3} />
+      )}
     </span>
   );
 }

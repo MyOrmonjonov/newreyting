@@ -307,11 +307,16 @@ function AgentRating() {
                     style={
                       league === l.key
                         ? {
-                            backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
-                            borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
+                            backgroundColor: `color-mix(in oklab, ${l.accent} 20%, transparent)`,
+                            borderColor: l.accent,
                             color: l.accent,
+                            boxShadow: `0 0 16px -4px ${l.glow}`,
                           }
-                        : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
+                        : {
+                            backgroundColor: `color-mix(in oklab, ${l.accent} 8%, transparent)`,
+                            borderColor: `color-mix(in oklab, ${l.accent} 30%, transparent)`,
+                            color: `color-mix(in oklab, ${l.accent} 75%, white)`,
+                          }
                     }
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -376,12 +381,16 @@ function AgentRating() {
                   style={
                     league === l.key
                       ? {
-                          backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
-                          borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
+                          backgroundColor: `color-mix(in oklab, ${l.accent} 20%, transparent)`,
+                          borderColor: l.accent,
                           color: l.accent,
                           boxShadow: `0 0 24px -8px ${l.glow}`,
                         }
-                      : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
+                      : {
+                          backgroundColor: `color-mix(in oklab, ${l.accent} 8%, transparent)`,
+                          borderColor: `color-mix(in oklab, ${l.accent} 30%, transparent)`,
+                          color: `color-mix(in oklab, ${l.accent} 75%, white)`,
+                        }
                   }
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -608,25 +617,11 @@ function AgentRating() {
                         <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
                           {r.fullName}
                         </p>
-                        <p className="truncate text-[10px] text-race-muted sm:text-[11px]">
-                          Supervayzer: {r.supervisor}
-                        </p>
+                        <p className="truncate text-[10px] text-race-muted sm:text-[11px]">{r.supervisor}</p>
                       </div>
-                      <div className="hidden w-24 text-right sm:block">
-                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Reyting ball</p>
-                        <p className="text-sm font-bold tabular-nums">{r.points}</p>
-                      </div>
-                      <div className="hidden w-16 text-right md:block">
-                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Bugun</p>
-                        <p className="text-sm font-bold tabular-nums">{r.today}</p>
-                      </div>
-                      <div className="hidden w-16 text-right md:block">
-                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Kecha</p>
-                        <p className="text-sm font-bold tabular-nums">{r.yesterday}</p>
-                      </div>
-                      <div className="flex w-14 shrink-0 items-center justify-end gap-1 sm:w-28 sm:gap-2">
-                        <Trend today={r.today} yesterday={r.yesterday} />
+                      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                         <span className="text-sm font-black tabular-nums sm:text-lg">{r.percent}%</span>
+                        <Trend today={r.today} yesterday={r.yesterday} />
                       </div>
                     </div>
                   </Reveal>
