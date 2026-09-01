@@ -221,10 +221,10 @@ export function PodiumSlot({
           </div>
         </div>
 
-        <span className="relative z-10 -mt-4 inline-grid place-items-center sm:-mt-5">
-          <MedalStar rank={rank} color={color} glow={glow} className="h-9 w-9 sm:h-10 sm:w-10" />
+        <span className="relative z-10 -mt-5 inline-grid place-items-center sm:-mt-6">
+          <MedalStar rank={rank} color={color} glow={glow} className="h-12 w-12 sm:h-14 sm:w-14" />
           <span
-            className="absolute inset-0 grid place-items-center text-[10px] font-black sm:text-xs"
+            className="absolute inset-0 grid place-items-center text-xs font-black sm:text-sm"
             style={{ color: "color-mix(in oklab, white 88%, transparent)" }}
           >
             {rank}
