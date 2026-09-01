@@ -9,6 +9,7 @@ import { Donut, Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { LEAGUES } from "@/lib/micco-data";
+import { avatarFor } from "@/lib/rating-api";
 
 // Katta suratlarni saqlashdan oldin kichraytiramiz (data URL sifatida backendga
 // yuboriladi va reytingda ham shu surat ishlatiladi).
@@ -289,30 +290,57 @@ function OperatorPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-muted-foreground">
                       <th className="px-5 py-3 font-medium">Ism</th>
+                      <th className="px-5 py-3 font-medium">Liga</th>
                       <th className="px-5 py-3 font-medium">Supervayzer</th>
                       <th className="px-5 py-3 text-right font-medium">Amal</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ishchilar.map((s, i) => (
+                    {ishchilar.map((s, i) => {
+                      const league = LEAGUES.find((l) => l.key === s.boshlangichLiga);
+                      return (
                       <tr
                         key={s.id}
-                        className={`border-b border-border/70 transition-colors duration-200 last:border-0 hover:bg-accent/70 ${
+                        className={`border-b border-white/[0.06] transition-colors duration-200 last:border-0 hover:bg-white/[0.03] ${
                           selectedIshchiId === s.id ? "bg-brand-soft/60" : ""
                         } ${s.active ? "" : "opacity-60"}`}
                         style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 45}ms both` }}
                       >
                         <td className="px-5 py-3 font-medium">
-                          <span className="flex items-center gap-2">
-                            {s.ism} {s.familiya}
-                            {!s.active ? (
-                              <span className="rounded-full bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                                Faol emas
-                              </span>
-                            ) : null}
+                          <span className="flex items-center gap-3">
+                            <img
+                              src={s.rasm || avatarFor(`${s.ism} ${s.familiya}-${s.id}`)}
+                              alt=""
+                              className="h-8 w-8 shrink-0 rounded-full object-cover"
+                              style={{ border: "1px solid color-mix(in oklab, white 15%, transparent)" }}
+                            />
+                            <span className="flex items-center gap-2">
+                              {s.ism} {s.familiya}
+                              {!s.active ? (
+                                <span className="rounded-full bg-destructive/12 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                                  Faol emas
+                                </span>
+                              ) : null}
+                            </span>
                           </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          {league ? (
+                            <span
+                              className="rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide"
+                              style={{
+                                borderColor: `color-mix(in oklab, ${league.accent} 40%, transparent)`,
+                                backgroundColor: `color-mix(in oklab, ${league.accent} 12%, transparent)`,
+                                color: league.accent,
+                              }}
+                            >
+                              {league.name}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3 text-muted-foreground">{s.supervayzerFullName}</td>
                         <td className="px-5 py-3 text-right">
@@ -337,7 +365,8 @@ function OperatorPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

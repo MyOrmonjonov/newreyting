@@ -63,13 +63,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="relative min-h-screen">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 border-r border-border bg-card transition-transform duration-300 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 w-64 border-r border-white/10 transition-transform duration-300 lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
-        style={{ transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)" }}
+        style={{
+          transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
+          background: "linear-gradient(180deg, color-mix(in oklab, white 3%, var(--color-background)), var(--color-background))",
+          backdropFilter: "blur(20px)",
+        }}
       >
-        <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-sm font-bold text-brand-foreground">
+        <div className="flex h-16 items-center gap-2.5 border-b border-white/10 px-5">
+          <div
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-brand-foreground"
+            style={{ background: "var(--color-brand)", boxShadow: "0 0 20px -4px var(--color-brand)" }}
+          >
             M
           </div>
           <div className="leading-tight">
@@ -92,12 +99,24 @@ export function AppShell({ children }: { children: ReactNode }) {
                       to={it.to}
                       onClick={() => setOpen(false)}
                       className={cn(
-                        "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-300",
-                        active
-                          ? "bg-brand-soft text-brand"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-300",
+                        active ? "text-brand" : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
                       )}
+                      style={
+                        active
+                          ? {
+                              backgroundColor: "color-mix(in oklab, var(--color-brand) 14%, transparent)",
+                              boxShadow: "0 0 0 1px color-mix(in oklab, var(--color-brand) 30%, transparent) inset",
+                            }
+                          : undefined
+                      }
                     >
+                      {active ? (
+                        <span
+                          className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full"
+                          style={{ backgroundColor: "var(--color-brand)", boxShadow: "0 0 10px var(--color-brand)" }}
+                        />
+                      ) : null}
                       <it.icon
                         className={cn(
                           "h-4 w-4 transition-transform duration-300 group-hover:scale-110",
@@ -112,7 +131,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </nav>
-        <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl border border-border bg-accent p-3">
+        <div
+          className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl border border-white/10 p-3"
+          style={{ backgroundColor: "color-mix(in oklab, white 4%, transparent)" }}
+        >
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-semibold">
               {user.ism} {user.familiya}

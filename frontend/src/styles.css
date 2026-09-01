@@ -61,7 +61,7 @@
 }
 
 :root {
-  --radius: 0.7rem;
+  --radius: 0.85rem;
   --background: oklch(0.16 0.008 260);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.01 260);
@@ -256,10 +256,14 @@
 }
 
 @utility card-surface {
-  background-color: var(--color-card);
-  border: 1px solid var(--color-border);
+  background:
+    linear-gradient(165deg, color-mix(in oklab, white 5%, var(--color-card)), color-mix(in oklab, white 0%, var(--color-card)));
+  border: 1px solid color-mix(in oklab, white 12%, var(--color-border));
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-card);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklab, white 8%, transparent) inset,
+    var(--shadow-card);
+  backdrop-filter: blur(16px);
   transition:
     transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
@@ -314,14 +318,15 @@
   justify-content: center;
   gap: 0.5rem;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-card);
+  border: 1px solid color-mix(in oklab, white 12%, var(--color-border));
+  background-color: color-mix(in oklab, white 4%, var(--color-card));
   padding: 0.55rem 1.05rem;
   font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   &:hover {
     background-color: var(--color-accent);
+    border-color: color-mix(in oklab, var(--brand) 40%, transparent);
     transform: translateY(-1px);
   }
   &:active {
@@ -332,8 +337,8 @@
 @utility field {
   width: 100%;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-card);
+  border: 1px solid color-mix(in oklab, white 12%, var(--color-border));
+  background-color: color-mix(in oklab, white 3%, var(--color-card));
   padding: 0.55rem 0.8rem;
   font-size: 0.875rem;
   outline: none;
