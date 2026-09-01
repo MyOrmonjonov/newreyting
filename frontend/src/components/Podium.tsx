@@ -10,69 +10,14 @@ function accentFor(rank: number): { color: string; glow: string } {
   return { color: "var(--color-accent-warm)", glow: "var(--color-accent-warm)" };
 }
 
-// 5 uchli yulduzning 10 nuqtasi (tashqi uch / ichki botiq, navbat bilan) — faset uchburchaklari shundan yasaladi.
-const STAR_POINTS: [number, number][] = [
-  [12, 2],
-  [15.09, 8.26],
-  [22, 9.27],
-  [17, 14.14],
-  [18.18, 21.02],
-  [12, 17.77],
-  [5.82, 21.02],
-  [7, 14.14],
-  [2, 9.27],
-  [8.91, 8.26],
-];
-const STAR_CENTER: [number, number] = [12, 12];
-
-/** Metall/ko'p qirrali (faset) yulduzcha — markazdan chiquvchi 10 ta uchburchak faset + halo + markazdagi doira nishon. */
-function MedalStar({ rank, color, glow, className }: { rank: number; color: string; glow: string; className: string }) {
-  const gradId = `podium-star-grad-${rank}`;
-  const glowId = `podium-star-glow-${rank}`;
-  const [cx, cy] = STAR_CENTER;
-  return (
-    <svg viewBox="-6 -6 36 36" className={className} style={{ overflow: "visible" }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor={`color-mix(in oklab, white 85%, ${color})`} />
-          <stop offset="30%" stopColor={`color-mix(in oklab, white 30%, ${color})`} />
-          <stop offset="60%" stopColor={color} />
-          <stop offset="100%" stopColor={`color-mix(in oklab, black 50%, ${color})`} />
-        </linearGradient>
-        <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={glow} stopOpacity="0.85" />
-          <stop offset="100%" stopColor={glow} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <circle cx="12" cy="12" r="15" fill={`url(#${glowId})`} />
-      <g style={{ filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.55))" }}>
-        {STAR_POINTS.map(([x1, y1], i) => {
-          const [x2, y2] = STAR_POINTS[(i + 1) % STAR_POINTS.length]!;
-          return (
-            <polygon
-              key={i}
-              points={`${cx},${cy} ${x1},${y1} ${x2},${y2}`}
-              fill={`url(#${gradId})`}
-              stroke={`color-mix(in oklab, black 40%, ${color})`}
-              strokeWidth="0.35"
-              strokeLinejoin="round"
-            />
-          );
-        })}
-      </g>
-      <circle
-        cx={cx}
-        cy={cy}
-        r="4.4"
-        fill={`color-mix(in oklab, black 70%, ${color})`}
-        stroke={`url(#${gradId})`}
-        strokeWidth="0.8"
-      />
-    </svg>
-  );
+/** Rank raqami ichiga solingan haqiqiy foto-yulduzcha (oltin/kumush/bronza) — frontend/public'da saqlanadi. */
+function starImageFor(rank: number): string {
+  if (rank === 1) return "/star-gold.png";
+  if (rank === 2) return "/star-silver.png";
+  return "/star-bronze.png";
 }
 
-/** Podiumdagi bitta o'rin — avatar (1-o'rinda neon halqa) + ostida "#N" pill + ism + foiz. */
+/** Podiumdagi bitta o'rin — avatar (1-o'rinda neon halqa) + ostida yulduzcha (raqam bilan) + ism + foiz. */
 export function PodiumSlot({
   avatar,
   name,
@@ -189,13 +134,11 @@ export function PodiumSlot({
         </div>
 
         <span className="relative z-10 -mt-7 inline-grid place-items-center sm:-mt-8">
-          <MedalStar rank={rank} color={color} glow={glow} className="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" />
           <span
-            className="absolute inset-0 grid place-items-center text-xs font-black sm:text-sm"
-            style={{ color: "color-mix(in oklab, white 88%, transparent)" }}
-          >
-            {rank}
-          </span>
+            className="absolute inset-0 rounded-full blur-md"
+            style={{ background: `radial-gradient(circle, ${glow} 0%, transparent 70%)`, opacity: 0.55 }}
+          />
+          <img src={starImageFor(rank)} alt={`#${rank}`} className="relative h-14 w-auto sm:h-16" />
         </span>
 
         <p className="mt-2 line-clamp-2 max-w-[7rem] text-center text-[10px] font-bold leading-tight uppercase tracking-wide sm:max-w-[8rem] sm:text-xs">
