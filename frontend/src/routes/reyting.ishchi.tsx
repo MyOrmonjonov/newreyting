@@ -611,10 +611,10 @@ function AgentRating() {
                   </Reveal>
 
                   {league !== "diamond" && r.place === 5 ? (
-                    <ZoneLine tone="up" label="Ko'tarilish zonasi — top 5 o'rin keyingi oy yuqori ligaga" />
+                    <ZoneLine tone="up" />
                   ) : null}
                   {league !== "rising" && r.place === DANGER_BOUNDARY ? (
-                    <ZoneLine tone="down" label="Pasayish zonasi — 23-27 o'rin keyingi oy pastroq ligaga" />
+                    <ZoneLine tone="down" />
                   ) : null}
                 </div>
               );
@@ -643,21 +643,13 @@ function AgentRating() {
   );
 }
 
-function ZoneLine({ tone, label }: { tone: "up" | "down"; label: string }) {
+function ZoneLine({ tone }: { tone: "up" | "down" }) {
   const color = tone === "up" ? "var(--color-success)" : "var(--color-danger)";
-  const [short] = label.split(" — ");
   return (
     <Reveal>
       <div className="my-2 flex items-center gap-2 sm:gap-3">
         <span className="trend-arrow shrink-0 text-xs font-semibold sm:text-sm sm:font-bold" style={{ color }}>
           {tone === "up" ? "▲" : "▼"}
-        </span>
-        <span
-          className="whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide sm:px-2.5 sm:text-[10px] sm:font-bold sm:tracking-widest"
-          style={{ color, border: `1px solid ${color}`, backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
-        >
-          <span className="sm:hidden">{short}</span>
-          <span className="hidden sm:inline">{label}</span>
         </span>
         <span className="h-px flex-1 rounded-full sm:h-0.5" style={{ backgroundColor: color }} />
       </div>
