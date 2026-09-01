@@ -342,3 +342,21 @@ boshlanadi (server va klientning birinchi render'i bir xil bo'ladi), saqlangan q
 mount'dan KEYIN (`useEffect`da, faqat brauzerda) o'qib qo'llaniladi. Production'da localhost
 SSR build orqali sinovdan o'tkazildi (localStorage'da boshqa qiymat bo'lsa ham hydration xatosi
 yo'q) va keyin haqiqiy productionda konsolda xatosiz ekanligi tasdiqlandi. Deploy: frontend v11.
+
+## AWS deploy kalitlari haqida eslatma (2026-09-01)
+
+Deploy'lar (`aws s3 cp`, `elasticbeanstalk create-application-version`/`update-environment`)
+shu kompyuterda AWS CLI uchun oldindan sozlangan kalit orqali ishlaydi:
+
+- IAM foydalanuvchi: **`micco-deploy`** (Account: `205080700819`), `aws sts get-caller-identity`
+  orqali tasdiqlangan.
+- Kalit (Access Key ID + Secret Access Key) `C:\Users\DELL\.aws\credentials` faylida saqlanadi
+  — bu AWS CLI uchun standart, xavfsiz joy. **Bu faylning o'zi yoki undagi qiymatlar hech qachon
+  git repo ichiga yoki boshqa `.md`/matn fayliga yozilmasligi kerak** (git tarixiga tushsa,
+  keyin o'chirib bo'lmaydi).
+- Bu SSH kirish EMAS — serverning ichiga (OS/fayl darajasida) kirish huquqi yo'q va yo'q ham
+  bo'ladi (yuqoridagi "Serverga SSH orqali qo'lda kirish" bo'limiga qarang). Kalit faqat AWS'ning
+  boshqaruv API'siga (S3'ga fayl yuklash, EB'ga "shu versiyani ishga tushir" buyrug'i berish)
+  ruxsat beradi — bajarilishini AWS'ning o'zi amalga oshiradi.
+- **Diqqat**: bu kalit bir marta suhbat chatiga ochiq matn sifatida yozilgan edi — xavfsizlik
+  nuqtai nazaridan AWS IAM konsolida almashtirish (rotate) tavsiya etiladi.
