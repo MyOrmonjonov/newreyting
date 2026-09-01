@@ -1,5 +1,4 @@
 import type { CSSProperties, Ref } from "react";
-import { Crown, Star } from "lucide-react";
 import { CountUp, Reveal } from "@/components/motion";
 
 const CROWN_COLOR = "var(--color-accent-gold)";
@@ -9,6 +8,68 @@ function accentFor(rank: number): { color: string; glow: string } {
   if (rank === 1) return { color: "var(--color-accent-gold)", glow: "var(--color-accent-gold)" };
   if (rank === 2) return { color: "var(--color-brand)", glow: "var(--color-brand)" };
   return { color: "var(--color-accent-warm)", glow: "var(--color-accent-warm)" };
+}
+
+/** Metall/hajmli ko'rinishdagi yulduzcha — gradient + soya bilan (tekis lucide ikonka o'rniga). */
+function MedalStar({ rank, color, className }: { rank: number; color: string; className: string }) {
+  const gradId = `podium-star-grad-${rank}`;
+  return (
+    <svg viewBox="0 0 24 24" className={className} style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.45))" }}>
+      <defs>
+        <linearGradient id={gradId} x1="15%" y1="10%" x2="85%" y2="95%">
+          <stop offset="0%" stopColor={`color-mix(in oklab, white 75%, ${color})`} />
+          <stop offset="55%" stopColor={color} />
+          <stop offset="100%" stopColor={`color-mix(in oklab, black 40%, ${color})`} />
+        </linearGradient>
+      </defs>
+      <path
+        d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        fill={`url(#${gradId})`}
+        stroke={`color-mix(in oklab, black 30%, ${color})`}
+        strokeWidth="0.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Metall/hajmli oltin toj — gradient + soya bilan (tekis lucide ikonka o'rniga). */
+function GoldCrown({ className }: { className: string }) {
+  const color = CROWN_COLOR;
+  return (
+    <svg viewBox="0 0 24 24" className={className} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}>
+      <defs>
+        <linearGradient id="podium-crown-grad" x1="10%" y1="0%" x2="90%" y2="100%">
+          <stop offset="0%" stopColor={`color-mix(in oklab, white 80%, ${color})`} />
+          <stop offset="50%" stopColor={color} />
+          <stop offset="100%" stopColor={`color-mix(in oklab, black 42%, ${color})`} />
+        </linearGradient>
+      </defs>
+      <path
+        d="M2 18 L4 8 L8 12 L12 4 L16 12 L20 8 L22 18 Z"
+        fill="url(#podium-crown-grad)"
+        stroke={`color-mix(in oklab, black 30%, ${color})`}
+        strokeWidth="0.5"
+        strokeLinejoin="round"
+      />
+      <rect
+        x="2"
+        y="18"
+        width="20"
+        height="3"
+        rx="1"
+        fill="url(#podium-crown-grad)"
+        stroke={`color-mix(in oklab, black 30%, ${color})`}
+        strokeWidth="0.5"
+      />
+      <circle cx="4" cy="8" r="1.4" fill="url(#podium-crown-grad)" />
+      <circle cx="12" cy="4" r="1.6" fill="url(#podium-crown-grad)" />
+      <circle cx="20" cy="8" r="1.4" fill="url(#podium-crown-grad)" />
+      <circle cx="7" cy="19.5" r="0.7" fill={`color-mix(in oklab, white 70%, ${color})`} />
+      <circle cx="12" cy="19.5" r="0.7" fill={`color-mix(in oklab, white 70%, ${color})`} />
+      <circle cx="17" cy="19.5" r="0.7" fill={`color-mix(in oklab, white 70%, ${color})`} />
+    </svg>
+  );
 }
 
 /** Podiumdagi bitta o'rin — avatar (1-o'rinda neon halqa) + ostida "#N" pill + ism + foiz. */
@@ -83,11 +144,7 @@ export function PodiumSlot({
                   }
                 />
               ))}
-              <Crown
-                className="podium-pulse relative h-6 w-6 sm:h-7 sm:w-7"
-                style={{ color: CROWN_COLOR }}
-                fill={CROWN_COLOR}
-              />
+              <GoldCrown className="podium-pulse relative h-7 w-7 sm:h-8 sm:w-8" />
             </div>
           ) : null}
 
@@ -126,7 +183,7 @@ export function PodiumSlot({
         </div>
 
         <span className="relative mt-2.5 inline-grid place-items-center">
-          <Star className="h-7 w-7 sm:h-8 sm:w-8" style={{ color, fill: color }} strokeWidth={1.5} />
+          <MedalStar rank={rank} color={color} className="h-8 w-8 sm:h-9 sm:w-9" />
           <span
             className="absolute inset-0 grid place-items-center text-[9px] font-black sm:text-[10px]"
             style={{ color: "var(--color-race-panel)" }}
