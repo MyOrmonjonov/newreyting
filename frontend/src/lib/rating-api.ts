@@ -54,8 +54,9 @@ export function stripeFor(id: number): string {
   return STRIPES[id % STRIPES.length]!;
 }
 
+/** Surat yuklanmagan xodimlar uchun — ism-familiya bosh harflari, rangli doira ichida. */
 export function avatarFor(seed: string): string {
-  return `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent`;
+  return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(seed)}&fontWeight=700`;
 }
 
 /** `<input type=date>` qiymatidan ("2026-07-28") oy so'rov parametrini ("2026-07-01") chiqaradi. */

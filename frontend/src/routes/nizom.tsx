@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Scale, Trophy, Users, ArrowUpDown, Gift, Award } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { Reveal } from "@/components/motion";
-import { LEAGUES } from "@/lib/micco-data";
+import { LEAGUES, AGENT_LEAGUE_POINTS, type LeagueKey } from "@/lib/micco-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/nizom")({
@@ -24,13 +24,18 @@ export const Route = createFileRoute("/nizom")({
 
 type Doc = "agent" | "supervayzer";
 
-const AGENT_LEAGUE_POINTS: { key: string; label: string; row: number[]; floor: number }[] = [
-  { key: "diamond", label: "Diamond", row: [34, 31, 30, 29, 28, 27], floor: 6 },
-  { key: "gold", label: "Gold", row: [33, 31, 29, 28, 27, 26], floor: 5 },
-  { key: "silver", label: "Silver", row: [32, 30, 28, 27, 26, 25], floor: 4 },
-  { key: "bronze", label: "Bronze", row: [31, 29, 27, 26, 25, 24], floor: 3 },
-  { key: "rising", label: "Rising", row: [29, 27, 25, 24, 23, 22], floor: 2 },
+const AGENT_LEAGUE_KEYS: { key: LeagueKey; label: string }[] = [
+  { key: "diamond", label: "Diamond" },
+  { key: "gold", label: "Gold" },
+  { key: "silver", label: "Silver" },
+  { key: "bronze", label: "Bronze" },
+  { key: "rising", label: "Rising" },
 ];
+
+const AGENT_LEAGUE_TABLE = AGENT_LEAGUE_KEYS.map(({ key, label }) => {
+  const { p1, p2, p3, floor } = AGENT_LEAGUE_POINTS[key];
+  return { key, label, row: [p1, p2, p3, p3 - 1, p3 - 2, p3 - 3], floor };
+});
 
 const SUPERVISOR_POINTS = [24, 22, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
@@ -267,7 +272,7 @@ function AgentNizom() {
                 </tr>
               </thead>
               <tbody>
-                {AGENT_LEAGUE_POINTS.map((row) => {
+                {AGENT_LEAGUE_TABLE.map((row) => {
                   const meta = LEAGUES.find((l) => l.key === row.key)!;
                   return (
                     <tr key={row.key} className="border-t border-white/10">

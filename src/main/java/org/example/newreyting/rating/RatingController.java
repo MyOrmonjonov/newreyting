@@ -5,6 +5,7 @@ import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
 import org.example.newreyting.rating.dto.YillikIshchiResponse;
 import org.example.newreyting.rating.dto.YillikOyResponse;
+import org.example.newreyting.rating.dto.YillikSupervayzerResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -58,6 +59,11 @@ public class RatingController {
         return ratingService.computeYillikIshchiReyting(yil);
     }
 
+    @GetMapping("/supervayzer/yillik")
+    public List<YillikSupervayzerResponse> supervayzerYillik(@RequestParam int yil) {
+        return ratingService.computeYillikSupervayzerReyting(yil);
+    }
+
     /**
      * Oyni qo'lda yakunlash — odatda MonthlySettlementScheduler avtomatik bajaradi
      * (har oyning 1-kunida o'tgan oy uchun), bu esa admin uchun zaxira/qo'lda ishga
@@ -68,5 +74,16 @@ public class RatingController {
     @PreAuthorize("hasRole('ADMIN')")
     public void oyYakunlash(@RequestParam LocalDate oy) {
         ratingService.finalizeMonth(oy);
+    }
+
+    /**
+     * "Bugun/Kecha" bazaviy qiymatini qo'lda yangilash — odatda DailyPlaceSnapshotScheduler
+     * avtomatik bajaradi (har kuni soat 00:10 da), bu esa admin uchun zaxira/test imkoniyati.
+     */
+    @PostMapping("/kunlik-orin-yangilash")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
+    public void kunlikOrinYangilash() {
+        ratingService.refreshDailyPlaceSnapshots();
     }
 }

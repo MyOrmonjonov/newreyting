@@ -48,6 +48,18 @@ export const LEAGUES: {
 
 export const PERIOD_LABEL = "2026 IYUL";
 
+/**
+ * MICCO Sales League Nizomi IV BOB — har liganing 1/2/3-o'rin ballari va pastki "polkasi"
+ * (backenddagi RatingService.pointsForLeague bilan bir xil bo'lishi shart).
+ */
+export const AGENT_LEAGUE_POINTS: Record<LeagueKey, { p1: number; p2: number; p3: number; floor: number }> = {
+  diamond: { p1: 34, p2: 31, p3: 30, floor: 6 },
+  gold: { p1: 33, p2: 31, p3: 29, floor: 5 },
+  silver: { p1: 32, p2: 30, p3: 28, floor: 4 },
+  bronze: { p1: 31, p2: 29, p3: 27, floor: 3 },
+  rising: { p1: 29, p2: 27, p3: 25, floor: 2 },
+};
+
 const BRANCHES = [
   "Farg'onaSmile STp9",
   "Tash.obl TP2",

@@ -161,10 +161,10 @@ export function Trend({ today, yesterday }: { today: number; yesterday: number }
   return (
     <span
       className={cn(
-        "trend-arrow inline-flex items-center gap-1 text-sm font-semibold",
-        tone === "up" && "text-success",
-        tone === "down" && "text-danger",
-        tone === "flat" && "text-warning",
+        "trend-arrow items-center gap-1 text-sm font-semibold",
+        tone === "up" && "trend-up text-success",
+        tone === "down" && "trend-down text-danger",
+        tone === "flat" && "trend-flat text-warning",
       )}
     >
       {tone === "up" ? "▲" : tone === "down" ? "▼" : "—"}

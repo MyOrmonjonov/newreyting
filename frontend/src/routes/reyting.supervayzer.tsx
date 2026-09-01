@@ -4,15 +4,17 @@ import { useQuery } from "@tanstack/react-query";
 import { animate } from "animejs";
 import { TrendingUp, Star, Trophy, Percent } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
-import { CountUp, Reveal, Trend } from "@/components/motion";
+import { CountUp, Reveal } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
+import { PodiumSlot } from "@/components/Podium";
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { avatarFor, type ScoreboardApiRow } from "@/lib/rating-api";
 
+
 // TV/monitor ekranida ko'rsatish uchun — sahifani qo'lda yangilamasdan, o'zi
 // vaqti-vaqti bilan yangi ma'lumot bor-yo'qligini tekshirib turadi.
-const LIVE_REFRESH_MS = 15_000;
+const LIVE_REFRESH_MS = 5_000;
 
 function formatOyLabel(oy: string): string {
   const [year, month] = oy.split("-");
@@ -65,6 +67,31 @@ function SupervisorRating() {
     [apiRows],
   );
 
+  const avg = rows.length ? rows.reduce((s, r) => s + r.percent, 0) / rows.length : 0;
+  const totalPoints = rows.reduce((s, r) => s + r.totalPoints, 0);
+  const currentOy = apiRows[0]?.oylar[apiRows[0].oylar.length - 1]?.oy ?? new Date().toISOString().slice(0, 7) + "-01";
+
+  const leader = rows[0];
+  const second = rows[1];
+  const third = rows[2];
+  const hasPodium = Boolean(leader && second && third);
+  const listRows = hasPodium ? rows.slice(3) : rows.slice(1);
+
+  function toDetail(r: (typeof rows)[number]): RankedDetailItem {
+    return {
+      name: r.name,
+      avatar: r.avatar,
+      place: r.place,
+      percent: r.percent,
+      stats: [
+        { label: "Kunlik o'zgarish", value: `${r.daily >= 0 ? "+" : ""}${r.daily}%`, icon: TrendingUp },
+        { label: "Oylik ball", value: r.monthPoints, icon: Star },
+        { label: "Jami ball", value: r.totalPoints, icon: Trophy },
+        { label: "Umumiy ko'rsatgich", value: `${r.percent}%`, icon: Percent },
+      ],
+    };
+  }
+
   // FLIP: o'rin almashganda qator eski joyidan yangi joyiga sirg'alib boradi.
   const rowElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
   const prevTopsRef = useRef<Map<number, number>>(new Map());
@@ -75,7 +102,7 @@ function SupervisorRating() {
     }
     const prevTops = prevTopsRef.current;
     const nextTops = new Map<number, number>();
-    for (const r of rows) {
+    for (const r of listRows) {
       const el = rowElsRef.current.get(r.id);
       if (!el) continue;
       const top = el.getBoundingClientRect().top;
@@ -84,14 +111,11 @@ function SupervisorRating() {
       if (prevTop !== undefined && prevTop !== top) {
         const delta = prevTop - top;
         el.style.transform = `translateY(${delta}px)`;
-        animate(el, { translateY: [delta, 0], duration: 500, ease: "outQuad" });
+        animate(el, { translateY: [delta, 0], duration: 1100, ease: "outQuad" });
       }
     }
     prevTopsRef.current = nextTops;
-  }, [rows]);
-  const avg = rows.length ? rows.reduce((s, r) => s + r.percent, 0) / rows.length : 0;
-  const totalPoints = rows.reduce((s, r) => s + r.totalPoints, 0);
-  const currentOy = apiRows[0]?.oylar[apiRows[0].oylar.length - 1]?.oy ?? new Date().toISOString().slice(0, 7) + "-01";
+  }, [listRows]);
 
   return (
     <PublicShell>
@@ -104,18 +128,77 @@ function SupervisorRating() {
         </div>
 
         <div className="px-4 py-6 lg:px-8">
-          <div className="mb-2 hidden px-4 text-[10px] uppercase tracking-widest text-race-muted sm:flex">
-            <span className="w-12">№</span>
-            <span className="w-12">Yo'n.</span>
-            <span className="flex-1">Supervayzer</span>
-            <span className="w-20 text-right">Kunlik</span>
-            <span className="w-24 text-right">Oylik ball</span>
-            <span className="w-24 text-right">Jami ball</span>
-            <span className="w-32 text-right">Umumiy ko'rsatgich</span>
-          </div>
+          {hasPodium ? (
+            <div className="mb-8 flex items-end justify-center gap-3 sm:gap-8">
+              <PodiumSlot
+                avatar={second!.avatar}
+                name={second!.name}
+                percent={second!.percent}
+                rank={2}
+                size="sm"
+                avatarRef={() => {}}
+                onSelect={() => setSelected(toDetail(second!))}
+              />
+              <PodiumSlot
+                avatar={leader!.avatar}
+                name={leader!.name}
+                percent={leader!.percent}
+                rank={1}
+                size="lg"
+                crown
+                avatarRef={() => {}}
+                onSelect={() => setSelected(toDetail(leader!))}
+              />
+              <PodiumSlot
+                avatar={third!.avatar}
+                name={third!.name}
+                percent={third!.percent}
+                rank={3}
+                size="sm"
+                avatarRef={() => {}}
+                onSelect={() => setSelected(toDetail(third!))}
+              />
+            </div>
+          ) : leader ? (
+            <Reveal>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelected(toDetail(leader!))}
+                onKeyDown={(e) => e.key === "Enter" && setSelected(toDetail(leader!))}
+                className="card-row podium-glow mb-5 cursor-pointer active:scale-[0.99]"
+                style={{ borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }}
+              >
+                <span className="w-8 shrink-0 text-center text-2xl font-black tabular-nums">1</span>
+                <img
+                  src={leader.avatar}
+                  alt={leader.name}
+                  className="avatar-ring h-14 w-14 shrink-0"
+                  style={{ borderColor: "var(--color-accent-gold)" }}
+                />
+                <p className="min-w-0 flex-1 truncate text-sm font-bold uppercase tracking-wide">{leader.name}</p>
+                <span className="text-2xl font-black tabular-nums">
+                  <CountUp value={leader.percent} decimals={1} suffix="%" />
+                </span>
+              </div>
+            </Reveal>
+          ) : (
+            <p className="py-16 text-center text-sm text-race-muted">Hali supervayzer yo'q.</p>
+          )}
 
-          <div className="space-y-1.5">
-            {rows.map((r, i) => (
+          {listRows.length ? (
+            <div className="mb-2 hidden px-4 text-[10px] uppercase tracking-widest text-race-muted sm:flex">
+              <span className="w-10">№</span>
+              <span className="flex-1">Supervayzer</span>
+              <span className="w-20 text-right">Kunlik</span>
+              <span className="w-24 text-right">Oylik ball</span>
+              <span className="w-24 text-right">Jami ball</span>
+              <span className="w-24 text-right">Umumiy</span>
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            {listRows.map((r, i) => (
               <div
                 key={r.id}
                 ref={(el) => {
@@ -123,68 +206,52 @@ function SupervisorRating() {
                   else rowElsRef.current.delete(r.id);
                 }}
               >
-              <Reveal delay={i * 60}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() =>
-                    setSelected({
-                      name: r.name,
-                      avatar: r.avatar,
-                      place: r.place,
-                      percent: r.percent,
-                      stats: [
-                        { label: "Kunlik o'zgarish", value: `${r.daily >= 0 ? "+" : ""}${r.daily}%`, icon: TrendingUp },
-                        { label: "Oylik ball", value: r.monthPoints, icon: Star },
-                        { label: "Jami ball", value: r.totalPoints, icon: Trophy },
-                        { label: "Umumiy ko'rsatgich", value: `${r.percent}%`, icon: Percent },
-                      ],
-                    })
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.click()}
-                  className="race-row cursor-pointer rounded-md transition-transform duration-200 active:scale-[0.99]"
-                >
-                  <span className="ml-0 h-8 w-1.5 shrink-0 rounded-r bg-white/70 sm:h-10" />
-                  <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
-                    {r.place}
-                  </span>
-                  <span className="hidden sm:block sm:w-12">
-                    <Trend today={r.place} yesterday={r.yesterday} />
-                  </span>
-                  <img
-                    src={r.avatar}
-                    alt={r.name}
-                    className="cutout-avatar h-8 w-8 shrink-0 sm:h-10 sm:w-10"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
-                    {r.name}
-                  </span>
-                  <span
-                    className={`hidden w-20 text-right text-sm font-bold tabular-nums sm:block ${
-                      r.daily >= 0 ? "text-success" : "text-danger"
-                    }`}
+                <Reveal delay={Math.min(i * 45, 500)}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelected(toDetail(r))}
+                    onKeyDown={(e) => e.key === "Enter" && setSelected(toDetail(r))}
+                    className="card-row cursor-pointer active:scale-[0.99]"
                   >
-                    {r.daily >= 0 ? "+" : ""}
-                    {r.daily}%
-                  </span>
-                  <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
-                    {r.monthPoints}
-                  </span>
-                  <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
-                    {r.totalPoints}
-                  </span>
-                  <span className="w-16 shrink-0 text-right text-base font-black tabular-nums sm:w-32 sm:text-xl">
-                    <CountUp value={r.percent} decimals={1} suffix="%" />
-                  </span>
-                </div>
-              </Reveal>
+                    <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
+                      {r.place}
+                    </span>
+                    <img
+                      src={r.avatar}
+                      alt={r.name}
+                      className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
+                      style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
+                      {r.name}
+                    </span>
+                    <span
+                      className={`hidden w-20 text-right text-sm font-bold tabular-nums sm:block ${
+                        r.daily >= 0 ? "text-success" : "text-danger"
+                      }`}
+                    >
+                      {r.daily >= 0 ? "+" : ""}
+                      {r.daily}%
+                    </span>
+                    <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
+                      {r.monthPoints}
+                    </span>
+                    <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
+                      {r.totalPoints}
+                    </span>
+                    <span className="w-16 shrink-0 text-right text-base font-black tabular-nums sm:w-24 sm:text-xl">
+                      <CountUp value={r.percent} decimals={1} suffix="%" />
+                    </span>
+                  </div>
+                </Reveal>
               </div>
             ))}
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Reveal delay={120}>
-              <div className="flex items-center justify-between rounded-md border border-white/15 bg-white/5 px-5 py-4">
+              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-5 py-4">
                 <span className="text-sm font-bold uppercase tracking-widest text-race-muted">O'rtacha ko'rsatgich</span>
                 <span className="text-2xl font-black tabular-nums">
                   <CountUp value={Math.round(avg * 10) / 10} decimals={1} suffix="%" />
@@ -192,7 +259,7 @@ function SupervisorRating() {
               </div>
             </Reveal>
             <Reveal delay={160}>
-              <div className="flex items-center justify-between rounded-md border border-white/15 bg-white/5 px-5 py-4">
+              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-5 py-4">
                 <span className="text-sm font-bold uppercase tracking-widest text-race-muted">Jami reyting ball</span>
                 <span className="text-2xl font-black tabular-nums">
                   <CountUp value={totalPoints} />

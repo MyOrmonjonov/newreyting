@@ -10,10 +10,38 @@ import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { LEAGUES } from "@/lib/micco-data";
 
-// Fon-olib-tashlash kutubxonasi (~2.5MB, tensorflow) sahifa ochilganda emas,
-// faqat foydalanuvchi surat yuklashni boshlaganda yuklanadi — aks holda
-// "Ishchilar" sahifasiga o'tish sezilarli sekinlashadi.
-const loadBgRemoval = () => import("@/lib/bg-removal");
+// Katta suratlarni saqlashdan oldin kichraytiramiz (data URL sifatida backendga
+// yuboriladi va reytingda ham shu surat ishlatiladi).
+const MAX_PHOTO_DIMENSION = 480;
+
+function readAndResizePhoto(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, MAX_PHOTO_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        reject(new Error("Canvas kontekstini ochib bo'lmadi."));
+        return;
+      }
+      ctx.drawImage(image, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Suratni o'qib bo'lmadi."));
+    };
+    image.src = url;
+  });
+}
 
 export const Route = createFileRoute("/operator")({
   head: () => ({
@@ -215,7 +243,7 @@ function OperatorPage() {
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Natijani saqlab bo'lmadi"),
   });
 
-  // --- Surat (fon avtomatik olib tashlanadi, natija — kichraytirilgan shaffof PNG — ishchi bilan saqlanadi) ---
+  // --- Surat (kichraytirilgan holda, o'zgarishsiz saqlanadi — ishchi saqlanganda shu surat reytingda ham ko'rinadi) ---
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoStatus, setPhotoStatus] = useState<"idle" | "loading" | "error">("idle");
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -223,15 +251,9 @@ function OperatorPage() {
   async function handlePhotoFile(file: File) {
     setPhotoStatus("loading");
     try {
-      const url = URL.createObjectURL(file);
-      const image = new Image();
-      image.src = url;
-      await image.decode();
-      const { cutoutPersonFromImage } = await loadBgRemoval();
-      const cutout = await cutoutPersonFromImage(image);
-      setPhoto(cutout.dataUrl);
+      const dataUrl = await readAndResizePhoto(file);
+      setPhoto(dataUrl);
       setPhotoStatus("idle");
-      URL.revokeObjectURL(url);
     } catch (err) {
       setPhotoStatus("error");
       toast.error(err instanceof Error ? err.message : "Suratni qayta ishlab bo'lmadi.");
@@ -452,18 +474,11 @@ function OperatorPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Surat</label>
                   <div className="flex items-center gap-4">
-                    <div
-                      className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted"
-                      style={
-                        photo
-                          ? { background: "linear-gradient(140deg, var(--race-red), var(--race-red-deep))" }
-                          : undefined
-                      }
-                    >
+                    <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted">
                       {photoStatus === "loading" ? (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       ) : photo ? (
-                        <img src={photo} alt="Ishchi surati" className="cutout-avatar h-full w-full" />
+                        <img src={photo} alt="Ishchi surati" className="h-full w-full object-cover" />
                       ) : (
                         <UserRound className="h-6 w-6 text-muted-foreground" />
                       )}
@@ -479,22 +494,15 @@ function OperatorPage() {
                           if (file) void handlePhotoFile(file);
                         }}
                       />
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        onClick={() => {
-                          void loadBgRemoval().then((m) => m.warmUpSegmenter());
-                          photoInputRef.current?.click();
-                        }}
-                      >
+                      <button type="button" className="btn-ghost" onClick={() => photoInputRef.current?.click()}>
                         {photo ? "Suratni almashtirish" : "Surat yuklash"}
                       </button>
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        Fon avtomatik olib tashlanadi — ishchi saqlanganda shu surat reytingda ham ko'rinadi.
+                        Ishchi saqlanganda shu surat reytingda ham ko'rinadi.
                       </p>
                       {photoStatus === "error" ? (
                         <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
-                          <ImageOff className="h-3 w-3" /> Rasmda odam topilmadi — boshqasini sinab ko'ring.
+                          <ImageOff className="h-3 w-3" /> Suratni yuklab bo'lmadi — boshqasini sinab ko'ring.
                         </p>
                       ) : null}
                     </div>

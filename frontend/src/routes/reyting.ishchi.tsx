@@ -2,13 +2,27 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate, stagger } from "animejs";
-import { Star, TrendingUp, History, Percent, Trophy, CalendarDays, Medal, Award } from "lucide-react";
+import {
+  Star,
+  TrendingUp,
+  History,
+  Percent,
+  Trophy,
+  CalendarDays,
+  Medal,
+  Award,
+  ChevronsUp,
+  ChevronsDown,
+} from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, Trend } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
-import { LEAGUES, MONTHS, type LeagueKey } from "@/lib/micco-data";
+import { PodiumSlot } from "@/components/Podium";
+import { LEAGUES, MONTHS, AGENT_LEAGUE_POINTS, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, monthParam, stripeFor, type AgentApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, type AgentApiRow } from "@/lib/rating-api";
+import { cn } from "@/lib/utils";
+import { usePersistentState } from "@/lib/use-persistent-state";
 
 type Agent = {
   id: number;
@@ -20,7 +34,6 @@ type Agent = {
   today: number;
   yesterday: number;
   avatar: string;
-  stripe: string;
   trophies: number;
   yearsActive: number;
   league: AgentApiRow["league"];
@@ -57,7 +70,7 @@ type YillikAgent = {
 
 // TV/monitor ekranida ko'rsatish uchun — sahifani qo'lda yangilamasdan, o'zi
 // vaqti-vaqti bilan yangi ma'lumot bor-yo'qligini tekshirib turadi.
-const LIVE_REFRESH_MS = 15_000;
+const LIVE_REFRESH_MS = 5_000;
 
 function formatOyLabel(oy: string): string {
   const [year, month] = oy.split("-");
@@ -75,7 +88,6 @@ function toAgent(row: AgentApiRow): Agent {
     today: row.today,
     yesterday: row.yesterday,
     avatar: row.rasm || avatarFor(`${row.fullName}-${row.id}`),
-    stripe: stripeFor(row.id),
     trophies: row.trophies,
     yearsActive: row.yearsActive,
     league: row.league,
@@ -115,9 +127,9 @@ export const Route = createFileRoute("/reyting/ishchi")({
 });
 
 function AgentRating() {
-  const [league, setLeague] = useState<LeagueKey>("diamond");
-  const [view, setView] = useState<"oylik" | "yillik">("oylik");
-  const [date, setDate] = useState("2026-07-28");
+  const [league, setLeague] = usePersistentState<LeagueKey>("micco-reyting-ishchi-league", "diamond");
+  const [view, setView] = usePersistentState<"oylik" | "yillik">("micco-reyting-ishchi-view", "oylik");
+  const [date, setDate] = usePersistentState("micco-reyting-ishchi-date", "2026-07-28");
   const [selected, setSelected] = useState<Agent | null>(null);
   const [selectedYillik, setSelectedYillik] = useState<YillikAgent | null>(null);
   const oy = monthParam(date);
@@ -153,7 +165,7 @@ function AgentRating() {
         { label: "Kecha", value: selected.yesterday, icon: History },
         { label: "Foizi", value: `${selected.percent}%`, icon: Percent },
         { label: "Nechta kubok", value: selected.trophies, icon: Trophy },
-        { label: "Necha yildan beri", value: `${selected.yearsActive} yil`, icon: CalendarDays },
+        { label: "Necha yildan beri", value: selected.yearsActive, icon: CalendarDays },
       ],
     };
   }, [selected, selectedYillik]);
@@ -180,6 +192,7 @@ function AgentRating() {
   });
 
   const meta = LEAGUES.find((l) => l.key === league)!;
+  const leaguePoints = AGENT_LEAGUE_POINTS[league];
   const rows = useMemo(
     () => allAgents.filter((r) => r.league === league).map(toAgent),
     [allAgents, league],
@@ -193,9 +206,11 @@ function AgentRating() {
     [allYillikAgents, league],
   );
 
-  const leagueSize = rows.length;
   const leader = rows[0];
-  const rest = rows.slice(1);
+  const second = rows[1];
+  const third = rows[2];
+  const hasPodium = Boolean(leader && second && third);
+  const listRows = hasPodium ? rows.slice(3) : rows.slice(1);
 
   const leaderAvatarRef = useRef<HTMLImageElement | null>(null);
   const rowAvatarRefs = useRef<(HTMLImageElement | null)[]>([]);
@@ -237,7 +252,7 @@ function AgentRating() {
     }
     const prevTops = prevTopsRef.current;
     const nextTops = new Map<number, number>();
-    for (const r of rest) {
+    for (const r of listRows) {
       const el = rowElsRef.current.get(r.id);
       if (!el) continue;
       const top = el.getBoundingClientRect().top;
@@ -246,34 +261,115 @@ function AgentRating() {
       if (prevTop !== undefined && prevTop !== top) {
         const delta = prevTop - top;
         el.style.transform = `translateY(${delta}px)`;
-        animate(el, { translateY: [delta, 0], duration: 500, ease: "outQuad" });
+        animate(el, { translateY: [delta, 0], duration: 1100, ease: "outQuad" });
       }
     }
     prevTopsRef.current = nextTops;
-  }, [rest]);
+  }, [listRows]);
 
   return (
-    <PublicShell>
+    <PublicShell
+      onResetFilters={() => {
+        setLeague("diamond");
+        setView("oylik");
+        setDate("2026-07-28");
+      }}
+      filters={
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-race-muted">
+              Darajalar
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {LEAGUES.map((l, i) => (
+                <button
+                  key={l.key}
+                  onClick={() => setLeague(l.key)}
+                  className={cn(
+                    "rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wide transition-all duration-300",
+                    i === LEAGUES.length - 1 && LEAGUES.length % 2 === 1 ? "col-span-2" : "",
+                  )}
+                  style={
+                    league === l.key
+                      ? {
+                          backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
+                          borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
+                          color: l.accent,
+                        }
+                      : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
+                  }
+                >
+                  {l.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-race-muted">Davr</p>
+            <div className="mb-2 flex rounded-xl border border-white/15 bg-white/5 p-1">
+              {(["oylik", "yillik"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className="flex-1 rounded-lg px-3 py-2 text-[11px] font-bold uppercase tracking-widest transition-all duration-300"
+                  style={
+                    view === v
+                      ? { backgroundColor: "var(--color-race-red)", color: "white" }
+                      : { color: "var(--color-race-muted)" }
+                  }
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            {view === "oylik" ? (
+              <div className="w-full overflow-hidden rounded-xl border border-white/15 bg-white/5 transition-colors focus-within:border-brand">
+                <input
+                  type="month"
+                  value={date.slice(0, 7)}
+                  onChange={(e) => setDate(`${e.target.value}-01`)}
+                  className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                />
+              </div>
+            ) : (
+              <div className="w-full overflow-hidden rounded-xl border border-white/15 bg-white/5 transition-colors focus-within:border-brand">
+                <input
+                  type="number"
+                  value={yil}
+                  onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
+                  className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      }
+    >
       <div className="overflow-hidden rounded-2xl border border-white/10">
-        {/* Liga navigatsiyasi */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-          <div className="scrollbar-none relative flex max-w-full gap-1 overflow-x-auto rounded-xl bg-white/5 p-1">
+        {/* Liga navigatsiyasi — desktop/tablet; mobilda PublicShell'ning "Filterlar" kartasi ishlatiladi */}
+        <div className="hidden flex-wrap items-center justify-center gap-4 border-b border-white/10 px-5 py-5 sm:flex">
+          <div className="scrollbar-none relative flex max-w-full flex-wrap justify-center gap-2 overflow-x-auto">
             {LEAGUES.map((l) => (
               <button
                 key={l.key}
                 onClick={() => setLeague(l.key)}
-                className="relative shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-bold tracking-widest transition-all duration-300 sm:px-4 sm:text-xs"
+                className="league-pill"
                 style={
                   league === l.key
-                    ? { backgroundColor: l.accent, color: "oklch(0.18 0.01 260)", boxShadow: `0 0 24px -6px ${l.glow}` }
-                    : { color: "var(--color-race-muted)" }
+                    ? {
+                        backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
+                        borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
+                        color: l.accent,
+                        boxShadow: `0 0 24px -8px ${l.glow}`,
+                      }
+                    : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
                 }
               >
                 {l.name}
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:w-auto sm:justify-end">
             <div className="flex rounded-xl border border-white/15 bg-white/5 p-1">
               {(["oylik", "yillik"] as const).map((v) => (
                 <button
@@ -291,41 +387,34 @@ function AgentRating() {
               ))}
             </div>
             {view === "oylik" ? (
-              <input
-                type="month"
-                value={date.slice(0, 7)}
-                onChange={(e) => setDate(`${e.target.value}-01`)}
-                className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-race-fg outline-none transition-colors focus:border-brand"
-              />
+              <div className="overflow-hidden rounded-xl border border-white/15 bg-white/5 transition-colors focus-within:border-brand">
+                <input
+                  type="month"
+                  value={date.slice(0, 7)}
+                  onChange={(e) => setDate(`${e.target.value}-01`)}
+                  className="block max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                />
+              </div>
             ) : (
-              <input
-                type="number"
-                value={yil}
-                onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
-                className="w-24 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-race-fg outline-none transition-colors focus:border-brand"
-              />
+              <div className="w-24 overflow-hidden rounded-xl border border-white/15 bg-white/5 transition-colors focus-within:border-brand">
+                <input
+                  type="number"
+                  value={yil}
+                  onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
+                  className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                />
+              </div>
             )}
           </div>
         </div>
 
         <div key={league} className="page-enter px-4 py-6 lg:px-8">
           {/* Sarlavha */}
-          <div className="mb-6 flex items-center gap-4">
-            <div
-              className="grid h-14 w-14 shrink-0 place-items-center rounded-xl text-xl font-black"
-              style={{ background: `linear-gradient(140deg, ${meta.accent}, ${meta.glow})`, color: "#17181c" }}
-            >
-              {meta.name[0]}
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight lg:text-4xl" style={{ color: meta.accent }}>
-                {meta.name} LEAGUE
-              </h1>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-race-muted">{meta.slogan}</p>
-              <p className="mt-1 text-xs font-bold tracking-[0.3em] text-race-muted">
-                {view === "oylik" ? formatOyLabel(oy) : `${yil}-YIL YAKUNI`}
-              </p>
-            </div>
+          <div className="mb-14 flex items-center justify-center gap-2 text-center sm:mb-16">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.accent }} />
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-race-muted">
+              {meta.name} · {view === "oylik" ? formatOyLabel(oy) : `${yil}-yil yakuni`}
+            </p>
           </div>
 
           {view === "yillik" ? (
@@ -338,18 +427,24 @@ function AgentRating() {
                       tabIndex={0}
                       onClick={() => setSelectedYillik(r)}
                       onKeyDown={(e) => e.key === "Enter" && setSelectedYillik(r)}
-                      className={`race-row cursor-pointer rounded-md transition-transform duration-200 active:scale-[0.99] ${
-                        r.place === 1 ? "podium-glow" : ""
-                      }`}
+                      className={`card-row cursor-pointer active:scale-[0.99] ${r.place === 1 ? "podium-glow" : ""}`}
+                      style={
+                        r.place === 1
+                          ? { borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }
+                          : undefined
+                      }
                     >
-                      <span
-                        className="h-8 w-1.5 shrink-0 rounded-r sm:h-11"
-                        style={{ backgroundColor: r.place === 1 ? meta.accent : "rgba(255,255,255,.5)" }}
-                      />
                       <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
                         {r.place}
                       </span>
-                      <img src={r.avatar} alt={r.fullName} className="cutout-avatar h-8 w-8 shrink-0 sm:h-11 sm:w-11" />
+                      <img
+                        src={r.avatar}
+                        alt={r.fullName}
+                        className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
+                        style={{
+                          borderColor: r.place === 1 ? "var(--color-accent-warm)" : "color-mix(in oklab, white 20%, transparent)",
+                        }}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">{r.fullName}</p>
                         <p className="truncate text-[10px] text-white/70 sm:text-[11px]">
@@ -379,73 +474,80 @@ function AgentRating() {
             )
           ) : leader ? (
           <>
-          {/* 1-o'rin bloki */}
-          <Reveal>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelected(leader)}
-              onKeyDown={(e) => e.key === "Enter" && setSelected(leader)}
-              className="podium-glow relative mb-5 cursor-pointer overflow-hidden rounded-xl transition-transform duration-300 active:scale-[0.99]"
-              style={{
-                background:
-                  "linear-gradient(96deg, var(--color-race-red) 0%, var(--color-race-red) 58%, color-mix(in oklab, var(--race-red-deep) 90%, black) 100%)",
-                clipPath: "polygon(0 0, 100% 0, calc(100% - 40px) 100%, 0 100%)",
-              }}
-            >
-              <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 lg:px-10 lg:py-8">
-                <span className="text-4xl font-black leading-none sm:text-6xl lg:text-8xl">1</span>
-                <div
-                  className="h-16 w-16 shrink-0 overflow-hidden rounded-full sm:h-28 sm:w-28 lg:h-36 lg:w-36"
-                  style={{ background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,.14), transparent 70%)" }}
-                >
-                  <img
-                    ref={leaderAvatarRef}
-                    src={leader.avatar}
-                    alt={leader.fullName}
-                    className="cutout-avatar h-full w-full"
-                  />
-                </div>
-                <div className="min-w-[140px] flex-1">
-                  <p className="text-base font-black uppercase leading-tight tracking-tight sm:text-2xl lg:text-4xl">
-                    {leader.fullName}
-                  </p>
-                  <p className="mt-1 truncate text-[10px] uppercase tracking-[0.2em] text-white/75 sm:text-xs">
-                    Supervayzer: {leader.supervisor}
-                  </p>
-                  <div className="mt-2 hidden flex-wrap gap-5 text-xs uppercase tracking-widest text-white/75 sm:mt-3 sm:flex">
-                    <span>
-                      Reyting ball: <b className="text-white">{leader.points}</b>
-                    </span>
-                    <span>
-                      Bugun: <b className="text-white">{leader.today}</b>
-                    </span>
-                    <span>
-                      Kecha: <b className="text-white">{leader.yesterday}</b>
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-black tabular-nums sm:text-4xl lg:text-6xl">
-                    <CountUp value={leader.percent} decimals={1} suffix="%" />
-                  </p>
-                  <p className="hidden text-[10px] uppercase tracking-[0.25em] text-white/70 sm:block">
-                    Plan bajarish
-                  </p>
-                </div>
-              </div>
-              <p className="border-t border-white/10 px-4 py-2 text-center text-[10px] uppercase tracking-widest text-white/60 sm:hidden">
-                To'liq ma'lumot uchun bosing
-              </p>
+          {/* Podium — top 3 o'rin */}
+          {hasPodium ? (
+            <div className="mb-8 flex items-end justify-center gap-3 sm:gap-8">
+              <PodiumSlot
+                avatar={second!.avatar}
+                name={second!.fullName}
+                percent={second!.percent}
+                rank={2}
+                size="sm"
+                avatarRef={(el) => {
+                  rowAvatarRefs.current[0] = el;
+                }}
+                onSelect={() => setSelected(second!)}
+              />
+              <PodiumSlot
+                avatar={leader.avatar}
+                name={leader.fullName}
+                percent={leader.percent}
+                rank={1}
+                size="lg"
+                crown
+                avatarRef={leaderAvatarRef}
+                onSelect={() => setSelected(leader)}
+              />
+              <PodiumSlot
+                avatar={third!.avatar}
+                name={third!.fullName}
+                percent={third!.percent}
+                rank={3}
+                size="sm"
+                avatarRef={(el) => {
+                  rowAvatarRefs.current[1] = el;
+                }}
+                onSelect={() => setSelected(third!)}
+              />
             </div>
-          </Reveal>
+          ) : (
+            <Reveal>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelected(leader)}
+                onKeyDown={(e) => e.key === "Enter" && setSelected(leader)}
+                className="card-row podium-glow mb-5 cursor-pointer active:scale-[0.99]"
+                style={{ borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }}
+              >
+                <span className="w-8 shrink-0 text-center text-2xl font-black tabular-nums">1</span>
+                <img
+                  ref={leaderAvatarRef}
+                  src={leader.avatar}
+                  alt={leader.fullName}
+                  className="avatar-ring h-14 w-14 shrink-0"
+                  style={{ borderColor: "var(--color-accent-gold)" }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold uppercase tracking-wide">{leader.fullName}</p>
+                  <p className="truncate text-[11px] text-race-muted">Supervayzer: {leader.supervisor}</p>
+                </div>
+                <span className="text-2xl font-black tabular-nums">
+                  <CountUp value={leader.percent} decimals={1} suffix="%" />
+                </span>
+              </div>
+            </Reveal>
+          )}
 
           {/* Qolgan o'rinlar */}
-          <div className="space-y-1.5">
-            {rest.map((r, i) => {
-              const showZones = leagueSize >= 10;
-              const dangerBoundary = leagueSize - 5;
-              const inDanger = league !== "rising" && showZones && r.place > dangerBoundary;
+          <div className="space-y-2">
+            {listRows.map((r, i) => {
+              // Nizomga ko'ra: har liga 27 kishilik — top-5 (1-5) ko'tariladi,
+              // oxirgi 5 (23-27) pastroq ligaga tushadi (o'rin qat'iy, joriy son emas).
+              const DANGER_BOUNDARY = 22;
+              const inPromo = league !== "diamond" && r.place <= 5;
+              const inDanger = league !== "rising" && r.place > DANGER_BOUNDARY;
+              const avatarRefIndex = (hasPodium ? 2 : 0) + i;
               return (
                 <div
                   key={r.id}
@@ -460,38 +562,45 @@ function AgentRating() {
                       tabIndex={0}
                       onClick={() => setSelected(r)}
                       onKeyDown={(e) => e.key === "Enter" && setSelected(r)}
-                      className={`race-row ${inDanger ? "race-row-danger" : ""} cursor-pointer rounded-md transition-transform duration-200 active:scale-[0.99]`}
+                      className={`card-row ${inPromo ? "card-row-promo" : ""} ${inDanger ? "card-row-danger" : ""} cursor-pointer active:scale-[0.99]`}
                     >
-                      <span className="h-8 w-1.5 shrink-0 rounded-r sm:h-11" style={{ backgroundColor: r.stripe }} />
+                      <span className="flex w-4 shrink-0 justify-center">
+                        {inPromo ? (
+                          <ChevronsUp className="zone-chevrons-up h-4 w-4 text-success" />
+                        ) : inDanger ? (
+                          <ChevronsDown className="zone-chevrons-down h-4 w-4 text-danger" />
+                        ) : null}
+                      </span>
                       <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
                         {r.place}
                       </span>
                       <img
                         ref={(el) => {
-                          rowAvatarRefs.current[i] = el;
+                          rowAvatarRefs.current[avatarRefIndex] = el;
                         }}
                         src={r.avatar}
                         alt={r.fullName}
-                        className="cutout-avatar h-8 w-8 shrink-0 sm:h-11 sm:w-11"
+                        className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
+                        style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
                           {r.fullName}
                         </p>
-                        <p className="truncate text-[10px] text-white/70 sm:text-[11px]">
+                        <p className="truncate text-[10px] text-race-muted sm:text-[11px]">
                           Supervayzer: {r.supervisor}
                         </p>
                       </div>
                       <div className="hidden w-24 text-right sm:block">
-                        <p className="text-[10px] uppercase tracking-widest text-white/60">Reyting ball</p>
+                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Reyting ball</p>
                         <p className="text-sm font-bold tabular-nums">{r.points}</p>
                       </div>
                       <div className="hidden w-16 text-right md:block">
-                        <p className="text-[10px] uppercase tracking-widest text-white/60">Bugun</p>
+                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Bugun</p>
                         <p className="text-sm font-bold tabular-nums">{r.today}</p>
                       </div>
                       <div className="hidden w-16 text-right md:block">
-                        <p className="text-[10px] uppercase tracking-widest text-white/60">Kecha</p>
+                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Kecha</p>
                         <p className="text-sm font-bold tabular-nums">{r.yesterday}</p>
                       </div>
                       <div className="flex w-14 shrink-0 items-center justify-end gap-1 sm:w-28 sm:gap-2">
@@ -501,11 +610,11 @@ function AgentRating() {
                     </div>
                   </Reveal>
 
-                  {showZones && league !== "diamond" && r.place === 5 ? (
+                  {league !== "diamond" && r.place === 5 ? (
                     <ZoneLine tone="up" label="Ko'tarilish zonasi — top 5 o'rin keyingi oy yuqori ligaga" />
                   ) : null}
-                  {showZones && league !== "rising" && r.place === dangerBoundary ? (
-                    <ZoneLine tone="down" label="Pasayish zonasi — oxirgi 5 o'rin keyingi oy pastroq ligaga" />
+                  {league !== "rising" && r.place === DANGER_BOUNDARY ? (
+                    <ZoneLine tone="down" label="Pasayish zonasi — 23-27 o'rin keyingi oy pastroq ligaga" />
                   ) : null}
                 </div>
               );
@@ -513,8 +622,8 @@ function AgentRating() {
           </div>
 
           <p className="mt-6 text-[11px] leading-relaxed text-race-muted">
-            Reyting ball — mavsum davomida yig'iladigan MICCO ichki ball tizimi (1-o'rin 24 ball, 2-o'rin 22, 3-o'rin
-            20, so'ng har o'ringa −1, 23-o'rin va undan past 0 ball).
+            Reyting ball — {meta.name} ligasi: 1-o'rin {leaguePoints.p1} ball, 2-o'rin {leaguePoints.p2}, 3-o'rin{" "}
+            {leaguePoints.p3}, so'ng har o'ringa −1, {leaguePoints.floor} balldan pastga tushmaydi.
           </p>
           </>
           ) : (
@@ -536,19 +645,21 @@ function AgentRating() {
 
 function ZoneLine({ tone, label }: { tone: "up" | "down"; label: string }) {
   const color = tone === "up" ? "var(--color-success)" : "var(--color-danger)";
+  const [short] = label.split(" — ");
   return (
     <Reveal>
-      <div className="my-2 flex items-center gap-3">
-        <span className="trend-arrow text-sm font-bold" style={{ color }}>
+      <div className="my-2 flex items-center gap-2 sm:gap-3">
+        <span className="trend-arrow shrink-0 text-xs font-semibold sm:text-sm sm:font-bold" style={{ color }}>
           {tone === "up" ? "▲" : "▼"}
         </span>
         <span
-          className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+          className="whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide sm:px-2.5 sm:text-[10px] sm:font-bold sm:tracking-widest"
           style={{ color, border: `1px solid ${color}`, backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
         >
-          {label}
+          <span className="sm:hidden">{short}</span>
+          <span className="hidden sm:inline">{label}</span>
         </span>
-        <span className="h-0.5 flex-1 rounded-full" style={{ backgroundColor: color }} />
+        <span className="h-px flex-1 rounded-full sm:h-0.5" style={{ backgroundColor: color }} />
       </div>
     </Reveal>
   );

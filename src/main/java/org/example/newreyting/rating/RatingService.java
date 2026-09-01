@@ -8,11 +8,13 @@ import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
 import org.example.newreyting.rating.dto.YillikIshchiResponse;
 import org.example.newreyting.rating.dto.YillikOyResponse;
+import org.example.newreyting.rating.dto.YillikSupervayzerResponse;
 import org.example.newreyting.result.OylikNatija;
 import org.example.newreyting.result.OylikNatijaRepository;
 import org.example.newreyting.user.Role;
 import org.example.newreyting.user.User;
 import org.example.newreyting.user.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,13 +45,16 @@ public class RatingService {
     private final OylikNatijaRepository natijaRepository;
     private final UserRepository userRepository;
     private final OylikYakunRepository yakunRepository;
+    private final PlaceHistoryService placeHistoryService;
 
     public RatingService(IshchiRepository ishchiRepository, OylikNatijaRepository natijaRepository,
-                          UserRepository userRepository, OylikYakunRepository yakunRepository) {
+                          UserRepository userRepository, OylikYakunRepository yakunRepository,
+                          PlaceHistoryService placeHistoryService) {
         this.ishchiRepository = ishchiRepository;
         this.natijaRepository = natijaRepository;
         this.userRepository = userRepository;
         this.yakunRepository = yakunRepository;
+        this.placeHistoryService = placeHistoryService;
     }
 
     // Mezon: 1-o'rin = 24, 2 = 22, 3 = 20, 4-22-o'rin = har biriga -1, 23+ = 0
@@ -93,6 +98,10 @@ public class RatingService {
         return Math.round(v * 10) / 10.0;
     }
 
+    // "Bugun/Kecha" uchun oldingi o'rin endi bazada saqlanadi (IshchiPlaceSnapshot orqali,
+    // PlaceHistoryService.previousPlace) — backend qayta ishga tushirilsa/deploy qilinsa ham
+    // yo'qolmaydi (avval xotirada saqlanardi, shuning uchun har deploy'da tozalanib qolardi).
+
     private Map<Long, int[]> sumByIshchi(List<OylikNatija> rows) {
         Map<Long, int[]> sums = new HashMap<>();
         for (OylikNatija n : rows) {
@@ -116,6 +125,45 @@ public class RatingService {
             return frozenToResponse(frozen, month);
         }
         return computeLiveIshchiReyting(month);
+    }
+
+    /**
+     * Joriy oy uchun har bir ishchining HOZIRGI jonli o'rnini "kechagi" bazaviy qiymat sifatida
+     * yozib qo'yadi (DailyPlaceSnapshotScheduler tomonidan har kuni bir marta chaqiriladi).
+     * Shundan keyingi "bugun/kecha" solishtiruvi aynan shu — kunlik — farqni ko'rsatadi.
+     */
+    @Transactional
+    public void refreshDailyPlaceSnapshots() {
+        LocalDate month = LocalDate.now().withDayOfMonth(1);
+        for (AgentResponse r : computeLiveIshchiReyting(month)) {
+            updateSnapshotSafe(month, r.id(), r.place());
+        }
+    }
+
+    /**
+     * {@code placeHistoryService.previousPlace}'ni chaqiradi; agar boshqa parallel so'rov ayni shu
+     * ishchi uchun oydagi BIRINCHI qatorni bir zumda ilgari yozib ulgurgan bo'lsa (unique
+     * constraint to'qnashuvi), bitta marta qayta chaqiradi — endi qator mavjud bo'lgani uchun bu
+     * safar shunchaki o'qib qaytaradi. Qayta chaqirish ATAYLAB YANGI tashqi chaqiruv (o'z-o'zini
+     * chaqirish emas) — shundagina PlaceHistoryService o'zining REQUIRES_NEW tranzaksiyasini yangi
+     * boshlaydi (Postgres'da xato bergan tranzaksiya "aborted" bo'lib qoladi, o'sha tranzaksiya
+     * ICHIDA qayta urinish ham xato beradi).
+     */
+    private int previousPlaceSafe(LocalDate month, Long ishchiId, int place) {
+        try {
+            return placeHistoryService.previousPlace(month, ishchiId, place);
+        } catch (DataIntegrityViolationException raceLost) {
+            return placeHistoryService.previousPlace(month, ishchiId, place);
+        }
+    }
+
+    /** {@link #previousPlaceSafe} bilan bir xil mulohaza — {@code updateSnapshot} uchun. */
+    private void updateSnapshotSafe(LocalDate month, Long ishchiId, int place) {
+        try {
+            placeHistoryService.updateSnapshot(month, ishchiId, place);
+        } catch (DataIntegrityViolationException raceLost) {
+            placeHistoryService.updateSnapshot(month, ishchiId, place);
+        }
     }
 
     private List<AgentResponse> frozenToResponse(List<OylikYakun> frozen, LocalDate month) {
@@ -184,6 +232,7 @@ public class RatingService {
                 place++;
                 int years = Period.between(s.ishchi().getIshGaKirganSana(), LocalDate.now()).getYears();
                 int points = s.hasData() ? pointsForLeague(league, place) : 0;
+                int yesterday = previousPlaceSafe(month, s.ishchi().getId(), place);
                 result.add(new AgentResponse(
                         s.ishchi().getId(),
                         place,
@@ -194,7 +243,7 @@ public class RatingService {
                         round1(s.percent()),
                         points,
                         place,
-                        place,
+                        yesterday,
                         trophiesByIshchi.getOrDefault(s.ishchi().getId(), 0),
                         years,
                         league,
@@ -232,6 +281,12 @@ public class RatingService {
         for (AgentResponse a : live) {
             nextLeague.put(a.id(), a.league());
         }
+        // Juda kichik liga (masalan test ma'lumotida bir necha kishilik guruh) bo'lsa, bitta ishchi
+        // shu bir finalizeMonth chaqiruvida ham ko'tarilishga (pastki liganing top-5'i sifatida),
+        // ham tushirilishga (yuqori liganing bottom-5'i sifatida, keyingi juftlikda) loyiq chiqishi
+        // mumkin. `promoted` shu ishchilarni belgilab, keyinroq tushirilishini oldini oladi — aks
+        // holda oxirgi (demote) yozuv avvalgi (promote) yozuvni bosib, ko'tarilish yo'qolib qolardi.
+        Set<Long> promoted = new HashSet<>();
         for (int i = 0; i < LEAGUE_KEYS.length - 1; i++) {
             String upper = LEAGUE_KEYS[i];
             String lower = LEAGUE_KEYS[i + 1];
@@ -240,12 +295,17 @@ public class RatingService {
 
             int promoteCount = Math.min(5, lowerGroup.size());
             for (AgentResponse a : lowerGroup) {
-                if (a.place() <= promoteCount) nextLeague.put(a.id(), upper);
+                if (a.place() <= promoteCount) {
+                    nextLeague.put(a.id(), upper);
+                    promoted.add(a.id());
+                }
             }
             int demoteCount = Math.min(5, upperGroup.size());
             int demoteThreshold = upperGroup.size() - demoteCount;
             for (AgentResponse a : upperGroup) {
-                if (a.place() > demoteThreshold) nextLeague.put(a.id(), lower);
+                if (a.place() > demoteThreshold && !promoted.contains(a.id())) {
+                    nextLeague.put(a.id(), lower);
+                }
             }
         }
         for (Map.Entry<Long, String> e : nextLeague.entrySet()) {
@@ -490,6 +550,69 @@ public class RatingService {
                         round1(s.avgPercent())
                 ));
             }
+        }
+        return result;
+    }
+
+    /**
+     * Yillik yakuniy Supervayzer reytingi (MICCO Supervisor League Nizomi — "Yillik nominatsiya"
+     * va "Teng ball" bo'limlari): 12 oylik ballari jamlanadi, teng ball bo'lsa Nizomdagi tartib
+     * bilan ajratiladi — ko'proq 1-o'rin, so'ng ko'proq 2-o'rin, so'ng ko'proq 3-o'rin, so'ng
+     * o'rtacha KPI foizi yuqoriroq bo'lgan supervayzer ustun turadi (liga tushunchasi yo'q,
+     * yagona reyting). 1-o'rin — "Supervisor of the Year | Elite Supervisor" nomzodi.
+     */
+    public List<YillikSupervayzerResponse> computeYillikSupervayzerReyting(int yil) {
+        List<User> supervayzerlar = userRepository.findByRoleOrderByFamiliyaAsc(Role.SUPERVAYZER);
+
+        Map<Long, Integer> totalBall = new HashMap<>();
+        Map<Long, Integer> firstPlaces = new HashMap<>();
+        Map<Long, Integer> secondPlaces = new HashMap<>();
+        Map<Long, Integer> thirdPlaces = new HashMap<>();
+        Map<Long, Double> percentSum = new HashMap<>();
+
+        for (int oy = 1; oy <= 12; oy++) {
+            LocalDate month = LocalDate.of(yil, oy, 1);
+            for (RankedUserResponse r : computeSupervayzerReyting(month)) {
+                totalBall.merge(r.id(), r.monthPoints(), Integer::sum);
+                percentSum.merge(r.id(), r.percent(), Double::sum);
+                // Faqat haqiqiy ball olingan oydagi o'rin hisobga olinadi (bo'sh oyda "1-o'rin"
+                // bo'lib chiqishi mumkin, lekin bu haqiqiy g'alaba emas).
+                if (r.monthPoints() > 0) {
+                    if (r.place() == 1) firstPlaces.merge(r.id(), 1, Integer::sum);
+                    else if (r.place() == 2) secondPlaces.merge(r.id(), 1, Integer::sum);
+                    else if (r.place() == 3) thirdPlaces.merge(r.id(), 1, Integer::sum);
+                }
+            }
+        }
+
+        record Scored(User user, int total, int firsts, int seconds, int thirds, double avgPercent) {
+        }
+
+        List<Scored> scored = supervayzerlar.stream()
+                .map(u -> new Scored(
+                        u,
+                        totalBall.getOrDefault(u.getId(), 0),
+                        firstPlaces.getOrDefault(u.getId(), 0),
+                        secondPlaces.getOrDefault(u.getId(), 0),
+                        thirdPlaces.getOrDefault(u.getId(), 0),
+                        percentSum.getOrDefault(u.getId(), 0.0) / 12.0
+                ))
+                .sorted(Comparator.comparingInt(Scored::total).reversed()
+                        .thenComparing(Comparator.comparingInt(Scored::firsts).reversed())
+                        .thenComparing(Comparator.comparingInt(Scored::seconds).reversed())
+                        .thenComparing(Comparator.comparingInt(Scored::thirds).reversed())
+                        .thenComparing(Comparator.comparingDouble(Scored::avgPercent).reversed()))
+                .toList();
+
+        List<YillikSupervayzerResponse> result = new ArrayList<>();
+        int place = 0;
+        for (Scored s : scored) {
+            place++;
+            String nomination = place == 1 && s.total() > 0 ? "Supervisor of the Year | Elite Supervisor" : null;
+            result.add(new YillikSupervayzerResponse(
+                    s.user().getId(), s.user().getFullName(), place, nomination,
+                    s.total(), s.firsts(), s.seconds(), s.thirds(), round1(s.avgPercent())
+            ));
         }
         return result;
     }

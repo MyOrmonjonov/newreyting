@@ -49,6 +49,10 @@
   --color-race-red-deep: var(--race-red-deep);
   --color-race-fg: var(--race-fg);
   --color-race-muted: var(--race-muted);
+  --color-accent-warm: var(--accent-warm);
+  --color-accent-warm-deep: var(--accent-warm-deep);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-silver: var(--accent-silver);
   --font-sans: "Inter Tight", "Segoe UI", system-ui, sans-serif;
   --font-display: "Archivo", "Inter Tight", system-ui, sans-serif;
   --shadow-glow: 0 8px 24px -10px color-mix(in oklab, var(--brand) 55%, transparent);
@@ -64,7 +68,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.21 0.01 260);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.53 0.24 27);
+  --primary: oklch(0.58 0.15 242);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.27 0.012 260);
   --secondary-foreground: oklch(0.985 0 0);
@@ -76,20 +80,24 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.53 0.24 27);
-  --brand: oklch(0.53 0.24 27);
+  --ring: oklch(0.58 0.15 242);
+  --brand: oklch(0.58 0.15 242);
   --brand-foreground: oklch(0.985 0 0);
   --brand-soft: color-mix(in oklab, var(--race-red) 22%, var(--race-panel));
   --success: oklch(0.62 0.16 152);
   --warning: oklch(0.78 0.15 82);
   --danger: oklch(0.58 0.22 27);
   --track: oklch(1 0 0 / 12%);
-  --race-bg: oklch(0.16 0.008 260);
-  --race-panel: oklch(0.21 0.01 260);
-  --race-red: oklch(0.53 0.24 27);
-  --race-red-deep: oklch(0.4 0.2 27);
+  --race-bg: oklch(0.15 0.012 254);
+  --race-panel: oklch(0.205 0.015 254);
+  --race-red: oklch(0.58 0.15 242);
+  --race-red-deep: oklch(0.42 0.13 242);
   --race-fg: oklch(0.985 0 0);
   --race-muted: oklch(0.78 0.01 260);
+  --accent-warm: oklch(0.72 0.18 48);
+  --accent-warm-deep: oklch(0.56 0.17 38);
+  --accent-gold: oklch(0.83 0.16 88);
+  --accent-silver: oklch(0.82 0.014 260);
 }
 
 @layer base {
@@ -134,12 +142,12 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 0 color-mix(in oklab, var(--race-red) 45%, transparent),
+      0 0 0 0 color-mix(in oklab, var(--accent-gold) 45%, transparent),
       0 20px 60px -30px oklch(0 0 0 / 0.8);
   }
   50% {
     box-shadow:
-      0 0 42px 6px color-mix(in oklab, var(--race-red) 32%, transparent),
+      0 0 42px 6px color-mix(in oklab, var(--accent-gold) 32%, transparent),
       0 20px 60px -30px oklch(0 0 0 / 0.8);
   }
 }
@@ -154,6 +162,36 @@
   }
 }
 
+@keyframes micco-drift-up {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes micco-drift-down {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+@keyframes micco-drift-side {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
 @keyframes micco-sheen {
   from {
     transform: translateX(-120%);
@@ -161,65 +199,6 @@
   to {
     transform: translateX(220%);
   }
-}
-
-@keyframes micco-cube-float {
-  0%,
-  100% {
-    transform: translateY(0) rotateX(-8deg) rotateY(-22deg);
-  }
-  50% {
-    transform: translateY(-6px) rotateX(-8deg) rotateY(22deg);
-  }
-}
-
-@keyframes micco-trophy-drift {
-  0%,
-  100% {
-    transform: translate(var(--drift-x, 0), 0) rotate(var(--drift-r, 0deg));
-  }
-  50% {
-    transform: translate(calc(var(--drift-x, 0) * -1), -8px) rotate(calc(var(--drift-r, 0deg) * -1));
-  }
-}
-
-.cube-scene {
-  perspective: 700px;
-}
-
-.cube-3d {
-  position: relative;
-  transform-style: preserve-3d;
-  animation: micco-cube-float 7s ease-in-out infinite;
-}
-
-.cube-face {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 1rem;
-  border: 1px solid color-mix(in oklab, white 22%, transparent);
-  background-color: var(--color-race-panel);
-  background-size: cover;
-  background-position: center;
-}
-
-.cube-face-tint {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    145deg,
-    color-mix(in oklab, var(--color-race-red) 45%, transparent),
-    color-mix(in oklab, var(--race-red-deep) 55%, transparent)
-  );
-}
-
-.cube-face-front .cube-face-tint {
-  background: linear-gradient(
-    145deg,
-    color-mix(in oklab, var(--color-race-red) 12%, transparent),
-    transparent 60%
-  );
 }
 
 
@@ -242,7 +221,19 @@
 }
 
 .trend-arrow {
-  animation: micco-bounce-y 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  display: inline-flex;
+}
+
+.trend-up {
+  animation: micco-drift-up 1.8s ease-in-out infinite;
+}
+
+.trend-down {
+  animation: micco-drift-down 1.8s ease-in-out infinite;
+}
+
+.trend-flat {
+  animation: micco-drift-side 1.8s ease-in-out infinite;
 }
 
 .scrollbar-none {
@@ -357,48 +348,172 @@
 
 /* ---------- Reyting (race) qatlami ---------- */
 
-@utility race-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.6rem 1rem 0.6rem 0;
-  color: var(--color-race-fg);
-  background: linear-gradient(
-    92deg,
-    var(--race-red) 0%,
-    var(--race-red) 62%,
-    color-mix(in oklab, var(--race-red-deep) 92%, black) 100%
-  );
-  clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%);
-  transition:
-    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    filter 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  &:hover {
-    transform: translateY(-3px) translateX(3px);
-    filter: brightness(1.1);
-    box-shadow: 0 16px 30px -18px oklch(0 0 0 / 0.9);
-  }
-}
-
-@utility race-row-danger {
-  background: linear-gradient(
-    92deg,
-    color-mix(in oklab, var(--race-red-deep) 85%, black) 0%,
-    oklch(0.24 0.06 25) 100%
-  );
-}
-
 @utility podium-glow {
   animation: micco-breathe 3s ease-in-out infinite;
 }
 
-@utility cutout-avatar {
+/* ---------- "Kartochka" reyting dizayni (fon o'chirilmagan suratlar bilan ham toza ko'rinadi) ---------- */
+
+@keyframes micco-pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 0%, transparent);
+  }
+}
+
+@keyframes micco-sparkle {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.live-dot {
+  display: inline-block;
+  height: 0.4rem;
+  width: 0.4rem;
+  border-radius: 9999px;
+  background-color: currentColor;
+  animation: micco-pulse-dot 1.8s ease-in-out infinite;
+}
+
+.avatar-ring {
   object-fit: cover;
   border-radius: 9999px;
-  background: transparent;
-  filter: drop-shadow(0 6px 14px oklch(0 0 0 / 0.35));
-  -webkit-mask-image: radial-gradient(circle at 50% 45%, black 62%, transparent 78%);
-  mask-image: radial-gradient(circle at 50% 45%, black 62%, transparent 78%);
+  background-color: var(--color-race-panel);
+  border-width: 2px;
+  border-style: solid;
+}
+
+.podium-sparkle {
+  animation: micco-sparkle 2.2s ease-in-out infinite;
+}
+
+@keyframes micco-spark-emit {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--spark-dx), var(--spark-dy)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+.podium-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 9999px;
+  background-color: currentColor;
+  animation: micco-spark-emit 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes micco-podium-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+  50% {
+    transform: scale(1.07);
+    filter: drop-shadow(0 0 16px currentColor);
+  }
+}
+
+.podium-pulse {
+  animation: micco-podium-pulse 2.4s ease-in-out infinite;
+}
+
+
+@utility card-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in oklab, white 10%, transparent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in oklab, white 6%, transparent),
+    color-mix(in oklab, white 1.5%, transparent)
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklab, white 8%, transparent) inset,
+    0 12px 24px -18px oklch(0 0 0 / 0.7);
+  padding: 0.55rem 1rem;
+  color: var(--color-race-fg);
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+  &:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, white 20%, transparent);
+    box-shadow:
+      0 1px 0 0 color-mix(in oklab, white 10%, transparent) inset,
+      0 18px 32px -18px oklch(0 0 0 / 0.85);
+  }
+}
+
+@utility card-row-danger {
+  border-color: color-mix(in oklab, var(--color-danger) 35%, transparent);
+  background-color: color-mix(in oklab, var(--color-danger) 8%, transparent);
+}
+
+@utility card-row-promo {
+  border-color: color-mix(in oklab, var(--color-success) 35%, transparent);
+  background-color: color-mix(in oklab, var(--color-success) 8%, transparent);
+}
+
+@keyframes micco-chevron-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+}
+
+.zone-chevrons-up {
+  animation:
+    micco-chevron-glow 2.2s ease-in-out infinite,
+    micco-drift-up 2.2s ease-in-out infinite;
+}
+
+.zone-chevrons-down {
+  animation:
+    micco-chevron-glow 2.2s ease-in-out infinite,
+    micco-drift-down 2.2s ease-in-out infinite;
+}
+
+@utility league-pill {
+  position: relative;
+  display: inline-flex;
+  shrink: 0;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  border: 1px solid transparent;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
