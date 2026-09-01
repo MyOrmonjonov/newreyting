@@ -3,10 +3,10 @@ import { CountUp, Reveal } from "@/components/motion";
 
 const CROWN_COLOR = "var(--color-accent-gold)";
 
-/** Rank-asosidagi medal ranglari: 1-oltin, 2-ko'k, 3-to'q sariq (MICCO dizayn spetsifikatsiyasi). */
+/** Rank-asosidagi medal ranglari: 1-oltin, 2-kumush, 3-bronza (yulduzcha rasmlariga mos). */
 function accentFor(rank: number): { color: string; glow: string } {
   if (rank === 1) return { color: "var(--color-accent-gold)", glow: "var(--color-accent-gold)" };
-  if (rank === 2) return { color: "var(--color-brand)", glow: "var(--color-brand)" };
+  if (rank === 2) return { color: "var(--color-accent-silver)", glow: "var(--color-accent-silver)" };
   return { color: "var(--color-accent-warm)", glow: "var(--color-accent-warm)" };
 }
 
@@ -138,7 +138,7 @@ export function PodiumSlot({
             className="absolute inset-0 rounded-full blur-md"
             style={{ background: `radial-gradient(circle, ${glow} 0%, transparent 70%)`, opacity: 0.55 }}
           />
-          <img src={starImageFor(rank)} alt={`#${rank}`} className="relative h-14 w-auto sm:h-16" />
+          <img src={starImageFor(rank)} alt={`#${rank}`} className="relative h-11 w-auto sm:h-[3.25rem]" />
         </span>
 
         <p className="mt-2 line-clamp-2 max-w-[7rem] text-center text-[10px] font-bold leading-tight uppercase tracking-wide sm:max-w-[8rem] sm:text-xs">
