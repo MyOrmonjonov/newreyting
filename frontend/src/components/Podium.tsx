@@ -73,24 +73,44 @@ function MedalStar({ rank, color, glow, className }: { rank: number; color: stri
 }
 
 /** Metall/hajmli oltin toj — gradient + soya bilan (tekis lucide ikonka o'rniga). */
+// Toj tepasining konturi (chapdan o'ngga) — shundan markaziy asosga (12,18) faset uchburchaklari tortiladi.
+const CROWN_OUTLINE: [number, number][] = [
+  [2, 18],
+  [4, 8],
+  [8, 12],
+  [12, 4],
+  [16, 12],
+  [20, 8],
+  [22, 18],
+];
+const CROWN_BASE: [number, number] = [12, 18];
+
 function GoldCrown({ className }: { className: string }) {
   const color = CROWN_COLOR;
+  const [bx, by] = CROWN_BASE;
   return (
     <svg viewBox="0 0 24 24" className={className} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}>
       <defs>
-        <linearGradient id="podium-crown-grad" x1="10%" y1="0%" x2="90%" y2="100%">
-          <stop offset="0%" stopColor={`color-mix(in oklab, white 80%, ${color})`} />
-          <stop offset="50%" stopColor={color} />
-          <stop offset="100%" stopColor={`color-mix(in oklab, black 42%, ${color})`} />
+        <linearGradient id="podium-crown-grad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor={`color-mix(in oklab, white 85%, ${color})`} />
+          <stop offset="30%" stopColor={`color-mix(in oklab, white 30%, ${color})`} />
+          <stop offset="60%" stopColor={color} />
+          <stop offset="100%" stopColor={`color-mix(in oklab, black 45%, ${color})`} />
         </linearGradient>
       </defs>
-      <path
-        d="M2 18 L4 8 L8 12 L12 4 L16 12 L20 8 L22 18 Z"
-        fill="url(#podium-crown-grad)"
-        stroke={`color-mix(in oklab, black 30%, ${color})`}
-        strokeWidth="0.5"
-        strokeLinejoin="round"
-      />
+      {CROWN_OUTLINE.slice(0, -1).map(([x1, y1], i) => {
+        const [x2, y2] = CROWN_OUTLINE[i + 1]!;
+        return (
+          <polygon
+            key={i}
+            points={`${bx},${by} ${x1},${y1} ${x2},${y2}`}
+            fill="url(#podium-crown-grad)"
+            stroke={`color-mix(in oklab, black 40%, ${color})`}
+            strokeWidth="0.3"
+            strokeLinejoin="round"
+          />
+        );
+      })}
       <rect
         x="2"
         y="18"
@@ -105,8 +125,16 @@ function GoldCrown({ className }: { className: string }) {
       <circle cx="12" cy="4" r="1.6" fill="url(#podium-crown-grad)" />
       <circle cx="20" cy="8" r="1.4" fill="url(#podium-crown-grad)" />
       <circle cx="7" cy="19.5" r="0.7" fill={`color-mix(in oklab, white 70%, ${color})`} />
-      <circle cx="12" cy="19.5" r="0.7" fill={`color-mix(in oklab, white 70%, ${color})`} />
       <circle cx="17" cy="19.5" r="0.7" fill={`color-mix(in oklab, white 70%, ${color})`} />
+      {/* Markaziy medalyon — ichida "1" raqami (HTML overlay orqali qo'yiladi) */}
+      <circle
+        cx="12"
+        cy="19.5"
+        r="2.3"
+        fill={`color-mix(in oklab, black 65%, ${color})`}
+        stroke="url(#podium-crown-grad)"
+        strokeWidth="0.6"
+      />
     </svg>
   );
 }
@@ -166,7 +194,7 @@ export function PodiumSlot({
       >
         <div className="relative">
           {crown ? (
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 sm:-top-8">
+            <div className="absolute -top-9 left-1/2 -translate-x-1/2 sm:-top-10">
               {crownSparks.map((s, i) => (
                 <span
                   key={i}
@@ -183,7 +211,15 @@ export function PodiumSlot({
                   }
                 />
               ))}
-              <GoldCrown className="podium-pulse relative h-7 w-7 sm:h-8 sm:w-8" />
+              <span className="podium-pulse relative grid place-items-center">
+                <GoldCrown className="relative h-9 w-9 sm:h-10 sm:w-10" />
+                <span
+                  className="absolute text-[8px] font-black leading-none sm:text-[9px]"
+                  style={{ left: "50%", top: "81%", transform: "translate(-50%, -50%)", color: "color-mix(in oklab, white 90%, transparent)" }}
+                >
+                  1
+                </span>
+              </span>
             </div>
           ) : null}
 
