@@ -13,6 +13,11 @@ import {
   Award,
   ChevronsUp,
   ChevronsDown,
+  Gem,
+  Crown,
+  Shield,
+  Circle,
+  type LucideIcon,
 } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { CountUp, Reveal, Trend } from "@/components/motion";
@@ -125,6 +130,14 @@ export const Route = createFileRoute("/reyting/ishchi")({
   }),
   component: AgentRating,
 });
+
+const LEAGUE_ICONS: Record<LeagueKey, LucideIcon> = {
+  diamond: Gem,
+  gold: Crown,
+  silver: Circle,
+  bronze: Shield,
+  rising: TrendingUp,
+};
 
 function AgentRating() {
   const [league, setLeague] = usePersistentState<LeagueKey>("micco-reyting-ishchi-league", "diamond");
@@ -281,27 +294,31 @@ function AgentRating() {
               Darajalar
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {LEAGUES.map((l, i) => (
-                <button
-                  key={l.key}
-                  onClick={() => setLeague(l.key)}
-                  className={cn(
-                    "rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wide transition-all duration-300",
-                    i === LEAGUES.length - 1 && LEAGUES.length % 2 === 1 ? "col-span-2" : "",
-                  )}
-                  style={
-                    league === l.key
-                      ? {
-                          backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
-                          borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
-                          color: l.accent,
-                        }
-                      : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
-                  }
-                >
-                  {l.name}
-                </button>
-              ))}
+              {LEAGUES.map((l, i) => {
+                const Icon = LEAGUE_ICONS[l.key];
+                return (
+                  <button
+                    key={l.key}
+                    onClick={() => setLeague(l.key)}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wide transition-all duration-300",
+                      i === LEAGUES.length - 1 && LEAGUES.length % 2 === 1 ? "col-span-2" : "",
+                    )}
+                    style={
+                      league === l.key
+                        ? {
+                            backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
+                            borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
+                            color: l.accent,
+                          }
+                        : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
+                    }
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {l.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div>
@@ -349,25 +366,29 @@ function AgentRating() {
         {/* Liga navigatsiyasi — desktop/tablet; mobilda PublicShell'ning "Filterlar" kartasi ishlatiladi */}
         <div className="hidden flex-wrap items-center justify-center gap-4 border-b border-white/10 px-5 py-5 sm:flex">
           <div className="scrollbar-none relative flex max-w-full flex-wrap justify-center gap-2 overflow-x-auto">
-            {LEAGUES.map((l) => (
-              <button
-                key={l.key}
-                onClick={() => setLeague(l.key)}
-                className="league-pill"
-                style={
-                  league === l.key
-                    ? {
-                        backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
-                        borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
-                        color: l.accent,
-                        boxShadow: `0 0 24px -8px ${l.glow}`,
-                      }
-                    : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
-                }
-              >
-                {l.name}
-              </button>
-            ))}
+            {LEAGUES.map((l) => {
+              const Icon = LEAGUE_ICONS[l.key];
+              return (
+                <button
+                  key={l.key}
+                  onClick={() => setLeague(l.key)}
+                  className="league-pill flex items-center gap-1.5"
+                  style={
+                    league === l.key
+                      ? {
+                          backgroundColor: `color-mix(in oklab, ${l.accent} 16%, transparent)`,
+                          borderColor: `color-mix(in oklab, ${l.accent} 55%, transparent)`,
+                          color: l.accent,
+                          boxShadow: `0 0 24px -8px ${l.glow}`,
+                        }
+                      : { borderColor: "color-mix(in oklab, white 12%, transparent)", color: "var(--color-race-muted)" }
+                  }
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {l.name}
+                </button>
+              );
+            })}
           </div>
           <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:w-auto sm:justify-end">
             <div className="flex rounded-xl border border-white/15 bg-white/5 p-1">
