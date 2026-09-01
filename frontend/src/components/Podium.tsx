@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from "react";
-import { Crown } from "lucide-react";
+import { Crown, Star } from "lucide-react";
 import { CountUp, Reveal } from "@/components/motion";
 
 const CROWN_COLOR = "var(--color-accent-gold)";
@@ -125,15 +125,14 @@ export function PodiumSlot({
           </div>
         </div>
 
-        <span
-          className="mt-2.5 min-w-[2.75rem] rounded-lg border px-2.5 py-1 text-center text-[10px] font-black tabular-nums sm:min-w-[3.25rem] sm:text-xs"
-          style={{
-            borderColor: `color-mix(in oklab, ${color} 55%, transparent)`,
-            backgroundColor: `color-mix(in oklab, ${color} 18%, transparent)`,
-            color,
-          }}
-        >
-          #{rank}
+        <span className="relative mt-2.5 inline-grid place-items-center">
+          <Star className="h-7 w-7 sm:h-8 sm:w-8" style={{ color, fill: color }} strokeWidth={1.5} />
+          <span
+            className="absolute inset-0 grid place-items-center text-[9px] font-black sm:text-[10px]"
+            style={{ color: "var(--color-race-panel)" }}
+          >
+            {rank}
+          </span>
         </span>
 
         <p className="mt-2 line-clamp-2 max-w-[7rem] text-center text-[10px] font-bold leading-tight uppercase tracking-wide sm:max-w-[8rem] sm:text-xs">
