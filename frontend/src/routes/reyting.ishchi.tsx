@@ -367,7 +367,7 @@ function AgentRating() {
         </div>
       }
     >
-      <div className="overflow-hidden rounded-2xl border border-white/10">
+      <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/[0.02]">
         {/* Liga navigatsiyasi — desktop/tablet; mobilda PublicShell'ning "Filterlar" kartasi ishlatiladi */}
         <div className="hidden flex-wrap items-center justify-center gap-4 border-b border-white/10 px-5 py-5 sm:flex">
           <div className="scrollbar-none relative flex max-w-full flex-wrap justify-center gap-2 overflow-x-auto">
@@ -440,7 +440,7 @@ function AgentRating() {
 
         <div key={league} className="page-enter px-4 py-6 lg:px-8">
           {/* Sarlavha */}
-          <div className="mb-14 flex items-center justify-center gap-2 text-center sm:mb-16">
+          <div className="mb-6 flex items-center justify-center gap-2 text-center sm:mb-8">
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.accent }} />
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-race-muted">
               {meta.name} · {view === "oylik" ? formatOyLabel(oy) : `${yil}-yil yakuni`}
@@ -617,11 +617,25 @@ function AgentRating() {
                         <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
                           {r.fullName}
                         </p>
-                        <p className="truncate text-[10px] text-race-muted sm:text-[11px]">{r.supervisor}</p>
+                        <p className="truncate text-[10px] text-race-muted sm:text-[11px]">
+                          Supervayzer: {r.supervisor}
+                        </p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-                        <span className="text-sm font-black tabular-nums sm:text-lg">{r.percent}%</span>
+                      <div className="hidden w-24 text-right sm:block">
+                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Reyting ball</p>
+                        <p className="text-sm font-bold tabular-nums">{r.points}</p>
+                      </div>
+                      <div className="hidden w-16 text-right md:block">
+                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Bugun</p>
+                        <p className="text-sm font-bold tabular-nums">{r.today}</p>
+                      </div>
+                      <div className="hidden w-16 text-right md:block">
+                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Kecha</p>
+                        <p className="text-sm font-bold tabular-nums">{r.yesterday}</p>
+                      </div>
+                      <div className="flex w-14 shrink-0 items-center justify-end gap-1 sm:w-28 sm:gap-2">
                         <Trend today={r.today} yesterday={r.yesterday} />
+                        <span className="text-sm font-black tabular-nums sm:text-lg">{r.percent}%</span>
                       </div>
                     </div>
                   </Reveal>
