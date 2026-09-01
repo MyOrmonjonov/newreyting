@@ -63,10 +63,10 @@ function MedalStar({ rank, color, glow, className }: { rank: number; color: stri
       <circle
         cx={cx}
         cy={cy}
-        r="6.5"
+        r="4.4"
         fill={`color-mix(in oklab, black 70%, ${color})`}
         stroke={`url(#${gradId})`}
-        strokeWidth="1"
+        strokeWidth="0.8"
       />
     </svg>
   );
@@ -221,10 +221,10 @@ export function PodiumSlot({
           </div>
         </div>
 
-        <span className="relative z-10 -mt-6 inline-grid place-items-center sm:-mt-7">
-          <MedalStar rank={rank} color={color} glow={glow} className="h-14 w-14 sm:h-16 sm:w-16" />
+        <span className="relative z-10 -mt-7 inline-grid place-items-center sm:-mt-8">
+          <MedalStar rank={rank} color={color} glow={glow} className="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" />
           <span
-            className="absolute inset-0 grid place-items-center text-sm font-black sm:text-base"
+            className="absolute inset-0 grid place-items-center text-xs font-black sm:text-sm"
             style={{ color: "color-mix(in oklab, white 88%, transparent)" }}
           >
             {rank}
