@@ -141,7 +141,11 @@ export function PodiumSlot({
           </div>
         </div>
 
-        <span className="relative z-10 -mt-7 inline-grid place-items-center sm:-mt-8">
+        <span
+          className={`relative z-10 inline-grid place-items-center ${
+            rank === 1 ? "-mt-7 sm:-mt-8" : "-mt-5 sm:-mt-6"
+          }`}
+        >
           <span
             className="absolute inset-0 rounded-full blur-md"
             style={{ background: `radial-gradient(circle, ${glow} 0%, transparent 70%)`, opacity: 0.55 }}
