@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { animate, stagger } from "animejs";
+import { animate } from "animejs";
 import {
   Star,
   TrendingUp,
@@ -224,35 +224,6 @@ function AgentRating() {
   const third = rows[2];
   const hasPodium = Boolean(leader && second && third);
   const listRows = hasPodium ? rows.slice(3) : rows.slice(1);
-
-  const leaderAvatarRef = useRef<HTMLImageElement | null>(null);
-  const rowAvatarRefs = useRef<(HTMLImageElement | null)[]>([]);
-
-  // Reytingdagi odamlar "jim" turmasin — har bir avatar sekin, tartibsiz
-  // (staggered) suzib-nafas oladi. Faqat transform animatsiya qilinadi (GPU-friendly).
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    if (leaderAvatarRef.current) {
-      animate(leaderAvatarRef.current, {
-        translateY: [0, -7, 0],
-        loop: true,
-        duration: 2600,
-        ease: "inOutSine",
-      });
-    }
-
-    const avatars = rowAvatarRefs.current.filter((el): el is HTMLImageElement => el !== null);
-    if (avatars.length) {
-      animate(avatars, {
-        translateY: [0, -4, 0],
-        loop: true,
-        duration: 2100,
-        delay: stagger(90, { start: 150, from: "first" }),
-        ease: "inOutSine",
-      });
-    }
-  }, [rows]);
 
   // FLIP: har LIVE_REFRESH_MS'da yangi ma'lumot kelganda o'rin almashgan qatorlar
   // sakrab qolmasdan, eski joyidan yangi joyiga sirg'alib boradi (jonli tablo hissi).
@@ -513,9 +484,7 @@ function AgentRating() {
                 percent={second!.percent}
                 rank={2}
                 size="sm"
-                avatarRef={(el) => {
-                  rowAvatarRefs.current[0] = el;
-                }}
+                avatarRef={() => {}}
                 onSelect={() => setSelected(second!)}
               />
               <PodiumSlot
@@ -525,7 +494,7 @@ function AgentRating() {
                 rank={1}
                 size="lg"
                 crown
-                avatarRef={leaderAvatarRef}
+                avatarRef={() => {}}
                 onSelect={() => setSelected(leader)}
               />
               <PodiumSlot
@@ -534,9 +503,7 @@ function AgentRating() {
                 percent={third!.percent}
                 rank={3}
                 size="sm"
-                avatarRef={(el) => {
-                  rowAvatarRefs.current[1] = el;
-                }}
+                avatarRef={() => {}}
                 onSelect={() => setSelected(third!)}
               />
             </div>
@@ -552,7 +519,6 @@ function AgentRating() {
               >
                 <span className="w-8 shrink-0 text-center text-2xl font-black tabular-nums">1</span>
                 <img
-                  ref={leaderAvatarRef}
                   src={leader.avatar}
                   alt={leader.fullName}
                   className="avatar-ring h-14 w-14 shrink-0"
@@ -577,7 +543,6 @@ function AgentRating() {
               const DANGER_BOUNDARY = 22;
               const inPromo = league !== "diamond" && r.place <= 5;
               const inDanger = league !== "rising" && r.place > DANGER_BOUNDARY;
-              const avatarRefIndex = (hasPodium ? 2 : 0) + i;
               return (
                 <div
                   key={r.id}
@@ -605,9 +570,6 @@ function AgentRating() {
                         {r.place}
                       </span>
                       <img
-                        ref={(el) => {
-                          rowAvatarRefs.current[avatarRefIndex] = el;
-                        }}
                         src={r.avatar}
                         alt={r.fullName}
                         className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
