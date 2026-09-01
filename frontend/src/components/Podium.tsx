@@ -39,11 +39,17 @@ export function PodiumSlot({
 }) {
   const { color, glow } = accentFor(rank);
   const avatarSize = size === "lg" ? "h-20 w-20 sm:h-24 sm:w-24" : "h-14 w-14 sm:h-16 sm:w-16";
-  const sparkRadius = size === "lg" ? 50 : 38;
+  // Zarrachalar avatar YUZIDAN emas, uning halqa CHETIDAN chiqib tarqalishi uchun — boshlanish
+  // nuqtasi (avatarEdge) taxminan avatar radiusiga teng, tugash nuqtasi (sparkRadius) shundan
+  // biroz tashqarida (professional, sezilarli lekin haddan tashqari uzoq bo'lmagan masofa).
+  const avatarEdge = size === "lg" ? 40 : 28;
+  const sparkRadius = size === "lg" ? 56 : 42;
   const sparkCount = 6;
   const sparks = Array.from({ length: sparkCount }, (_, i) => {
     const angle = (i / sparkCount) * Math.PI * 2;
     return {
+      x0: Math.round(Math.cos(angle) * avatarEdge),
+      y0: Math.round(Math.sin(angle) * avatarEdge),
       dx: Math.round(Math.cos(angle) * sparkRadius),
       dy: Math.round(Math.sin(angle) * sparkRadius),
       delay: (i / sparkCount) * 1.8,
@@ -116,6 +122,8 @@ export function PodiumSlot({
                 style={
                   {
                     color,
+                    "--spark-x0": `${s.x0}px`,
+                    "--spark-y0": `${s.y0}px`,
                     "--spark-dx": `${s.dx}px`,
                     "--spark-dy": `${s.dy}px`,
                     animationDelay: `${s.delay}s`,

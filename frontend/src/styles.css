@@ -408,11 +408,14 @@
 
 @keyframes micco-spark-emit {
   0% {
-    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+    transform: translate(-50%, -50%) translate(var(--spark-x0, 0px), var(--spark-y0, 0px)) rotate(45deg) scale(0.5);
+    opacity: 0;
+  }
+  20% {
     opacity: 1;
   }
   100% {
-    transform: translate(-50%, -50%) translate(var(--spark-dx), var(--spark-dy)) scale(0.2);
+    transform: translate(-50%, -50%) translate(var(--spark-dx), var(--spark-dy)) rotate(45deg) scale(0.15);
     opacity: 0;
   }
 }
@@ -421,11 +424,12 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 0.14rem;
-  height: 0.14rem;
-  border-radius: 9999px;
+  width: 0.16rem;
+  height: 0.16rem;
+  border-radius: 1px;
   background-color: currentColor;
-  animation: micco-spark-emit 1.8s ease-out infinite;
+  box-shadow: 0 0 3px 0.5px currentColor;
+  animation: micco-spark-emit 2s ease-out infinite;
   pointer-events: none;
 }
 
