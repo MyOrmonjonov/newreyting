@@ -95,10 +95,11 @@ export function PublicShell({
               key={t.to}
               to={t.to}
               className={cn(
-                "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-all duration-300 sm:px-4 sm:text-xs",
+                "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-all duration-300 sm:px-4 sm:text-xs",
                 pathname === t.to ? "bg-white/10 text-brand shadow-glow" : "text-race-muted hover:text-race-fg",
               )}
             >
+              <t.icon className="h-3.5 w-3.5 shrink-0" />
               {t.label}
             </Link>
           ))}

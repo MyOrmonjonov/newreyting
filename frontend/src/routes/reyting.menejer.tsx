@@ -106,7 +106,7 @@ function ManagerRating() {
 
   return (
     <PublicShell>
-      <div className="overflow-hidden rounded-2xl border border-white/10">
+      <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/[0.02]">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight lg:text-3xl">MENEJER REYTINGI</h1>
