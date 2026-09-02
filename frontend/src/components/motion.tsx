@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronsUp, ChevronsDown, Minus } from "lucide-react";
+import { ChevronsUp, ChevronsDown, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Intersection-Observer asosidagi scroll reveal + stagger */
@@ -173,7 +173,7 @@ export function Trend({ today, yesterday }: { today: number; yesterday: number }
       ) : tone === "down" ? (
         <ChevronsDown className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={3} />
       ) : (
-        <Minus className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={3} />
+        <ChevronsRight className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={3} />
       )}
     </span>
   );

@@ -198,7 +198,7 @@ function SupervisorRating() {
           ) : null}
 
           <div className="space-y-2">
-            {listRows.map((r, i) => (
+            {listRows.map((r) => (
               <div
                 key={r.id}
                 ref={(el) => {
@@ -206,45 +206,43 @@ function SupervisorRating() {
                   else rowElsRef.current.delete(r.id);
                 }}
               >
-                <Reveal delay={Math.min(i * 45, 500)}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setSelected(toDetail(r))}
-                    onKeyDown={(e) => e.key === "Enter" && setSelected(toDetail(r))}
-                    className="card-row cursor-pointer active:scale-[0.99]"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelected(toDetail(r))}
+                  onKeyDown={(e) => e.key === "Enter" && setSelected(toDetail(r))}
+                  className="card-row cursor-pointer active:scale-[0.99]"
+                >
+                  <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
+                    {r.place}
+                  </span>
+                  <img
+                    src={r.avatar}
+                    alt={r.name}
+                    className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
+                    style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
+                    {r.name}
+                  </span>
+                  <span
+                    className={`hidden w-20 text-right text-sm font-bold tabular-nums sm:block ${
+                      r.daily >= 0 ? "text-success" : "text-danger"
+                    }`}
                   >
-                    <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
-                      {r.place}
-                    </span>
-                    <img
-                      src={r.avatar}
-                      alt={r.name}
-                      className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
-                      style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
-                      {r.name}
-                    </span>
-                    <span
-                      className={`hidden w-20 text-right text-sm font-bold tabular-nums sm:block ${
-                        r.daily >= 0 ? "text-success" : "text-danger"
-                      }`}
-                    >
-                      {r.daily >= 0 ? "+" : ""}
-                      {r.daily}%
-                    </span>
-                    <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
-                      {r.monthPoints}
-                    </span>
-                    <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
-                      {r.totalPoints}
-                    </span>
-                    <span className="w-16 shrink-0 text-right text-base font-black tabular-nums sm:w-24 sm:text-xl">
-                      <CountUp value={r.percent} decimals={1} suffix="%" />
-                    </span>
-                  </div>
-                </Reveal>
+                    {r.daily >= 0 ? "+" : ""}
+                    {r.daily}%
+                  </span>
+                  <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
+                    {r.monthPoints}
+                  </span>
+                  <span className="hidden w-24 text-right text-sm font-bold tabular-nums sm:block">
+                    {r.totalPoints}
+                  </span>
+                  <span className="w-16 shrink-0 text-right text-base font-black tabular-nums sm:w-24 sm:text-xl">
+                    <CountUp value={r.percent} decimals={1} suffix="%" />
+                  </span>
+                </div>
               </div>
             ))}
           </div>

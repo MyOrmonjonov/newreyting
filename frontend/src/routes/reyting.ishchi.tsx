@@ -429,51 +429,50 @@ function AgentRating() {
           {view === "yillik" ? (
             yillikRows.length ? (
               <div className="space-y-1.5">
-                {yillikRows.map((r, i) => (
-                  <Reveal key={r.id} delay={Math.min(i * 45, 500)}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedYillik(r)}
-                      onKeyDown={(e) => e.key === "Enter" && setSelectedYillik(r)}
-                      className={`card-row cursor-pointer active:scale-[0.99] ${r.place === 1 ? "podium-glow" : ""}`}
-                      style={
-                        r.place === 1
-                          ? { borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }
-                          : undefined
-                      }
-                    >
-                      <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
-                        {r.place}
-                      </span>
-                      <img
-                        src={r.avatar}
-                        alt={r.fullName}
-                        className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
-                        style={{
-                          borderColor: r.place === 1 ? "var(--color-accent-warm)" : "color-mix(in oklab, white 20%, transparent)",
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">{r.fullName}</p>
-                        <p className="truncate text-[10px] text-white/70 sm:text-[11px]">
-                          {r.nomination ?? `Supervayzer: ${r.supervisor}`}
-                        </p>
-                      </div>
-                      <div className="hidden w-16 text-right md:block">
-                        <p className="text-[10px] uppercase tracking-widest text-white/60">1-o'rin</p>
-                        <p className="text-sm font-bold tabular-nums">{r.firstPlaces}</p>
-                      </div>
-                      <div className="hidden w-20 text-right sm:block">
-                        <p className="text-[10px] uppercase tracking-widest text-white/60">O'rtacha %</p>
-                        <p className="text-sm font-bold tabular-nums">{r.avgPercent}%</p>
-                      </div>
-                      <div className="w-16 shrink-0 text-right sm:w-24">
-                        <p className="text-[10px] uppercase tracking-widest text-white/60">Jami ball</p>
-                        <p className="text-base font-black tabular-nums sm:text-xl">{r.totalBall}</p>
-                      </div>
+                {yillikRows.map((r) => (
+                  <div
+                    key={r.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedYillik(r)}
+                    onKeyDown={(e) => e.key === "Enter" && setSelectedYillik(r)}
+                    className={`card-row cursor-pointer active:scale-[0.99] ${r.place === 1 ? "podium-glow" : ""}`}
+                    style={
+                      r.place === 1
+                        ? { borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }
+                        : undefined
+                    }
+                  >
+                    <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
+                      {r.place}
+                    </span>
+                    <img
+                      src={r.avatar}
+                      alt={r.fullName}
+                      className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
+                      style={{
+                        borderColor: r.place === 1 ? "var(--color-accent-warm)" : "color-mix(in oklab, white 20%, transparent)",
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">{r.fullName}</p>
+                      <p className="truncate text-[10px] text-white/70 sm:text-[11px]">
+                        {r.nomination ?? `Supervayzer: ${r.supervisor}`}
+                      </p>
                     </div>
-                  </Reveal>
+                    <div className="hidden w-16 text-right md:block">
+                      <p className="text-[10px] uppercase tracking-widest text-white/60">1-o'rin</p>
+                      <p className="text-sm font-bold tabular-nums">{r.firstPlaces}</p>
+                    </div>
+                    <div className="hidden w-20 text-right sm:block">
+                      <p className="text-[10px] uppercase tracking-widest text-white/60">O'rtacha %</p>
+                      <p className="text-sm font-bold tabular-nums">{r.avgPercent}%</p>
+                    </div>
+                    <div className="w-16 shrink-0 text-right sm:w-24">
+                      <p className="text-[10px] uppercase tracking-widest text-white/60">Jami ball</p>
+                      <p className="text-base font-black tabular-nums sm:text-xl">{r.totalBall}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -545,7 +544,7 @@ function AgentRating() {
 
           {/* Qolgan o'rinlar */}
           <div className="space-y-2">
-            {listRows.map((r, i) => {
+            {listRows.map((r) => {
               // Nizomga ko'ra: har liga 27 kishilik — top-5 (1-5) ko'tariladi,
               // oxirgi 5 (23-27) pastroq ligaga tushadi (o'rin qat'iy, joriy son emas).
               const DANGER_BOUNDARY = 22;
@@ -559,56 +558,54 @@ function AgentRating() {
                     else rowElsRef.current.delete(r.id);
                   }}
                 >
-                  <Reveal delay={Math.min(i * 45, 500)}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelected(r)}
-                      onKeyDown={(e) => e.key === "Enter" && setSelected(r)}
-                      className={`card-row ${inPromo ? "card-row-promo" : ""} ${inDanger ? "card-row-danger" : ""} cursor-pointer active:scale-[0.99]`}
-                    >
-                      <span className="flex w-4 shrink-0 justify-center">
-                        {inPromo ? (
-                          <ChevronsUp className="zone-chevrons-up h-4 w-4 text-success" />
-                        ) : inDanger ? (
-                          <ChevronsDown className="zone-chevrons-down h-4 w-4 text-danger" />
-                        ) : null}
-                      </span>
-                      <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
-                        {r.place}
-                      </span>
-                      <img
-                        src={r.avatar}
-                        alt={r.fullName}
-                        className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
-                        style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
-                          {r.fullName}
-                        </p>
-                        <p className="truncate text-[10px] text-race-muted sm:text-[11px]">
-                          Supervayzer: {r.supervisor}
-                        </p>
-                      </div>
-                      <div className="hidden w-24 text-right sm:block">
-                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Reyting ball</p>
-                        <p className="text-sm font-bold tabular-nums">{r.points}</p>
-                      </div>
-                      <div className="hidden w-16 text-right md:block">
-                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Bugun</p>
-                        <p className="text-sm font-bold tabular-nums">{r.today}</p>
-                      </div>
-                      <div className="hidden w-16 text-right md:block">
-                        <p className="text-[10px] uppercase tracking-widest text-race-muted">Kecha</p>
-                        <p className="text-sm font-bold tabular-nums">{r.yesterday}</p>
-                      </div>
-                      <div className="flex w-14 shrink-0 items-center justify-end gap-1 sm:w-28 sm:gap-2">
-                        <Trend today={r.today} yesterday={r.yesterday} />
-                        <span className="text-sm font-black tabular-nums sm:text-lg">{r.percent}%</span>
-                      </div>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelected(r)}
+                    onKeyDown={(e) => e.key === "Enter" && setSelected(r)}
+                    className={`card-row ${inPromo ? "card-row-promo" : ""} ${inDanger ? "card-row-danger" : ""} cursor-pointer active:scale-[0.99]`}
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      {inPromo ? (
+                        <ChevronsUp className="zone-chevrons-up h-4 w-4 text-success" />
+                      ) : inDanger ? (
+                        <ChevronsDown className="zone-chevrons-down h-4 w-4 text-danger" />
+                      ) : null}
+                    </span>
+                    <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
+                      {r.place}
+                    </span>
+                    <img
+                      src={r.avatar}
+                      alt={r.fullName}
+                      className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
+                      style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
+                        {r.fullName}
+                      </p>
+                      <p className="truncate text-[10px] text-race-muted sm:text-[11px]">
+                        Supervayzer: {r.supervisor}
+                      </p>
                     </div>
-                  </Reveal>
+                    <div className="hidden w-24 text-right sm:block">
+                      <p className="text-[10px] uppercase tracking-widest text-race-muted">Reyting ball</p>
+                      <p className="text-sm font-bold tabular-nums">{r.points}</p>
+                    </div>
+                    <div className="hidden w-16 text-right md:block">
+                      <p className="text-[10px] uppercase tracking-widest text-race-muted">Bugun</p>
+                      <p className="text-sm font-bold tabular-nums">{r.today}</p>
+                    </div>
+                    <div className="hidden w-16 text-right md:block">
+                      <p className="text-[10px] uppercase tracking-widest text-race-muted">Kecha</p>
+                      <p className="text-sm font-bold tabular-nums">{r.yesterday}</p>
+                    </div>
+                    <div className="flex w-14 shrink-0 items-center justify-end gap-1 sm:w-28 sm:gap-2">
+                      <Trend today={r.today} yesterday={r.yesterday} />
+                      <span className="text-sm font-black tabular-nums sm:text-lg">{r.percent}%</span>
+                    </div>
+                  </div>
 
                   {league !== "diamond" && r.place === 5 ? (
                     <ZoneLine tone="up" />
