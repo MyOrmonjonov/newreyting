@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageOff, Loader2, Pencil, Plus, Save, Trash2, UserRound, X } from "lucide-react";
+import { ImageOff, Loader2, Pencil, Plus, Save, Table2, Trash2, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
 import { AppShell, PageHeader } from "@/components/AppShell";
@@ -283,6 +283,41 @@ function OperatorPage() {
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Natijani saqlab bo'lmadi"),
   });
 
+  // --- Ommaviy (bir nechta agent uchun bir vaqtda) natija kiritish — eski/tarixiy oylar uchun ---
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkDraft, setBulkDraft] = useState<Record<string, { plan: number; bajarildi: number }>>({});
+
+  useEffect(() => {
+    if (!showBulkModal) return;
+    const draft: Record<string, { plan: number; bajarildi: number }> = {};
+    for (const s of filteredIshchilar) {
+      for (const m of mahsulotlar) {
+        const bor = oyNatijalari.find((n) => n.ishchiId === s.id && n.mahsulotId === m.id);
+        draft[`${s.id}-${m.id}`] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: m.standartPlan, bajarildi: 0 };
+      }
+    }
+    setBulkDraft(draft);
+  }, [showBulkModal, oy, oyNatijalari, mahsulotlar, filteredIshchilar]);
+
+  const saveBulkMutation = useMutation({
+    mutationFn: () =>
+      api.post("/api/natijalar/bulk", {
+        oy,
+        satrlar: filteredIshchilar.flatMap((s) =>
+          mahsulotlar.map((m) => {
+            const v = bulkDraft[`${s.id}-${m.id}`] ?? { plan: m.standartPlan, bajarildi: 0 };
+            return { ishchiId: s.id, mahsulotId: m.id, plan: v.plan, bajarildi: v.bajarildi };
+          }),
+        ),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["natijalar", oy] });
+      toast.success(`${filteredIshchilar.length} ta agent uchun natija saqlandi`);
+      setShowBulkModal(false);
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Natijalarni saqlab bo'lmadi"),
+  });
+
   // --- Surat (kichraytirilgan holda, o'zgarishsiz saqlanadi — ishchi saqlanganda shu surat reytingda ham ko'rinadi) ---
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoStatus, setPhotoStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -317,9 +352,16 @@ function OperatorPage() {
                   {hasActiveFilter ? `${filteredIshchilar.length} / ${ishchilar.length}` : ishchilar.length} ta agent
                 </p>
               </div>
-              <button type="button" className="btn-brand" onClick={openCreateIshchi}>
-                <Plus className="h-4 w-4" /> Agent qo'shish
-              </button>
+              <div className="flex flex-wrap gap-2">
+                {ishchilar.length > 0 && mahsulotlar.length > 0 ? (
+                  <button type="button" className="btn-ghost" onClick={() => setShowBulkModal(true)}>
+                    <Table2 className="h-4 w-4" /> Ommaviy/tarixiy natija kiritish
+                  </button>
+                ) : null}
+                <button type="button" className="btn-brand" onClick={openCreateIshchi}>
+                  <Plus className="h-4 w-4" /> Agent qo'shish
+                </button>
+              </div>
             </div>
             {ishchilar.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-border p-4">
@@ -535,6 +577,7 @@ function OperatorPage() {
                             className="field w-24"
                             type="number"
                             value={natijaDraft[m.id]?.plan ?? m.standartPlan}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) =>
                               setNatijaDraft((s) => ({
                                 ...s,
@@ -546,6 +589,7 @@ function OperatorPage() {
                             className="field w-24"
                             type="number"
                             value={natijaDraft[m.id]?.bajarildi ?? 0}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) =>
                               setNatijaDraft((s) => ({
                                 ...s,
@@ -577,6 +621,137 @@ function OperatorPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">Avval Mahsulotlar bo'limida mahsulot qo'shing.</p>
                 )}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {showBulkModal
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              onClick={() => setShowBulkModal(false)}
+            >
+              <div
+                className="card-surface my-8 w-full max-w-4xl space-y-4 p-5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Ommaviy/tarixiy natija kiritish</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Joriy filtrga mos {filteredIshchilar.length} ta agent uchun — istalgan (shu jumladan o'tgan)
+                      oy tanlab, hammasiga bir vaqtda natija kiriting.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1.5"
+                    onClick={() => setShowBulkModal(false)}
+                    aria-label="Yopish"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Oy</label>
+                  <input
+                    type="month"
+                    className="field w-40"
+                    value={oy.slice(0, 7)}
+                    onChange={(e) => setOy(`${e.target.value}-01`)}
+                  />
+                </div>
+
+                {filteredIshchilar.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Joriy filtrga mos agent yo'q — yuqoridagi filtrlarni o'zgartiring.
+                  </p>
+                ) : (
+                  <div className="max-h-[55vh] overflow-auto rounded-xl border border-border">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="sticky top-0 z-10 border-b border-border bg-card text-left text-xs uppercase tracking-wider text-muted-foreground">
+                          <th className="px-3 py-2 font-medium">Agent</th>
+                          {mahsulotlar.map((m) => (
+                            <th key={m.id} className="px-3 py-2 text-center font-medium" colSpan={2}>
+                              {m.nomi} <span className="normal-case text-[10px]">({m.birlik})</span>
+                            </th>
+                          ))}
+                        </tr>
+                        <tr className="sticky top-[33px] z-10 border-b border-border bg-card text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <th className="px-3 py-1 font-medium"></th>
+                          {mahsulotlar.map((m) => (
+                            <Fragment key={m.id}>
+                              <th className="px-2 py-1 text-center font-medium">Plan</th>
+                              <th className="px-2 py-1 text-center font-medium">Bajarildi</th>
+                            </Fragment>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredIshchilar.map((s) => (
+                          <tr key={s.id} className="border-b border-white/[0.06] last:border-0">
+                            <td className="whitespace-nowrap px-3 py-1.5 font-medium">
+                              {s.ism} {s.familiya}
+                            </td>
+                            {mahsulotlar.map((m) => {
+                              const key = `${s.id}-${m.id}`;
+                              const v = bulkDraft[key] ?? { plan: m.standartPlan, bajarildi: 0 };
+                              return (
+                                <Fragment key={key}>
+                                  <td className="px-1 py-1">
+                                    <input
+                                      className="field w-20 px-2 py-1 text-center"
+                                      type="number"
+                                      value={v.plan}
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) =>
+                                        setBulkDraft((d) => ({
+                                          ...d,
+                                          [key]: { plan: Number(e.target.value), bajarildi: d[key]?.bajarildi ?? v.bajarildi },
+                                        }))
+                                      }
+                                    />
+                                  </td>
+                                  <td className="px-1 py-1">
+                                    <input
+                                      className="field w-20 px-2 py-1 text-center"
+                                      type="number"
+                                      value={v.bajarildi}
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) =>
+                                        setBulkDraft((d) => ({
+                                          ...d,
+                                          [key]: { plan: d[key]?.plan ?? v.plan, bajarildi: Number(e.target.value) },
+                                        }))
+                                      }
+                                    />
+                                  </td>
+                                </Fragment>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <button
+                  className="btn-brand w-full"
+                  onClick={() => saveBulkMutation.mutate()}
+                  disabled={saveBulkMutation.isPending || filteredIshchilar.length === 0}
+                >
+                  {saveBulkMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {filteredIshchilar.length} ta agent uchun saqlash
+                </button>
               </div>
             </div>,
             document.body,

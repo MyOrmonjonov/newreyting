@@ -176,6 +176,7 @@ function ProductsPage() {
                     type="number"
                     min={0}
                     value={form.standartPlan}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => setForm((s) => ({ ...s, standartPlan: Number(e.target.value) }))}
                   />
                 </div>

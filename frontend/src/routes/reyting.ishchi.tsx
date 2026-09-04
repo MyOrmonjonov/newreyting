@@ -333,6 +333,7 @@ function AgentRating() {
                 <input
                   type="number"
                   value={yil}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
                   className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
                 />
@@ -409,6 +410,7 @@ function AgentRating() {
                 <input
                   type="number"
                   value={yil}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
                   className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
                 />

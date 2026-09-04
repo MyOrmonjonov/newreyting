@@ -56,8 +56,20 @@ public class OylikNatijaService {
             ishchiNomlari.add(ishchi.getIsm() + " " + ishchi.getFamiliya());
         }
         if (!ishchiNomlari.isEmpty()) {
-            auditService.record(currentUser, HarakatTuri.OZGARTIRDI,
-                    String.join(", ", ishchiNomlari) + " — " + oy + " natijasi");
+            auditService.record(currentUser, HarakatTuri.OZGARTIRDI, natijaAuditXabari(ishchiNomlari, oy));
         }
+    }
+
+    private static final int AUDIT_MAX_ISM = 5;
+
+    /** Ko'p agent uchun bir vaqtda saqlanganda audit yozuvi cheksiz uzun bo'lib ketmasligi
+     * uchun ismlar soni cheklab ko'rsatiladi (masalan: "A, B, C va yana 12 ta — 2026-09 natijasi"). */
+    private String natijaAuditXabari(Set<String> ishchiNomlari, LocalDate oy) {
+        if (ishchiNomlari.size() <= AUDIT_MAX_ISM) {
+            return String.join(", ", ishchiNomlari) + " — " + oy + " natijasi";
+        }
+        String korsatilgan = String.join(", ", ishchiNomlari.stream().limit(AUDIT_MAX_ISM).toList());
+        int qolgan = ishchiNomlari.size() - AUDIT_MAX_ISM;
+        return korsatilgan + " va yana " + qolgan + " ta — " + oy + " natijasi";
     }
 }
