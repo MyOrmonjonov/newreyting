@@ -118,13 +118,13 @@ function toYillikAgent(row: YillikIshchiApiRow): YillikAgent {
 export const Route = createFileRoute("/reyting/ishchi")({
   head: () => ({
     meta: [
-      { title: "Ishchi reytingi — 5 liga klassifikatsiyasi | MICCO" },
+      { title: "Agent reytingi — 5 liga klassifikatsiyasi | MICCO" },
       {
         name: "description",
         content:
-          "Diamond, Gold, Silver, Bronze va Rising ligalari bo'yicha ishchilar reytingi: plan bajarish foizi, reyting ball, ko'tarilish va pasayish zonalari.",
+          "Diamond, Gold, Silver, Bronze va Rising ligalari bo'yicha agentlar reytingi: plan bajarish foizi, reyting ball, ko'tarilish va pasayish zonalari.",
       },
-      { property: "og:title", content: "MICCO ishchi reytingi" },
+      { property: "og:title", content: "MICCO agent reytingi" },
       { property: "og:description", content: "Ochiq reyting sahifasi — login talab qilinmaydi." },
     ],
   }),
@@ -477,7 +477,7 @@ function AgentRating() {
               </div>
             ) : (
               <p className="py-16 text-center text-sm text-race-muted">
-                Bu ligada hali ishchi yo'q.
+                Bu ligada hali agent yo'q.
               </p>
             )
           ) : leader ? (
@@ -625,7 +625,7 @@ function AgentRating() {
           </>
           ) : (
             <p className="py-16 text-center text-sm text-race-muted">
-              Bu ligada hali ishchi yo'q — operator paneli orqali ishchi va oylik natija kiritilganda shu yerda chiqadi.
+              Bu ligada hali agent yo'q — operator paneli orqali agent va oylik natija kiritilganda shu yerda chiqadi.
             </p>
           )}
         </div>

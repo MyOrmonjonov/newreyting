@@ -14,6 +14,8 @@ public record CreateIshchiRequest(
         /** Natija hali kiritilmagan oylar uchun ko'rsatiladigan boshlang'ich liga: diamond/gold/silver/bronze/rising. Ixtiyoriy — bo'sh bo'lsa "rising". */
         String boshlangichLiga,
         /** Fondan ajratilgan surat, data URL sifatida. Ixtiyoriy. */
-        String rasm
+        String rasm,
+        /** 12 viloyatdan biri (masalan "TOSHKENT"). Majburiy. */
+        @NotBlank String viloyat
 ) {
 }

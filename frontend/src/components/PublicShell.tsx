@@ -4,7 +4,7 @@ import { ArrowLeft, Briefcase, FileText, ShieldCheck, SlidersHorizontal, Tv, Use
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { to: "/reyting/ishchi", label: "Ishchi", icon: User },
+  { to: "/reyting/ishchi", label: "Agent", icon: User },
   { to: "/reyting/supervayzer", label: "Supervayzer", icon: ShieldCheck },
   { to: "/reyting/menejer", label: "Menejer", icon: Briefcase },
   { to: "/nizom", label: "Nizom", icon: FileText },

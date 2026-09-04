@@ -27,10 +27,11 @@ public class UserService {
     }
 
     @Transactional
-    public User create(CreateUserRequest req, Role role, User createdBy) {
+    public User create(CreateUserRequest req, Role role, User creator) {
         if (userRepository.existsByLoginIgnoreCase(req.login())) {
             throw new IllegalArgumentException("Bu login band: " + req.login());
         }
+        User createdBy = resolveOwner(req.ownerId(), role, creator);
         User user = new User(
                 req.ism().trim(),
                 req.familiya().trim(),
@@ -40,8 +41,36 @@ public class UserService {
                 createdBy
         );
         User saved = userRepository.save(user);
-        auditService.record(createdBy, HarakatTuri.QOSHDI, saved.getFullName());
+        auditService.record(creator, HarakatTuri.QOSHDI, saved.getFullName());
         return saved;
+    }
+
+    /**
+     * ADMIN har qanday rolni to'g'ridan-to'g'ri yarata oladi, lekin shu holatda uni
+     * o'ziga bog'lab qo'ysa (createdBy=ADMIN), natijada u tegishli yuqori rolning
+     * (operator/menejer) ro'yxatida umuman ko'rinmay, "egasiz" bo'lib qolar edi —
+     * ID zanjiri (createdBy) orqali ishlaydigan ko'rinish cheklovi (listByRoleVisibleTo)
+     * uni hech kimga ko'rsatmaydi. Shuning uchun ADMIN ownerId yuborsa, shu tanlangan
+     * (mos rolga ega) foydalanuvchi haqiqiy "yaratuvchi" sifatida yoziladi.
+     */
+    private User resolveOwner(Long ownerId, Role role, User creator) {
+        if (creator.getRole() != Role.ADMIN || ownerId == null) {
+            return creator;
+        }
+        Role expectedOwnerRole = switch (role) {
+            case MENEJER -> Role.OPERATOR;
+            case SUPERVAYZER -> Role.MENEJER;
+            default -> null;
+        };
+        if (expectedOwnerRole == null) {
+            return creator;
+        }
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new IllegalArgumentException("Tanlangan foydalanuvchi topilmadi"));
+        if (owner.getRole() != expectedOwnerRole) {
+            throw new IllegalArgumentException("Noto'g'ri ega tanlandi");
+        }
+        return owner;
     }
 
     /** Faqat ADMIN chaqiradigan ro'yxatlar uchun (masalan operatorlar) — cheklovsiz. */
@@ -113,7 +142,7 @@ public class UserService {
         }
         if (expectedRole == Role.SUPERVAYZER && ishchiRepository.existsBySupervayzerId(userId)) {
             throw new IllegalArgumentException(
-                    "\"" + user.getFullName() + "\"ni o'chirib bo'lmaydi — unga biriktirilgan ishchilar mavjud, avval ularni boshqa supervayzerga o'tkazing yoki o'chiring");
+                    "\"" + user.getFullName() + "\"ni o'chirib bo'lmaydi — unga biriktirilgan agentlar mavjud, avval ularni boshqa supervayzerga o'tkazing yoki o'chiring");
         }
         ishchiRepository.clearCreatedBy(userId);
         String nomi = user.getFullName();

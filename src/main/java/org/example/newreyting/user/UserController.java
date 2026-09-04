@@ -155,8 +155,10 @@ public class UserController {
         return UserResponse.from(userService.updateProfile(id, Role.SUPERVAYZER, req.ism(), req.familiya(), principal.getUser()));
     }
 
+    // Diqqat: MENEJER supervayzer qo'sha/tahrirlay/faolsizlantira oladi, lekin o'chira olmaydi
+    // (faqat ADMIN o'chira oladi) — buyurtma bo'yicha ataylab shunday cheklangan.
     @DeleteMapping("/supervayzers/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSupervayzer(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
         userService.delete(id, Role.SUPERVAYZER, principal.getUser());

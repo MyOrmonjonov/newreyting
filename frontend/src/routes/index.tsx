@@ -146,7 +146,7 @@ function Dashboard() {
           { label: "Supervayzerlar", value: supervayzerlar.length, suffix: "" },
         ]
       : []),
-    { label: "Ishchilar", value: ishchilar.length, suffix: "" },
+    { label: "Agentlar", value: ishchilar.length, suffix: "" },
   ];
 
   return (

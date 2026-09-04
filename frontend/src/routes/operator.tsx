@@ -8,7 +8,7 @@ import { AppShell, PageHeader } from "@/components/AppShell";
 import { Donut, Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { LEAGUES } from "@/lib/micco-data";
+import { LEAGUES, VILOYATLAR } from "@/lib/micco-data";
 import { avatarFor } from "@/lib/rating-api";
 
 // Katta suratlarni saqlashdan oldin kichraytiramiz (data URL sifatida backendga
@@ -47,13 +47,13 @@ function readAndResizePhoto(file: File): Promise<string> {
 export const Route = createFileRoute("/operator")({
   head: () => ({
     meta: [
-      { title: "Operator paneli — ishchilarni tizimga kiritish | MICCO" },
+      { title: "Operator paneli — agentlarni tizimga kiritish | MICCO" },
       {
         name: "description",
-        content: "Ishchilarni qo'shish, supervayzer biriktirish va mahsulot bo'yicha oylik natija kiritish.",
+        content: "Agentlarni qo'shish, supervayzer biriktirish va mahsulot bo'yicha oylik natija kiritish.",
       },
       { property: "og:title", content: "MICCO Operator paneli" },
-      { property: "og:description", content: "Xodimlar jadvali, yangi ishchi qo'shish va oylik natija oqimi." },
+      { property: "og:description", content: "Xodimlar jadvali, yangi agent qo'shish va oylik natija oqimi." },
     ],
   }),
   component: OperatorPage,
@@ -69,10 +69,11 @@ type IshchiRow = {
   active: boolean;
   boshlangichLiga: string | null;
   rasm: string | null;
+  viloyat: string | null;
 };
 
 type MahsulotRow = { id: number; nomi: string; birlik: string; standartPlan: number };
-type SupervayzerRow = { id: number; ism: string; familiya: string };
+type SupervayzerRow = { id: number; ism: string; familiya: string; createdByFullName: string | null };
 type NatijaRow = { ishchiId: number; mahsulotId: number; plan: number; bajarildi: number };
 
 const EMPTY_ISHCHI_FORM = {
@@ -82,7 +83,10 @@ const EMPTY_ISHCHI_FORM = {
   ishGaKirganSana: "",
   active: true,
   boshlangichLiga: "rising",
+  viloyat: "",
 };
+
+const FILTER_ALL = "__ALL__";
 
 function todayMonthInput(): string {
   return new Date().toISOString().slice(0, 7) + "-01";
@@ -92,6 +96,8 @@ function OperatorPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isSupervayzer = user?.role === "SUPERVAYZER";
+  // Menejer agent qo'sha/tahrirlay/faolsizlantira oladi, lekin o'chira olmaydi (backend ham shunday cheklaydi).
+  const canDeleteIshchi = user?.role !== "MENEJER";
 
   const { data: ishchilar = [], isLoading: loadingIshchilar } = useQuery({
     queryKey: ["ishchilar"],
@@ -107,6 +113,36 @@ function OperatorPage() {
     enabled: !isSupervayzer,
   });
 
+  // --- Ro'yxat filtrlari (Supervayzer / Menejer / Liga / Viloyat) ---
+  const showSupervayzerFilter = !isSupervayzer;
+  const showMenejerFilter = user?.role === "ADMIN" || user?.role === "OPERATOR";
+  const [filterSupervayzerId, setFilterSupervayzerId] = useState(FILTER_ALL);
+  const [filterMenejer, setFilterMenejer] = useState(FILTER_ALL);
+  const [filterLiga, setFilterLiga] = useState(FILTER_ALL);
+  const [filterViloyat, setFilterViloyat] = useState(FILTER_ALL);
+
+  const supervayzerById = useMemo(
+    () => new Map(supervayzerlar.map((s) => [s.id, s])),
+    [supervayzerlar],
+  );
+  const menejerlar = useMemo(
+    () => Array.from(new Set(supervayzerlar.map((s) => s.createdByFullName).filter((n): n is string => !!n))),
+    [supervayzerlar],
+  );
+
+  const filteredIshchilar = useMemo(() => {
+    return ishchilar.filter((s) => {
+      if (filterSupervayzerId !== FILTER_ALL && String(s.supervayzerId) !== filterSupervayzerId) return false;
+      if (filterMenejer !== FILTER_ALL && supervayzerById.get(s.supervayzerId)?.createdByFullName !== filterMenejer) return false;
+      if (filterLiga !== FILTER_ALL && (s.boshlangichLiga ?? "rising") !== filterLiga) return false;
+      if (filterViloyat !== FILTER_ALL && s.viloyat !== filterViloyat) return false;
+      return true;
+    });
+  }, [ishchilar, filterSupervayzerId, filterMenejer, filterLiga, filterViloyat, supervayzerById]);
+
+  const hasActiveFilter =
+    filterSupervayzerId !== FILTER_ALL || filterMenejer !== FILTER_ALL || filterLiga !== FILTER_ALL || filterViloyat !== FILTER_ALL;
+
   // --- Yangi ishchi qo'shish / tahrirlash (modal) ---
   const [ishchiForm, setIshchiForm] = useState(EMPTY_ISHCHI_FORM);
   const [editingIshchiId, setEditingIshchiId] = useState<number | null>(null);
@@ -121,15 +157,16 @@ function OperatorPage() {
         ishGaKirganSana: ishchiForm.ishGaKirganSana,
         boshlangichLiga: ishchiForm.boshlangichLiga,
         rasm: photo,
+        viloyat: ishchiForm.viloyat,
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
-      toast.success(`"${created.ism} ${created.familiya}" ishchi sifatida qo'shildi`);
+      toast.success(`"${created.ism} ${created.familiya}" agent sifatida qo'shildi`);
       setIshchiForm(EMPTY_ISHCHI_FORM);
       setPhoto(null);
       setShowIshchiModal(false);
     },
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini qo'shib bo'lmadi"),
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Agentni qo'shib bo'lmadi"),
   });
 
   const updateIshchiMutation = useMutation({
@@ -142,6 +179,7 @@ function OperatorPage() {
         active: ishchiForm.active,
         boshlangichLiga: ishchiForm.boshlangichLiga,
         rasm: photo,
+        viloyat: ishchiForm.viloyat,
       }),
     onSuccess: (updated) => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
@@ -151,16 +189,16 @@ function OperatorPage() {
       setPhoto(null);
       setShowIshchiModal(false);
     },
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini yangilab bo'lmadi"),
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Agentni yangilab bo'lmadi"),
   });
 
   const deleteIshchiMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/ishchilar/${id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
-      toast.success("Ishchi o'chirildi");
+      toast.success("Agent o'chirildi");
     },
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Ishchini o'chirib bo'lmadi"),
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Agentni o'chirib bo'lmadi"),
   });
 
   function startEditIshchi(s: IshchiRow) {
@@ -172,6 +210,7 @@ function OperatorPage() {
       ishGaKirganSana: s.ishGaKirganSana,
       active: s.active,
       boshlangichLiga: s.boshlangichLiga ?? "rising",
+      viloyat: s.viloyat ?? "",
     });
     setPhoto(s.rasm ?? null);
     setPhotoStatus("idle");
@@ -264,7 +303,7 @@ function OperatorPage() {
   return (
     <AppShell>
       <PageHeader
-        title="Ishchilarni tizimga kiritish"
+        title="Agentlarni tizimga kiritish"
         subtitle={`${isSupervayzer ? "Supervayzer" : "Operator"} paneli · xodimlar bazasi va oylik natijalar`}
       />
 
@@ -274,18 +313,80 @@ function OperatorPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
               <div>
                 <h2 className="text-lg font-semibold">Mavjud xodimlar</h2>
-                <p className="text-sm text-muted-foreground">{ishchilar.length} ta ishchi</p>
+                <p className="text-sm text-muted-foreground">
+                  {hasActiveFilter ? `${filteredIshchilar.length} / ${ishchilar.length}` : ishchilar.length} ta agent
+                </p>
               </div>
               <button type="button" className="btn-brand" onClick={openCreateIshchi}>
-                <Plus className="h-4 w-4" /> Ishchi qo'shish
+                <Plus className="h-4 w-4" /> Agent qo'shish
               </button>
             </div>
+            {ishchilar.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 border-b border-border p-4">
+                {showSupervayzerFilter ? (
+                  <select
+                    className="field w-auto"
+                    value={filterSupervayzerId}
+                    onChange={(e) => setFilterSupervayzerId(e.target.value)}
+                  >
+                    <option value={FILTER_ALL}>Barcha supervayzerlar</option>
+                    {supervayzerlar.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.ism} {s.familiya}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                {showMenejerFilter ? (
+                  <select className="field w-auto" value={filterMenejer} onChange={(e) => setFilterMenejer(e.target.value)}>
+                    <option value={FILTER_ALL}>Barcha menejerlar</option>
+                    {menejerlar.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                <select className="field w-auto" value={filterLiga} onChange={(e) => setFilterLiga(e.target.value)}>
+                  <option value={FILTER_ALL}>Barcha ligalar</option>
+                  {LEAGUES.map((l) => (
+                    <option key={l.key} value={l.key}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+                <select className="field w-auto" value={filterViloyat} onChange={(e) => setFilterViloyat(e.target.value)}>
+                  <option value={FILTER_ALL}>Barcha viloyatlar</option>
+                  {VILOYATLAR.map((v) => (
+                    <option key={v.key} value={v.key}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+                {hasActiveFilter ? (
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1 text-xs"
+                    onClick={() => {
+                      setFilterSupervayzerId(FILTER_ALL);
+                      setFilterMenejer(FILTER_ALL);
+                      setFilterLiga(FILTER_ALL);
+                      setFilterViloyat(FILTER_ALL);
+                    }}
+                  >
+                    Filtrni tozalash
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {loadingIshchilar ? (
               <div className="flex items-center justify-center p-10">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : ishchilar.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground">Hali ishchi qo'shilmagan.</p>
+              <p className="p-6 text-sm text-muted-foreground">Hali agent qo'shilmagan.</p>
+            ) : filteredIshchilar.length === 0 ? (
+              <p className="p-6 text-sm text-muted-foreground">Filtrga mos agent topilmadi.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -293,12 +394,13 @@ function OperatorPage() {
                     <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-muted-foreground">
                       <th className="px-5 py-3 font-medium">Ism</th>
                       <th className="px-5 py-3 font-medium">Liga</th>
+                      <th className="px-5 py-3 font-medium">Viloyat</th>
                       <th className="px-5 py-3 font-medium">Supervayzer</th>
                       <th className="px-5 py-3 text-right font-medium">Amal</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ishchilar.map((s, i) => {
+                    {filteredIshchilar.map((s, i) => {
                       const league = LEAGUES.find((l) => l.key === s.boshlangichLiga);
                       return (
                       <tr
@@ -342,6 +444,9 @@ function OperatorPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
+                        <td className="px-5 py-3 text-muted-foreground">
+                          {VILOYATLAR.find((v) => v.key === s.viloyat)?.name ?? "—"}
+                        </td>
                         <td className="px-5 py-3 text-muted-foreground">{s.supervayzerFullName}</td>
                         <td className="px-5 py-3 text-right">
                           <div className="flex justify-end gap-2">
@@ -351,17 +456,19 @@ function OperatorPage() {
                             <button className="btn-ghost px-2 py-1" onClick={() => setSelectedIshchiId(s.id)}>
                               Natija kiritish
                             </button>
-                            <button
-                              className="btn-ghost px-2 py-1 text-destructive"
-                              onClick={() => {
-                                if (window.confirm(`"${s.ism} ${s.familiya}"ni o'chirishga ishonchingiz komilmi?`)) {
-                                  deleteIshchiMutation.mutate(s.id);
-                                }
-                              }}
-                              disabled={deleteIshchiMutation.isPending}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" /> O'chirish
-                            </button>
+                            {canDeleteIshchi ? (
+                              <button
+                                className="btn-ghost px-2 py-1 text-destructive"
+                                onClick={() => {
+                                  if (window.confirm(`"${s.ism} ${s.familiya}"ni o'chirishga ishonchingiz komilmi?`)) {
+                                    deleteIshchiMutation.mutate(s.id);
+                                  }
+                                }}
+                                disabled={deleteIshchiMutation.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> O'chirish
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -493,7 +600,7 @@ function OperatorPage() {
               >
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold">
-                    {editingIshchiId ? "Ishchini tahrirlash" : "Yangi ishchi qo'shish"}
+                    {editingIshchiId ? "Agentni tahrirlash" : "Yangi agent qo'shish"}
                   </h2>
                   <button type="button" className="btn-ghost px-2 py-1.5" onClick={closeIshchiModal} aria-label="Yopish">
                     <X className="h-3.5 w-3.5" />
@@ -507,7 +614,7 @@ function OperatorPage() {
                       {photoStatus === "loading" ? (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       ) : photo ? (
-                        <img src={photo} alt="Ishchi surati" className="h-full w-full object-cover" />
+                        <img src={photo} alt="Agent surati" className="h-full w-full object-cover" />
                       ) : (
                         <UserRound className="h-6 w-6 text-muted-foreground" />
                       )}
@@ -527,7 +634,7 @@ function OperatorPage() {
                         {photo ? "Suratni almashtirish" : "Surat yuklash"}
                       </button>
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        Ishchi saqlanganda shu surat reytingda ham ko'rinadi.
+                        Agent saqlanganda shu surat reytingda ham ko'rinadi.
                       </p>
                       {photoStatus === "error" ? (
                         <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
@@ -603,10 +710,29 @@ function OperatorPage() {
                     ))}
                   </select>
                   <p className="text-[11px] text-muted-foreground">
-                    Ishchi shu liga ichida raqobat qiladi (masalan, tajribali xodim uchun boshqa liga tanlash
+                    Agent shu liga ichida raqobat qiladi (masalan, tajribali xodim uchun boshqa liga tanlash
                     mumkin). Har oy yakunida Nizom qoidasi bo'yicha (top-5 yuqoriga, bottom-5 pastga) avtomatik
                     yangilanadi.
                   </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Viloyat</label>
+                  <select
+                    className="field"
+                    value={ishchiForm.viloyat}
+                    onChange={(e) => setIshchiForm((s) => ({ ...s, viloyat: e.target.value }))}
+                    required
+                  >
+                    <option value="" disabled>
+                      Viloyat tanlang
+                    </option>
+                    {VILOYATLAR.map((v) => (
+                      <option key={v.key} value={v.key}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {editingIshchiId ? (
@@ -632,7 +758,7 @@ function OperatorPage() {
                   ) : (
                     <Plus className="h-4 w-4" />
                   )}
-                  {editingIshchiId ? "Saqlash" : "Ishchini saqlash"}
+                  {editingIshchiId ? "Saqlash" : "Agentni saqlash"}
                 </button>
               </form>
             </div>,

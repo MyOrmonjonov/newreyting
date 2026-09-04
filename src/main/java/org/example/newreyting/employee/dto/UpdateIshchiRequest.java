@@ -13,6 +13,7 @@ public record UpdateIshchiRequest(
         @NotNull LocalDate ishGaKirganSana,
         boolean active,
         String boshlangichLiga,
-        String rasm
+        String rasm,
+        @NotBlank String viloyat
 ) {
 }

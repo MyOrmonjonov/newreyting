@@ -48,6 +48,22 @@ export const LEAGUES: {
 
 export const PERIOD_LABEL = "2026 IYUL";
 
+/** O'zbekistonning 12 ta viloyati — agent qaysi viloyatda ishlashini belgilash uchun. */
+export const VILOYATLAR: { key: string; name: string }[] = [
+  { key: "ANDIJON", name: "Andijon" },
+  { key: "BUXORO", name: "Buxoro" },
+  { key: "FARGONA", name: "Farg'ona" },
+  { key: "JIZZAX", name: "Jizzax" },
+  { key: "XORAZM", name: "Xorazm" },
+  { key: "NAMANGAN", name: "Namangan" },
+  { key: "NAVOIY", name: "Navoiy" },
+  { key: "QASHQADARYO", name: "Qashqadaryo" },
+  { key: "SAMARQAND", name: "Samarqand" },
+  { key: "SIRDARYO", name: "Sirdaryo" },
+  { key: "SURXONDARYO", name: "Surxondaryo" },
+  { key: "TOSHKENT", name: "Toshkent" },
+];
+
 /**
  * MICCO Sales League Nizomi IV BOB — har liganing 1/2/3-o'rin ballari va pastki "polkasi"
  * (backenddagi RatingService.pointsForLeague bilan bir xil bo'lishi shart).

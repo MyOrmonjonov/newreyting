@@ -13,7 +13,8 @@ public record IshchiResponse(
         LocalDate ishGaKirganSana,
         boolean active,
         String boshlangichLiga,
-        String rasm
+        String rasm,
+        String viloyat
 ) {
     public static IshchiResponse from(Ishchi i) {
         return new IshchiResponse(
@@ -25,7 +26,8 @@ public record IshchiResponse(
                 i.getIshGaKirganSana(),
                 i.isActive(),
                 i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : null,
-                i.getRasm()
+                i.getRasm(),
+                i.getViloyat() != null ? i.getViloyat().key() : null
         );
     }
 }

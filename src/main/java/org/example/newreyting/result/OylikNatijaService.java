@@ -43,7 +43,7 @@ public class OylikNatijaService {
         for (BulkNatijaRequest.Satr satr : req.satrlar()) {
             Ishchi ishchi = ishchiService.getById(satr.ishchiId());
             if (!ishchiService.canManage(currentUser, ishchi)) {
-                throw new IllegalArgumentException("Bu ishchi uchun ma'lumot kiritish huquqingiz yo'q");
+                throw new IllegalArgumentException("Bu agent uchun ma'lumot kiritish huquqingiz yo'q");
             }
             Mahsulot mahsulot = mahsulotRepository.findById(satr.mahsulotId())
                     .orElseThrow(() -> new IllegalArgumentException("Mahsulot topilmadi"));

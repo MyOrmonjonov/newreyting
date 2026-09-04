@@ -41,7 +41,11 @@ public class IshchiController {
         return IshchiResponse.from(ishchiService.update(id, req, principal.getUser()));
     }
 
+    // Diqqat: MENEJER agent qo'sha/tahrirlay/faolsizlantira oladi, lekin o'chira olmaydi
+    // (bu yerda klass darajasidagi ruxsatni method-level @PreAuthorize toraytiradi) —
+    // buyurtma bo'yicha ataylab shunday cheklangan.
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','SUPERVAYZER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
         ishchiService.delete(id, principal.getUser());

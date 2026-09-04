@@ -7,6 +7,10 @@ public record CreateUserRequest(
         @NotBlank String ism,
         @NotBlank String familiya,
         @NotBlank String login,
-        @NotBlank @Size(min = 6, message = "Parol kamida 6 belgidan iborat bo'lishi kerak") String password
+        @NotBlank @Size(min = 6, message = "Parol kamida 6 belgidan iborat bo'lishi kerak") String password,
+        // Faqat ADMIN yaratganda ishlatiladi — menejer/supervayzer qaysi yuqori
+        // rolga (mos ravishda operator/menejer) tegishli bo'lishini belgilaydi.
+        // Boshqa hollarda (masalan menejer o'zi supervayzer yaratganda) e'tiborga olinmaydi.
+        Long ownerId
 ) {
 }

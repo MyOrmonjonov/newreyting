@@ -39,7 +39,7 @@ type UserRow = {
   createdAt: string;
 };
 
-const EMPTY_FORM = { ism: "", familiya: "", login: "", password: "" };
+const EMPTY_FORM = { ism: "", familiya: "", login: "", password: "", ownerId: "" };
 
 const TAB_CONFIG: Record<Tab, { path: string; canManage: (role: Role) => boolean; createdByHint: string }> = {
   menejer: {
@@ -52,6 +52,14 @@ const TAB_CONFIG: Record<Tab, { path: string; canManage: (role: Role) => boolean
     canManage: (role) => role === "ADMIN" || role === "MENEJER",
     createdByHint: "Menejer tomonidan qo'shiladi va boshqariladi",
   },
+};
+
+// ADMIN har qanday rolni to'g'ridan-to'g'ri yaratishi mumkin, lekin shu holatda kimga
+// tegishli ekanini (operator/menejer) tanlashi shart — aks holda yaratilgan hisob hech
+// qaysi menejer/operatorning ro'yxatida ko'rinmay, "egasiz" qolib ketadi.
+const OWNER_CONFIG: Record<Tab, { path: string; label: string }> = {
+  menejer: { path: "/api/users/operators", label: "Operator" },
+  supervayzer: { path: "/api/users/menejers", label: "Menejer" },
 };
 
 function TeamPage() {
@@ -70,6 +78,8 @@ function TeamPage() {
   const [tab, setTab] = useState<Tab>(availableTabs[0] ?? "menejer");
   const config = TAB_CONFIG[tab];
   const canManageTab = user ? config.canManage(user.role) : false;
+  // Menejer supervayzer qo'sha/tahrirlay/faolsizlantira oladi, lekin o'chira olmaydi (backend ham shunday cheklaydi).
+  const canDelete = !(tab === "supervayzer" && user?.role === "MENEJER");
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["users", tab],
@@ -77,8 +87,23 @@ function TeamPage() {
     enabled: canManageTab,
   });
 
+  const showOwnerField = user?.role === "ADMIN";
+  const ownerConfig = OWNER_CONFIG[tab];
+  const { data: owners = [] } = useQuery({
+    queryKey: ["users", "owners", tab],
+    queryFn: () => api.get<UserRow[]>(ownerConfig.path),
+    enabled: showOwnerField,
+  });
+
   const createMutation = useMutation({
-    mutationFn: (payload: typeof form) => api.post<UserRow>(config.path, payload),
+    mutationFn: (payload: typeof form) =>
+      api.post<UserRow>(config.path, {
+        ism: payload.ism,
+        familiya: payload.familiya,
+        login: payload.login,
+        password: payload.password,
+        ownerId: showOwnerField && payload.ownerId ? Number(payload.ownerId) : undefined,
+      }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: ["users", tab] });
       toast.success(`"${created.ism} ${created.familiya}" ${tab} sifatida qo'shildi`);
@@ -272,17 +297,19 @@ function TeamPage() {
                               </>
                             )}
                           </button>
-                          <button
-                            className="btn-ghost text-destructive"
-                            onClick={() => {
-                              if (window.confirm(`"${r.ism} ${r.familiya}"ni butunlay o'chirishga ishonchingiz komilmi?`)) {
-                                deleteMutation.mutate(r.id);
-                              }
-                            }}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" /> O'chirish
-                          </button>
+                          {canDelete ? (
+                            <button
+                              className="btn-ghost text-destructive"
+                              onClick={() => {
+                                if (window.confirm(`"${r.ism} ${r.familiya}"ni butunlay o'chirishga ishonchingiz komilmi?`)) {
+                                  deleteMutation.mutate(r.id);
+                                }
+                              }}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> O'chirish
+                            </button>
+                          ) : null}
                         </div>
                       </>
                     )}
@@ -362,7 +389,38 @@ function TeamPage() {
                     required
                   />
                 </div>
-                <button className="btn-brand w-full" type="submit" disabled={createMutation.isPending}>
+                {showOwnerField ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {ownerConfig.label}ga biriktirish
+                    </label>
+                    <select
+                      className="field"
+                      value={form.ownerId}
+                      onChange={(e) => setForm((s) => ({ ...s, ownerId: e.target.value }))}
+                      required
+                    >
+                      <option value="" disabled>
+                        {ownerConfig.label} tanlang
+                      </option>
+                      {owners.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.ism} {o.familiya}
+                        </option>
+                      ))}
+                    </select>
+                    {owners.length === 0 ? (
+                      <p className="text-[11px] text-danger">
+                        Avval kamida bitta {ownerConfig.label.toLowerCase()} qo'shilgan bo'lishi kerak.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <button
+                  className="btn-brand w-full"
+                  type="submit"
+                  disabled={createMutation.isPending || (showOwnerField && owners.length === 0)}
+                >
                   {createMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -371,7 +429,7 @@ function TeamPage() {
                   Yaratish va login berish
                 </button>
                 <p className="text-[11px] text-muted-foreground">
-                  Eslatma: ishchi (agent) uchun login yaratilmaydi — u faqat ochiq reyting sahifasini ko'radi.
+                  Eslatma: agent uchun login yaratilmaydi — u faqat ochiq reyting sahifasini ko'radi.
                 </p>
               </form>
             </div>,

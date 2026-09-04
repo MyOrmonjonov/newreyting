@@ -24,14 +24,14 @@ import { PasswordDialog } from "@/components/PasswordDialog";
 const NAV = [
   { group: "Boshqaruv", items: [
     { to: "/", label: "Bosh dashboard", icon: LayoutDashboard },
-    { to: "/operator", label: "Ishchilarni kiritish", icon: Users },
+    { to: "/operator", label: "Agentlarni kiritish", icon: Users },
     { to: "/operatorlar", label: "Operatorlar", icon: UserPlus },
     { to: "/jamoa", label: "Menejer / Supervayzer", icon: UserCog },
     { to: "/mahsulotlar", label: "Mahsulotlar", icon: Package },
     { to: "/audit", label: "Audit log", icon: ScrollText },
   ]},
   { group: "Reytinglar", items: [
-    { to: "/reyting/ishchi", label: "Ishchi reytingi", icon: Trophy },
+    { to: "/reyting/ishchi", label: "Agent reytingi", icon: Trophy },
     { to: "/reyting/supervayzer", label: "Supervayzer reytingi", icon: ShieldCheck },
     { to: "/reyting/menejer", label: "Menejer reytingi", icon: UserCog },
   ]},

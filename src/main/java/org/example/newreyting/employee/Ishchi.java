@@ -47,6 +47,12 @@ public class Ishchi {
     @Column(name = "boshlangich_liga")
     private Liga boshlangichLiga;
 
+    /** Ishchi ishlaydigan viloyat (12 tadan biri). Eski yozuvlarda (ustun qo'shilishidan
+     * oldin kiritilgan) null bo'lishi mumkin — tahrirlanganda to'ldirilishi kerak. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "viloyat")
+    private Viloyat viloyat;
+
     /** Fondan ajratilgan (shaffof) surat — data URL sifatida (masalan "data:image/png;base64,...").
      * E'tibor: @Lob ataylab qo'yilmagan — PostgreSQL'da @Lob String'ni "Large Object" (OID)
      * sifatida saqlaydi, bu esa avtomatik-commit rejimida o'qishda xato beradi. Oddiy TEXT ustun
@@ -123,6 +129,14 @@ public class Ishchi {
 
     public void setBoshlangichLiga(Liga boshlangichLiga) {
         this.boshlangichLiga = boshlangichLiga;
+    }
+
+    public Viloyat getViloyat() {
+        return viloyat;
+    }
+
+    public void setViloyat(Viloyat viloyat) {
+        this.viloyat = viloyat;
     }
 
     public String getRasm() {

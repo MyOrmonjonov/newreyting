@@ -58,7 +58,7 @@ public class IshchiService {
     }
 
     public Ishchi getById(Long id) {
-        return ishchiRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Ishchi topilmadi"));
+        return ishchiRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Agent topilmadi"));
     }
 
     @Transactional
@@ -74,8 +74,9 @@ public class IshchiService {
         );
         ishchi.setBoshlangichLiga(parseLiga(req.boshlangichLiga()));
         ishchi.setRasm(validateRasm(req.rasm()));
+        ishchi.setViloyat(parseViloyat(req.viloyat()));
         Ishchi saved = ishchiRepository.save(ishchi);
-        auditService.record(currentUser, HarakatTuri.QOSHDI, "Ishchi: " + saved.getIsm() + " " + saved.getFamiliya());
+        auditService.record(currentUser, HarakatTuri.QOSHDI, "Agent: " + saved.getIsm() + " " + saved.getFamiliya());
         return saved;
     }
 
@@ -83,7 +84,7 @@ public class IshchiService {
     public Ishchi update(Long id, UpdateIshchiRequest req, User currentUser) {
         Ishchi ishchi = getById(id);
         if (!canManage(currentUser, ishchi)) {
-            throw new IllegalArgumentException("Bu ishchini tahrirlash huquqingiz yo'q");
+            throw new IllegalArgumentException("Bu agentni tahrirlash huquqingiz yo'q");
         }
         User supervayzer = resolveSupervayzer(req.supervayzerId(), currentUser);
 
@@ -94,7 +95,8 @@ public class IshchiService {
         ishchi.setActive(req.active());
         ishchi.setBoshlangichLiga(parseLiga(req.boshlangichLiga()));
         ishchi.setRasm(validateRasm(req.rasm()));
-        auditService.record(currentUser, HarakatTuri.OZGARTIRDI, "Ishchi: " + ishchi.getIsm() + " " + ishchi.getFamiliya());
+        ishchi.setViloyat(parseViloyat(req.viloyat()));
+        auditService.record(currentUser, HarakatTuri.OZGARTIRDI, "Agent: " + ishchi.getIsm() + " " + ishchi.getFamiliya());
         return ishchi;
     }
 
@@ -106,6 +108,14 @@ public class IshchiService {
             return Liga.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Noto'g'ri liga qiymati: " + value);
+        }
+    }
+
+    private Viloyat parseViloyat(String value) {
+        try {
+            return Viloyat.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Noto'g'ri viloyat qiymati: " + value);
         }
     }
 
@@ -125,15 +135,15 @@ public class IshchiService {
     public void delete(Long id, User currentUser) {
         Ishchi ishchi = getById(id);
         if (!canManage(currentUser, ishchi)) {
-            throw new IllegalArgumentException("Bu ishchini o'chirish huquqingiz yo'q");
+            throw new IllegalArgumentException("Bu agentni o'chirish huquqingiz yo'q");
         }
         if (natijaRepository.existsByIshchiId(id)) {
             throw new IllegalArgumentException(
-                    "\"" + ishchi.getIsm() + " " + ishchi.getFamiliya() + "\" ishchisini o'chirib bo'lmaydi — unga bog'liq oylik natijalar mavjud");
+                    "\"" + ishchi.getIsm() + " " + ishchi.getFamiliya() + "\" agentini o'chirib bo'lmaydi — unga bog'liq oylik natijalar mavjud");
         }
         String nomi = ishchi.getIsm() + " " + ishchi.getFamiliya();
         ishchiRepository.deleteById(id);
-        auditService.record(currentUser, HarakatTuri.OCHIRDI, "Ishchi: " + nomi);
+        auditService.record(currentUser, HarakatTuri.OCHIRDI, "Agent: " + nomi);
     }
 
     private User resolveSupervayzer(Long requestedSupervayzerId, User currentUser) {
