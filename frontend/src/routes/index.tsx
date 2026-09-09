@@ -11,13 +11,13 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { Trophy, Medal } from "lucide-react";
+import { Trophy, Medal, FileSpreadsheet, FileText } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { CountUp, Donut, Reveal } from "@/components/motion";
 import { LEAGUES, MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { avatarFor, monthParam, type AgentApiRow, type ScoreboardApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, type AgentApiRow, type RankedApiRow, type ScoreboardApiRow } from "@/lib/rating-api";
 import { cn } from "@/lib/utils";
 
 type YillikOyRow = { oy: string; plan: number; fakt: number };
@@ -81,6 +81,49 @@ function Dashboard() {
     [agents],
   );
 
+  const { data: menejerReytingApi = [] } = useQuery({
+    queryKey: ["reyting", "menejer", oy],
+    queryFn: () => api.get<RankedApiRow[]>(`/api/reyting/menejer?oy=${oy}`),
+  });
+  /** Bitta oy uchun jonli agent ro'yxatini eksport uchun kerakli shaklga o'giradi. */
+  function toAgentSheetRows(rows: AgentApiRow[]) {
+    return rows
+      .slice()
+      .sort((a, b) => a.league.localeCompare(b.league) || a.place - b.place)
+      .map((a) => ({
+        fullName: a.fullName,
+        menejer: a.menejerFullName,
+        supervisor: a.supervisorFullName,
+        league: a.league,
+        place: a.place,
+        percent: a.percent,
+        points: a.points,
+        today: a.today,
+        yesterday: a.yesterday,
+        trophies: a.trophies,
+        yearsActive: a.yearsActive,
+      }));
+  }
+
+  /** Hisobot uchun tanlangan yilning barcha 12 oyini alohida so'rab keladi (bitta oy
+   * suratlanmasi o'rniga) — hali kelmagan oylar ham ro'yxatda, faqat 0%/ma'lumotsiz bo'lib. */
+  async function fetchMonthlyAgents(): Promise<{ month: string; rows: ReturnType<typeof toAgentSheetRows> }[]> {
+    const months = Array.from({ length: 12 }, (_, i) => `${yil}-${String(i + 1).padStart(2, "0")}-01`);
+    const results = await Promise.all(months.map((m) => api.get<AgentApiRow[]>(`/api/reyting/ishchi?oy=${m}`)));
+    return results.map((rows, i) => ({ month: MONTHS[i] ?? months[i]!, rows: toAgentSheetRows(rows) }));
+  }
+  const menejerReyting = useMemo(
+    () =>
+      menejerReytingApi.map((r) => ({
+        place: r.place,
+        fullName: r.fullName,
+        percent: r.percent,
+        yesterday: r.yesterday,
+        monthPoints: r.monthPoints,
+      })),
+    [menejerReytingApi],
+  );
+
   const { data: yillikApi = [] } = useQuery({
     queryKey: ["reyting", "yillik", yil],
     queryFn: () => api.get<YillikOyRow[]>(`/api/reyting/yillik?yil=${yil}`),
@@ -101,8 +144,8 @@ function Dashboard() {
   }, [yillikApi]);
 
   const { data: scoreboardApi = [] } = useQuery({
-    queryKey: ["reyting", "supervayzer", "tarix", "dashboard"],
-    queryFn: () => api.get<ScoreboardApiRow[]>("/api/reyting/supervayzer/tarix?oyCount=5"),
+    queryKey: ["reyting", "supervayzer", "tarix-yillik", yil],
+    queryFn: () => api.get<ScoreboardApiRow[]>(`/api/reyting/supervayzer/tarix-yillik?yil=${yil}`),
   });
   const scoreboard = useMemo(
     () =>
@@ -137,6 +180,33 @@ function Dashboard() {
     queryFn: () => api.get<IshchiListRow[]>("/api/ishchilar"),
   });
 
+  const handleExportExcel = async () => {
+    const { exportDashboardToExcel } = await import("@/lib/export-excel");
+    const monthlyAgents = await fetchMonthlyAgents();
+    void exportDashboardToExcel({
+      fileName: `micco-hisobot-${oy}.xlsx`,
+      yillik: yillikApi,
+      scoreboard,
+      tops,
+      monthlyAgents,
+      menejerlar: menejerReyting,
+    });
+  };
+
+  const handleExportWord = async () => {
+    const { exportDashboardToWord } = await import("@/lib/export-word");
+    const monthlyAgents = await fetchMonthlyAgents();
+    void exportDashboardToWord({
+      fileName: `micco-hisobot-${oy}.docx`,
+      oyLabel: `${monthLabel(oy)} ${yil}`,
+      yillik: yillikApi,
+      scoreboard,
+      tops,
+      monthlyAgents,
+      menejerlar: menejerReyting,
+    });
+  };
+
   const metrics = [
     { label: "Yillik bajarilish", value: yillikBajarilish, donut: true },
     ...(isAdmin
@@ -155,12 +225,28 @@ function Dashboard() {
         title="Bosh dashboard"
         subtitle="Yillik ko'rsatkichlar, oylik dinamika va liga yetakchilari"
         right={
-          <input
-            type="month"
-            value={date.slice(0, 7)}
-            onChange={(e) => setDate(`${e.target.value}-01`)}
-            className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-brand"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="month"
+              value={date.slice(0, 7)}
+              onChange={(e) => setDate(`${e.target.value}-01`)}
+              className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-brand"
+            />
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-brand shadow-sm transition-colors hover:bg-white/90"
+              onClick={handleExportExcel}
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-brand shadow-sm transition-colors hover:bg-white/90"
+              onClick={handleExportWord}
+            >
+              <FileText className="h-4 w-4" /> Word
+            </button>
+          </div>
         }
       />
 

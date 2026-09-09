@@ -360,3 +360,29 @@ shu kompyuterda AWS CLI uchun oldindan sozlangan kalit orqali ishlaydi:
   ruxsat beradi — bajarilishini AWS'ning o'zi amalga oshiradi.
 - **Diqqat**: bu kalit bir marta suhbat chatiga ochiq matn sifatida yozilgan edi — xavfsizlik
   nuqtai nazaridan AWS IAM konsolida almashtirish (rotate) tavsiya etiladi.
+
+## Bosh dashboard hisobotlarini Excel/Word'ga eksport qilish (2026-09-04)
+
+Bosh dashboard'ga (`index.tsx`) **"Excel"** va **"Word"** tugmalari qo'shildi — ikkalasi ham
+joriy oyning uch hisobotini (yillik statistika 12 oy, supervayzerlar oylik reytingi, ligalar
+bo'yicha top-3) bitta faylga, **ranglar bilan** (brand rang header'larda, 1/2/3-o'rinlar
+oltin/kumush/bronza tusda, liga rangi bo'yicha ajratilgan) tushiradi.
+
+- `frontend/src/lib/report-colors.ts` — ikkala format uchun umumiy hex rang konstantalari
+  (CSS'dagi oklch ranglarga yaqinlashtirilgan, chunki Office fayl formatlari oklch'ni
+  tushunmaydi).
+- `frontend/src/lib/export-excel.ts` — **ExcelJS** bilan (`xlsx`/SheetJS community emas —
+  u hujayra ranglarini qo'llab-quvvatlamaydi), 3 varaqli `.xlsx`.
+- `frontend/src/lib/export-word.ts` — **docx** kutubxonasi bilan, sarlavha + 3 jadvalli
+  `.docx`.
+- `frontend/src/lib/download-blob.ts` — ikkalasi ham ishlatadigan umumiy Blob→fayl yuklab
+  olish yordamchisi.
+- **Muhim**: `exceljs`/`docx` ikkalasi ham og'ir (~900KB/~360KB minified) — shuning uchun
+  `index.tsx`da **statik emas, dinamik `import()`** bilan ulangan (faqat tugma bosilganda
+  yuklanadi). Avval statik import qilingan edi, build tekshiruvida asosiy `routes-*.js`
+  chunk 1.7MB'ga shishib ketgani aniqlanib, tuzatildi (endi alohida `export-excel-*.js`/
+  `export-word-*.js` chunk'lariga bo'lingan).
+- Tekshirildi: `tsc --noEmit` va `npm run build` toza o'tdi; Node orqali ExcelJS/docx
+  generatsiya mantig'i namunaviy ma'lumot bilan sinovdan o'tkazilib, ikkala fayl ham
+  xatosiz yaratildi (brauzer kengaytmasi ulanmagani uchun to'liq UI orqali — login qilib
+  tugmani bosish — sinalmadi, foydalanuvchidan tasdiqlash kerak).

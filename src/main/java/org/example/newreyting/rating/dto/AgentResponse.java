@@ -7,6 +7,7 @@ public record AgentResponse(
         String familiya,
         String fullName,
         String supervisorFullName,
+        String menejerFullName,
         double percent,
         int points,
         int today,

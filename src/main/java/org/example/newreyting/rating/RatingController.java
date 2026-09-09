@@ -49,6 +49,12 @@ public class RatingController {
         return ratingService.computeSupervayzerTarix(oyCount);
     }
 
+    /** Berilgan yilning barcha 12 oyi — hisobot (dashboard eksport) uchun, {@link RatingService#computeSupervayzerTarixYillik}. */
+    @GetMapping("/supervayzer/tarix-yillik")
+    public List<ScoreboardRowResponse> supervayzerTarixYillik(@RequestParam int yil) {
+        return ratingService.computeSupervayzerTarixYillik(yil);
+    }
+
     @GetMapping("/yillik")
     public List<YillikOyResponse> yillik(@RequestParam int yil) {
         return ratingService.computeYillikStatistika(yil);

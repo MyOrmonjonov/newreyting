@@ -9,6 +9,7 @@ export type AgentApiRow = {
   familiya: string;
   fullName: string;
   supervisorFullName: string;
+  menejerFullName: string;
   percent: number;
   points: number;
   today: number;
