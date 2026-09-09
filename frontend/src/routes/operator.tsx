@@ -10,39 +10,7 @@ import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { LEAGUES, VILOYATLAR } from "@/lib/micco-data";
 import { avatarFor } from "@/lib/rating-api";
-
-// Katta suratlarni saqlashdan oldin kichraytiramiz (data URL sifatida backendga
-// yuboriladi va reytingda ham shu surat ishlatiladi).
-const MAX_PHOTO_DIMENSION = 480;
-
-function readAndResizePhoto(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      const scale = Math.min(1, MAX_PHOTO_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
-      const width = Math.max(1, Math.round(image.naturalWidth * scale));
-      const height = Math.max(1, Math.round(image.naturalHeight * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        reject(new Error("Canvas kontekstini ochib bo'lmadi."));
-        return;
-      }
-      ctx.drawImage(image, 0, 0, width, height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.9));
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Suratni o'qib bo'lmadi."));
-    };
-    image.src = url;
-  });
-}
+import { readAndResizePhoto } from "@/lib/photo";
 
 export const Route = createFileRoute("/operator")({
   head: () => ({
@@ -238,25 +206,38 @@ function OperatorPage() {
   const [oy, setOy] = useState(todayMonthInput());
   const [natijaDraft, setNatijaDraft] = useState<Record<number, { plan: number; bajarildi: number }>>({});
 
-  const { data: oyNatijalari = [] } = useQuery({
+  const { data: oyNatijalari = [], isFetched: natijalarFetched } = useQuery({
     queryKey: ["natijalar", oy],
     queryFn: () => api.get<NatijaRow[]>(`/api/natijalar?oy=${oy}`),
     enabled: !!oy,
   });
 
+  // Tanlangan agent/oy juftligi uchun FAQAT BIR MARTA serverdan kelgan qiymat bilan
+  // to'ldiriladi (natijaInitializedRef orqali) — aks holda fon rejimidagi background refetch
+  // (masalan boshqa oyna/tab'ga o'tib qaytganda) hali saqlanmagan kiritilgan qiymatlarni
+  // nolga qaytarib yuborardi.
+  const natijaInitializedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!selectedIshchiId) {
       setNatijaDraft({});
+      natijaInitializedRef.current = null;
       return;
     }
+    if (!natijalarFetched) return;
+    const key = `${selectedIshchiId}-${oy}`;
+    if (natijaInitializedRef.current === key) return;
     const mavjud = oyNatijalari.filter((n) => n.ishchiId === selectedIshchiId);
     const draft: Record<number, { plan: number; bajarildi: number }> = {};
     for (const m of mahsulotlar) {
       const bor = mavjud.find((n) => n.mahsulotId === m.id);
-      draft[m.id] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: m.standartPlan, bajarildi: 0 };
+      // Plan standart qiymat bilan emas, 0 bilan boshlanadi — shu agent uchun kerakli
+      // mahsulotlarga (masalan 5 tadan 2 tasiga) qancha bo'lsa, o'shancha plan yoziladi;
+      // tegilmagan mahsulot 0/0 bo'lib qoladi va umumiy foizga ta'sir qilmaydi (universal plan).
+      draft[m.id] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: 0, bajarildi: 0 };
     }
     setNatijaDraft(draft);
-  }, [selectedIshchiId, oy, oyNatijalari, mahsulotlar]);
+    natijaInitializedRef.current = key;
+  }, [selectedIshchiId, oy, natijalarFetched, oyNatijalari, mahsulotlar]);
 
   const natijaPreview = useMemo(() => {
     const rows = Object.values(natijaDraft);
@@ -287,17 +268,35 @@ function OperatorPage() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkDraft, setBulkDraft] = useState<Record<string, { plan: number; bajarildi: number }>>({});
 
+  // Oy o'zgarganda (yangi oy — boshqa ma'lumot to'plami) draft to'liq tozalanadi;
+  // shundan keyin modal ochiq bo'lsa va serverdan ma'lumot kelgan bo'lsa, faqat hali
+  // to'ldirilmagan katakchalar to'ldiriladi (bulkInitializedRef orqali bir marta) — aks
+  // holda fon rejimidagi background refetch hali saqlanmagan kiritilgan qiymatlarni
+  // nolga qaytarib yuborardi.
+  const bulkInitializedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!showBulkModal) return;
+    setBulkDraft({});
+    bulkInitializedRef.current = null;
+  }, [oy]);
+
+  useEffect(() => {
+    if (!showBulkModal) {
+      bulkInitializedRef.current = null;
+      return;
+    }
+    if (!natijalarFetched || bulkInitializedRef.current === oy) return;
     const draft: Record<string, { plan: number; bajarildi: number }> = {};
     for (const s of filteredIshchilar) {
       for (const m of mahsulotlar) {
         const bor = oyNatijalari.find((n) => n.ishchiId === s.id && n.mahsulotId === m.id);
-        draft[`${s.id}-${m.id}`] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: m.standartPlan, bajarildi: 0 };
+        // Plan 0 bilan boshlanadi — universal plan: har agentga faqat kerakli mahsulot(lar)ga
+        // qancha bo'lsa, o'shancha yoziladi, tegilmagani 0/0 bo'lib umumiy foizga ta'sir qilmaydi.
+        draft[`${s.id}-${m.id}`] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: 0, bajarildi: 0 };
       }
     }
     setBulkDraft(draft);
-  }, [showBulkModal, oy, oyNatijalari, mahsulotlar, filteredIshchilar]);
+    bulkInitializedRef.current = oy;
+  }, [showBulkModal, oy, natijalarFetched, oyNatijalari, mahsulotlar, filteredIshchilar]);
 
   const saveBulkMutation = useMutation({
     mutationFn: () =>
@@ -305,7 +304,7 @@ function OperatorPage() {
         oy,
         satrlar: filteredIshchilar.flatMap((s) =>
           mahsulotlar.map((m) => {
-            const v = bulkDraft[`${s.id}-${m.id}`] ?? { plan: m.standartPlan, bajarildi: 0 };
+            const v = bulkDraft[`${s.id}-${m.id}`] ?? { plan: 0, bajarildi: 0 };
             return { ishchiId: s.id, mahsulotId: m.id, plan: v.plan, bajarildi: v.bajarildi };
           }),
         ),
@@ -354,7 +353,11 @@ function OperatorPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {ishchilar.length > 0 && mahsulotlar.length > 0 ? (
-                  <button type="button" className="btn-ghost" onClick={() => setShowBulkModal(true)}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-xl bg-warning px-4 py-2 text-sm font-semibold text-black shadow-sm transition-colors hover:opacity-90"
+                    onClick={() => setShowBulkModal(true)}
+                  >
                     <Table2 className="h-4 w-4" /> Ommaviy/tarixiy natija kiritish
                   </button>
                 ) : null}
@@ -576,7 +579,8 @@ function OperatorPage() {
                           <input
                             className="field w-24"
                             type="number"
-                            value={natijaDraft[m.id]?.plan ?? m.standartPlan}
+                            placeholder={String(m.standartPlan)}
+                            value={natijaDraft[m.id]?.plan ?? 0}
                             onFocus={(e) => e.target.select()}
                             onChange={(e) =>
                               setNatijaDraft((s) => ({
@@ -593,14 +597,18 @@ function OperatorPage() {
                             onChange={(e) =>
                               setNatijaDraft((s) => ({
                                 ...s,
-                                [m.id]: { plan: s[m.id]?.plan ?? m.standartPlan, bajarildi: Number(e.target.value) },
+                                [m.id]: { plan: s[m.id]?.plan ?? 0, bajarildi: Number(e.target.value) },
                               }))
                             }
                           />
                         </div>
                       ))}
                     </div>
-                    <p className="mt-2 text-[11px] text-muted-foreground">Chapdagi maydon — plan, o'ngdagi — bajarilgan miqdor.</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Chapdagi maydon — plan, o'ngdagi — bajarilgan miqdor. Bu agentga tegishli bo'lmagan mahsulotni 0
+                      holida qoldiring — u umumiy foizga ta'sir qilmaydi (kulrang raqam — mahsulotning standart plani,
+                      xohlasangiz o'shani yozing).
+                    </p>
                     <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
                       <Donut value={Math.round(natijaPreview * 10) / 10} size={82} stroke={8} />
                       <p className="text-xs text-muted-foreground">Umumiy foiz = jami bajarilgan / jami plan × 100.</p>
@@ -670,10 +678,15 @@ function OperatorPage() {
                     Joriy filtrga mos agent yo'q — yuqoridagi filtrlarni o'zgartiring.
                   </p>
                 ) : (
+                  <>
+                  <p className="text-[11px] text-muted-foreground">
+                    Har agentga tegishli bo'lmagan mahsulotni 0 holida qoldiring — umumiy foizga ta'sir qilmaydi
+                    (kulrang raqam — mahsulotning standart plani).
+                  </p>
                   <div className="max-h-[55vh] overflow-auto rounded-xl border border-border">
                     <table className="w-full text-sm">
-                      <thead>
-                        <tr className="sticky top-0 z-10 border-b border-border bg-card text-left text-xs uppercase tracking-wider text-muted-foreground">
+                      <thead className="sticky top-0 z-10 bg-card">
+                        <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                           <th className="px-3 py-2 font-medium">Agent</th>
                           {mahsulotlar.map((m) => (
                             <th key={m.id} className="px-3 py-2 text-center font-medium" colSpan={2}>
@@ -681,7 +694,7 @@ function OperatorPage() {
                             </th>
                           ))}
                         </tr>
-                        <tr className="sticky top-[33px] z-10 border-b border-border bg-card text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <tr className="border-b border-border text-left text-[10px] uppercase tracking-wider text-muted-foreground">
                           <th className="px-3 py-1 font-medium"></th>
                           {mahsulotlar.map((m) => (
                             <Fragment key={m.id}>
@@ -699,13 +712,14 @@ function OperatorPage() {
                             </td>
                             {mahsulotlar.map((m) => {
                               const key = `${s.id}-${m.id}`;
-                              const v = bulkDraft[key] ?? { plan: m.standartPlan, bajarildi: 0 };
+                              const v = bulkDraft[key] ?? { plan: 0, bajarildi: 0 };
                               return (
                                 <Fragment key={key}>
                                   <td className="px-1 py-1">
                                     <input
                                       className="field w-20 px-2 py-1 text-center"
                                       type="number"
+                                      placeholder={String(m.standartPlan)}
                                       value={v.plan}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) =>
@@ -738,6 +752,7 @@ function OperatorPage() {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
 
                 <button

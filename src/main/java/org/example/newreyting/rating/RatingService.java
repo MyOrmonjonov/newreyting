@@ -46,15 +46,26 @@ public class RatingService {
     private final UserRepository userRepository;
     private final OylikYakunRepository yakunRepository;
     private final PlaceHistoryService placeHistoryService;
+    private final RahbarOylikNatijaRepository rahbarNatijaRepository;
 
     public RatingService(IshchiRepository ishchiRepository, OylikNatijaRepository natijaRepository,
                           UserRepository userRepository, OylikYakunRepository yakunRepository,
-                          PlaceHistoryService placeHistoryService) {
+                          PlaceHistoryService placeHistoryService, RahbarOylikNatijaRepository rahbarNatijaRepository) {
         this.ishchiRepository = ishchiRepository;
         this.natijaRepository = natijaRepository;
         this.userRepository = userRepository;
         this.yakunRepository = yakunRepository;
         this.placeHistoryService = placeHistoryService;
+        this.rahbarNatijaRepository = rahbarNatijaRepository;
+    }
+
+    /** Shu oy uchun menejer/supervayzerga qo'lda kiritilgan tarixiy ball/foiz (bo'lsa) — {@link RahbarOylikNatija}. */
+    private Map<Long, RahbarOylikNatija> rahbarOverridesByOy(LocalDate oy) {
+        Map<Long, RahbarOylikNatija> map = new HashMap<>();
+        for (RahbarOylikNatija n : rahbarNatijaRepository.findAllByOy(oy)) {
+            map.put(n.getUser().getId(), n);
+        }
+        return map;
     }
 
     // Mezon: 1-o'rin = 24, 2 = 22, 3 = 20, 4-22-o'rin = har biriga -1, 23+ = 0
@@ -166,6 +177,12 @@ public class RatingService {
         }
     }
 
+    /** Supervayzerni yaratgan menejer (bo'lmasa — masalan ADMIN yaratgan bo'lsa — bo'sh qator). */
+    private static String menejerOf(User supervisor) {
+        User createdBy = supervisor.getCreatedBy();
+        return createdBy != null && createdBy.getRole() == Role.MENEJER ? createdBy.getFullName() : "";
+    }
+
     private List<AgentResponse> frozenToResponse(List<OylikYakun> frozen, LocalDate month) {
         Map<Long, Integer> trophiesByIshchi = computeTrophies(month);
         Map<String, List<OylikYakun>> byLeague = new LinkedHashMap<>();
@@ -186,6 +203,7 @@ public class RatingService {
                 result.add(new AgentResponse(
                         i.getId(), y.getPlace(), i.getIsm(), i.getFamiliya(),
                         i.getIsm() + " " + i.getFamiliya(), i.getSupervayzer().getFullName(),
+                        menejerOf(i.getSupervayzer()),
                         round1(y.getPercent()), y.getBall(), y.getPlace(), y.getPlace(),
                         trophiesByIshchi.getOrDefault(i.getId(), 0), years, y.getLiga(), i.getRasm()
                 ));
@@ -240,6 +258,7 @@ public class RatingService {
                         s.ishchi().getFamiliya(),
                         s.ishchi().getIsm() + " " + s.ishchi().getFamiliya(),
                         s.ishchi().getSupervayzer().getFullName(),
+                        menejerOf(s.ishchi().getSupervayzer()),
                         round1(s.percent()),
                         points,
                         place,
@@ -339,38 +358,50 @@ public class RatingService {
     }
 
     public List<RankedUserResponse> computeSupervayzerReyting(LocalDate oy) {
+        LocalDate month = oy.withDayOfMonth(1);
         List<User> supervayzerlar = userRepository.findByRoleOrderByFamiliyaAsc(Role.SUPERVAYZER);
         Map<Long, int[]> sums = new HashMap<>();
-        for (OylikNatija n : natijaRepository.findAllByOy(oy.withDayOfMonth(1))) {
+        for (OylikNatija n : natijaRepository.findAllByOy(month)) {
             Long supId = n.getIshchi().getSupervayzer().getId();
             int[] s = sums.computeIfAbsent(supId, k -> new int[2]);
             s[0] += n.getPlan();
             s[1] += n.getBajarildi();
         }
-        return rankUsers(supervayzerlar, sums);
+        return rankUsers(supervayzerlar, sums, rahbarOverridesByOy(month));
     }
 
     public List<RankedUserResponse> computeMenejerReyting(LocalDate oy) {
+        LocalDate month = oy.withDayOfMonth(1);
         List<User> menejerlar = userRepository.findByRoleOrderByFamiliyaAsc(Role.MENEJER);
         Map<Long, int[]> sums = new HashMap<>();
-        for (OylikNatija n : natijaRepository.findAllByOy(oy.withDayOfMonth(1))) {
+        for (OylikNatija n : natijaRepository.findAllByOy(month)) {
             User createdBy = n.getIshchi().getSupervayzer().getCreatedBy();
             if (createdBy == null) continue;
             int[] s = sums.computeIfAbsent(createdBy.getId(), k -> new int[2]);
             s[0] += n.getPlan();
             s[1] += n.getBajarildi();
         }
-        return rankUsers(menejerlar, sums);
+        return rankUsers(menejerlar, sums, rahbarOverridesByOy(month));
     }
 
-    private List<RankedUserResponse> rankUsers(List<User> users, Map<Long, int[]> sums) {
-        record Scored(User user, double percent, boolean hasData) {
+    /**
+     * {@code overrides} — shu oy uchun qo'lda kiritilgan tarixiy ball/foiz (bo'lsa, {@link RahbarOylikNatija}).
+     * Mavjud bo'lsa, agentlar yig'indisidan hisoblangan foiz/ball o'rniga shu qiymat ishlatiladi —
+     * o'rin (place) esa baribir foiz bo'yicha saralashdan chiqadi (qo'lda kiritilgan va jonli
+     * hisoblangan qatorlar bir ro'yxatda aralash bo'lishi mumkin).
+     */
+    private List<RankedUserResponse> rankUsers(List<User> users, Map<Long, int[]> sums, Map<Long, RahbarOylikNatija> overrides) {
+        record Scored(User user, double percent, boolean hasData, Integer manualBall) {
         }
         List<Scored> scored = users.stream()
                 .map(u -> {
+                    RahbarOylikNatija override = overrides.get(u.getId());
+                    if (override != null) {
+                        return new Scored(u, override.getPercent(), true, override.getBall());
+                    }
                     boolean hasData = sums.containsKey(u.getId());
                     int[] s = sums.getOrDefault(u.getId(), new int[2]);
-                    return new Scored(u, overallPercent(s[1], s[0]), hasData);
+                    return new Scored(u, overallPercent(s[1], s[0]), hasData, null);
                 })
                 .sorted(Comparator.comparing((Scored s) -> !s.hasData())
                         .thenComparing(Comparator.comparingDouble(Scored::percent).reversed()))
@@ -380,7 +411,7 @@ public class RatingService {
         for (int idx = 0; idx < scored.size(); idx++) {
             Scored s = scored.get(idx);
             int place = idx + 1;
-            int points = s.hasData() ? pointsForPlace(place) : 0;
+            int points = s.manualBall() != null ? s.manualBall() : (s.hasData() ? pointsForPlace(place) : 0);
             result.add(new RankedUserResponse(s.user().getId(), place, s.user().getFullName(),
                     round1(s.percent()), place, points));
         }
@@ -394,6 +425,24 @@ public class RatingService {
         for (int i = oyCount - 1; i >= 0; i--) {
             months.add(currentMonth.minusMonths(i));
         }
+        return supervayzerScoreboard(months);
+    }
+
+    /**
+     * Berilgan yilning barcha 12 oyi (yanvar-dekabr) bo'yicha supervayzerlar scoreboard'i —
+     * hisobot (dashboard eksport) uchun. {@link #computeSupervayzerTarix}dagi "joriy sanadan
+     * orqaga N oy" oynasidan farqli o'laroq, hali yetib kelmagan oylar ham ro'yxatda 0%/ball
+     * bilan ko'rinadi (ro'yxatdan tushib qolmaydi) — shunda hisobot doim to'liq 12 oylik bo'ladi.
+     */
+    public List<ScoreboardRowResponse> computeSupervayzerTarixYillik(int yil) {
+        List<LocalDate> months = new ArrayList<>();
+        for (int oy = 1; oy <= 12; oy++) {
+            months.add(LocalDate.of(yil, oy, 1));
+        }
+        return supervayzerScoreboard(months);
+    }
+
+    private List<ScoreboardRowResponse> supervayzerScoreboard(List<LocalDate> months) {
         List<User> supervayzerlar = userRepository.findByRoleOrderByFamiliyaAsc(Role.SUPERVAYZER);
 
         Map<LocalDate, Map<Long, Double>> percentByMonth = new LinkedHashMap<>();
@@ -406,21 +455,31 @@ public class RatingService {
                 s[0] += n.getPlan();
                 s[1] += n.getBajarildi();
             }
+            // Qo'lda kiritilgan tarixiy ball/foiz (bo'lsa) — RahbarOylikNatija — agentlar
+            // yig'indisidan ustun turadi (eski, tizimdan oldingi oylar uchun).
+            Map<Long, RahbarOylikNatija> overrides = rahbarOverridesByOy(month);
             Map<Long, Double> percents = new HashMap<>();
             for (User u : supervayzerlar) {
-                int[] s = sums.getOrDefault(u.getId(), new int[2]);
-                percents.put(u.getId(), overallPercent(s[1], s[0]));
+                RahbarOylikNatija override = overrides.get(u.getId());
+                if (override != null) {
+                    percents.put(u.getId(), override.getPercent());
+                } else {
+                    int[] s = sums.getOrDefault(u.getId(), new int[2]);
+                    percents.put(u.getId(), overallPercent(s[1], s[0]));
+                }
             }
-            // Faqat shu oy uchun haqiqiy natija kiritilganlar ballanadi va joy oladi —
-            // natija kiritilmagan supervayzer 0% bo'lib ko'rinadi, lekin ball olmaydi.
+            // Faqat shu oy uchun haqiqiy natija kiritilganlar (jonli yoki qo'lda) ballanadi va
+            // joy oladi — natija kiritilmagan supervayzer 0% bo'lib ko'rinadi, lekin ball olmaydi.
             List<Long> withData = supervayzerlar.stream()
                     .map(User::getId)
-                    .filter(sums::containsKey)
+                    .filter(id -> sums.containsKey(id) || overrides.containsKey(id))
                     .sorted(Comparator.comparingDouble((Long id) -> percents.get(id)).reversed())
                     .toList();
             Map<Long, Integer> points = new HashMap<>();
             for (int idx = 0; idx < withData.size(); idx++) {
-                points.put(withData.get(idx), pointsForPlace(idx + 1));
+                Long id = withData.get(idx);
+                RahbarOylikNatija override = overrides.get(id);
+                points.put(id, override != null ? override.getBall() : pointsForPlace(idx + 1));
             }
             percentByMonth.put(month, percents);
             pointsByMonth.put(month, points);

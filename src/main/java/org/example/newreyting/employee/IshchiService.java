@@ -30,14 +30,13 @@ public class IshchiService {
     }
 
     /**
-     * Rolga qarab ko'rinadigan ishchilar (ID zanjiri bo'yicha): ADMIN — hammasi, OPERATOR — o'zi
-     * yaratgan menejerlarga tegishli supervayzerlarning ishchilari, MENEJER — o'zi yaratgan
-     * supervayzerlarga tegishlilar, SUPERVAYZER — faqat o'ziniki.
+     * Rolga qarab ko'rinadigan ishchilar: ADMIN va OPERATOR — hammasi (tashkilot bo'ylab),
+     * MENEJER — o'zi yaratgan supervayzerlarga tegishlilar (ID zanjiri, 1 pog'ona), SUPERVAYZER —
+     * faqat o'ziniki.
      */
     public List<Ishchi> listVisibleTo(User currentUser) {
         return switch (currentUser.getRole()) {
-            case ADMIN -> ishchiRepository.findAllWithRefs();
-            case OPERATOR -> ishchiRepository.findAllBySupervayzerCreatedByCreatedById(currentUser.getId());
+            case ADMIN, OPERATOR -> ishchiRepository.findAllWithRefs();
             case MENEJER -> ishchiRepository.findAllBySupervayzerCreatedById(currentUser.getId());
             case SUPERVAYZER -> ishchiRepository.findAllBySupervayzerId(currentUser.getId());
         };
@@ -47,10 +46,7 @@ public class IshchiService {
     public boolean canManage(User currentUser, Ishchi ishchi) {
         User supervayzer = ishchi.getSupervayzer();
         return switch (currentUser.getRole()) {
-            case ADMIN -> true;
-            case OPERATOR -> supervayzer.getCreatedBy() != null
-                    && supervayzer.getCreatedBy().getCreatedBy() != null
-                    && supervayzer.getCreatedBy().getCreatedBy().getId().equals(currentUser.getId());
+            case ADMIN, OPERATOR -> true;
             case MENEJER -> supervayzer.getCreatedBy() != null
                     && supervayzer.getCreatedBy().getId().equals(currentUser.getId());
             case SUPERVAYZER -> supervayzer.getId().equals(currentUser.getId());

@@ -39,6 +39,10 @@ public class User {
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Profil surati — data URL sifatida (masalan "data:image/png;base64,..."). Ixtiyoriy. */
+    @Column(columnDefinition = "TEXT")
+    private String rasm;
+
     protected User() {
     }
 
@@ -61,6 +65,10 @@ public class User {
 
     public void setIsm(String ism) {
         this.ism = ism;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
     }
 
     public String getFamiliya() {
@@ -95,6 +103,10 @@ public class User {
         return createdBy;
     }
 
+    public void setCreatedBy(User createdBy) {
+        this.createdBy = createdBy;
+    }
+
     public boolean isActive() {
         return active;
     }
@@ -105,5 +117,13 @@ public class User {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getRasm() {
+        return rasm;
+    }
+
+    public void setRasm(String rasm) {
+        this.rasm = rasm;
     }
 }

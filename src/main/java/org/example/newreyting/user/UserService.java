@@ -46,25 +46,36 @@ public class UserService {
     }
 
     /**
-     * ADMIN har qanday rolni to'g'ridan-to'g'ri yarata oladi, lekin shu holatda uni
-     * o'ziga bog'lab qo'ysa (createdBy=ADMIN), natijada u tegishli yuqori rolning
-     * (operator/menejer) ro'yxatida umuman ko'rinmay, "egasiz" bo'lib qolar edi —
-     * ID zanjiri (createdBy) orqali ishlaydigan ko'rinish cheklovi (listByRoleVisibleTo)
-     * uni hech kimga ko'rsatmaydi. Shuning uchun ADMIN ownerId yuborsa, shu tanlangan
-     * (mos rolga ega) foydalanuvchi haqiqiy "yaratuvchi" sifatida yoziladi.
+     * ADMIN yoki OPERATOR SUPERVAYZERni to'g'ridan-to'g'ri yarata oladi, lekin shu holatda uni
+     * o'ziga bog'lab qo'ysa (createdBy=ADMIN/OPERATOR), natijada u MENEJER ro'yxatida umuman
+     * ko'rinmay, "egasiz" bo'lib qolar edi — ID zanjiri (createdBy) orqali ishlaydigan ko'rinish
+     * cheklovi (listByRoleVisibleTo) uni hech qaysi menejerga ko'rsatmaydi. Shuning uchun
+     * bir nechta menejer bo'lishi mumkinligi sababli ADMIN/OPERATOR ownerId yuborsa, shu
+     * tanlangan menejer yoziladi (UI'da bu maydon shart — jamoa.tsx `showOwnerField`).
+     * MENEJER uchun ega tanlash UI'da yo'q — tizimda bitta umumiy operator bor va har doim
+     * shunga avtomatik biriktiriladi (soleOperator).
      */
     private User resolveOwner(Long ownerId, Role role, User creator) {
-        if (creator.getRole() != Role.ADMIN || ownerId == null) {
-            return creator;
+        if (role == Role.MENEJER) {
+            return creator.getRole() == Role.OPERATOR ? creator : soleOperator();
         }
-        Role expectedOwnerRole = switch (role) {
-            case MENEJER -> Role.OPERATOR;
-            case SUPERVAYZER -> Role.MENEJER;
-            default -> null;
-        };
-        if (expectedOwnerRole == null) {
-            return creator;
+        if (role == Role.SUPERVAYZER && ownerId != null
+                && (creator.getRole() == Role.ADMIN || creator.getRole() == Role.OPERATOR)) {
+            return validateOwner(ownerId, Role.MENEJER);
         }
+        return creator;
+    }
+
+    /** Tizimdagi yagona operator — menejerlarni shunga avtomatik biriktirish uchun. */
+    private User soleOperator() {
+        List<User> operators = userRepository.findByRoleOrderByFamiliyaAsc(Role.OPERATOR);
+        if (operators.isEmpty()) {
+            throw new IllegalArgumentException("Hali operator qo'shilmagan — avval operator qo'shing");
+        }
+        return operators.get(0);
+    }
+
+    private User validateOwner(Long ownerId, Role expectedOwnerRole) {
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new IllegalArgumentException("Tanlangan foydalanuvchi topilmadi"));
         if (owner.getRole() != expectedOwnerRole) {
@@ -79,15 +90,13 @@ public class UserService {
     }
 
     /**
-     * ID zanjiri bo'yicha cheklangan ro'yxat: ADMIN — hammasi, OPERATOR — o'zi yaratgan
-     * menejerlar / ularning supervayzerlari, MENEJER — o'zi yaratgan supervayzerlar.
+     * Ko'rinish ro'yxati: ADMIN va OPERATOR — hammasi (tashkilot bo'ylab, kim yaratganidan
+     * qat'iy nazar — operator tizimdagi barcha menejer va supervayzerlarni ko'rishi/boshqarishi
+     * kerak), MENEJER — faqat o'zi yaratgan supervayzerlar.
      */
     public List<User> listByRoleVisibleTo(Role role, User currentUser) {
-        if (currentUser.getRole() == Role.ADMIN) {
+        if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.OPERATOR) {
             return userRepository.findByRoleOrderByFamiliyaAsc(role);
-        }
-        if (currentUser.getRole() == Role.OPERATOR && role == Role.SUPERVAYZER) {
-            return userRepository.findByRoleAndCreatedByCreatedByIdOrderByFamiliyaAsc(role, currentUser.getId());
         }
         return userRepository.findByRoleAndCreatedByIdOrderByFamiliyaAsc(role, currentUser.getId());
     }
@@ -122,12 +131,27 @@ public class UserService {
                 user.getFullName() + (active ? " faollashtirildi" : " faolsizlantirildi"));
     }
 
-    /** Ism/familiyani tahrirlash (login/parol alohida oqimlar orqali o'zgaradi). */
+    /**
+     * Ism/familiya, login va suratni tahrirlash (parol alohida oqim orqali o'zgaradi).
+     * ownerId faqat SUPERVAYZERni ADMIN yoki OPERATOR tahrirlaganda e'tiborga olinadi —
+     * boshqa menejerga qayta biriktirish uchun. Menejer uchun ega tushunchasi yo'q (bitta
+     * umumiy operatorga doim biriktirilgan bo'ladi, qayta biriktirish kerak emas).
+     */
     @Transactional
-    public User updateProfile(Long userId, Role expectedRole, String ism, String familiya, User actor) {
+    public User updateProfile(Long userId, Role expectedRole, String ism, String familiya, String login, String rasm,
+                               Long ownerId, User actor) {
         User user = findByIdAndRole(userId, expectedRole);
+        String trimmedLogin = login.trim();
+        if (!trimmedLogin.equalsIgnoreCase(user.getLogin()) && userRepository.existsByLoginIgnoreCase(trimmedLogin)) {
+            throw new IllegalArgumentException("Bu login band: " + trimmedLogin);
+        }
         user.setIsm(ism.trim());
         user.setFamiliya(familiya.trim());
+        user.setLogin(trimmedLogin);
+        user.setRasm(rasm);
+        if ((actor.getRole() == Role.ADMIN || actor.getRole() == Role.OPERATOR) && ownerId != null && expectedRole == Role.SUPERVAYZER) {
+            user.setCreatedBy(validateOwner(ownerId, Role.MENEJER));
+        }
         auditService.record(actor, HarakatTuri.OZGARTIRDI, user.getFullName());
         return user;
     }
@@ -151,8 +175,7 @@ public class UserService {
     }
 
     private User findByIdAndRole(Long userId, Role expectedRole) {
-        return userRepository.findById(userId)
-                .filter(u -> u.getRole() == expectedRole)
+        return userRepository.findByIdAndRoleFetchCreatedBy(userId, expectedRole)
                 .orElseThrow(() -> new IllegalArgumentException("Foydalanuvchi topilmadi"));
     }
 }

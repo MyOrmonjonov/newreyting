@@ -33,15 +33,6 @@ public interface IshchiRepository extends JpaRepository<Ishchi, Long> {
             """)
     List<Ishchi> findAllBySupervayzerCreatedById(@Param("menejerId") Long menejerId);
 
-    /** OPERATOR — o'zi yaratgan menejerlarga tegishli supervayzerlarning ishchilari (2 pog'ona pastga). */
-    @Query("""
-            SELECT i FROM Ishchi i
-            LEFT JOIN FETCH i.supervayzer
-            WHERE i.supervayzer.createdBy.createdBy.id = :operatorId
-            ORDER BY i.familiya ASC
-            """)
-    List<Ishchi> findAllBySupervayzerCreatedByCreatedById(@Param("operatorId") Long operatorId);
-
     boolean existsBySupervayzerId(Long supervayzerId);
 
     /** Foydalanuvchi o'chirilishidan oldin — bu metadata maydon, o'chirilayotgan userga FK to'sqinlik qilmasligi uchun bo'shatiladi. */

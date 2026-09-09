@@ -1,14 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, UserPlus, UserCog, Loader2, ShieldAlert, UserX, UserCheck, Pencil, Trash2, X, Save } from "lucide-react";
+import {
+  ImageOff,
+  KeyRound,
+  UserPlus,
+  UserCog,
+  UserRound,
+  Loader2,
+  ShieldAlert,
+  UserX,
+  UserCheck,
+  Pencil,
+  Trash2,
+  X,
+  Save,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { PasswordDialog } from "@/components/PasswordDialog";
 import { Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth-context";
+import { readAndResizePhoto } from "@/lib/photo";
 
 export const Route = createFileRoute("/operatorlar")({
   head: () => ({
@@ -34,6 +49,7 @@ type UserRow = {
   active: boolean;
   createdByFullName: string | null;
   createdAt: string;
+  rasm: string | null;
 };
 
 const EMPTY_FORM = { ism: "", familiya: "", login: "", password: "" };
@@ -44,8 +60,21 @@ function OperatorlarPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ ism: "", familiya: "" });
+  const [editForm, setEditForm] = useState({ ism: "", familiya: "", login: "" });
+  const [editPhoto, setEditPhoto] = useState<string | null>(null);
+  const [editPhotoStatus, setEditPhotoStatus] = useState<"idle" | "loading" | "error">("idle");
+  const editPhotoInputRef = useRef<HTMLInputElement>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  async function handleEditPhotoFile(file: File) {
+    setEditPhotoStatus("loading");
+    try {
+      setEditPhoto(await readAndResizePhoto(file));
+      setEditPhotoStatus("idle");
+    } catch {
+      setEditPhotoStatus("error");
+    }
+  }
 
   const canManage = user?.role === "ADMIN";
 
@@ -93,12 +122,12 @@ function OperatorlarPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: typeof editForm }) =>
+    mutationFn: ({ id, payload }: { id: number; payload: typeof editForm & { rasm: string | null } }) =>
       api.put(`/api/users/operators/${id}`, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["users", "operators"] });
       toast.success("Operator ma'lumotlari yangilandi");
-      setEditingId(null);
+      closeEdit();
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Yangilab bo'lmadi"),
   });
@@ -114,7 +143,16 @@ function OperatorlarPage() {
 
   function startEdit(o: UserRow) {
     setEditingId(o.id);
-    setEditForm({ ism: o.ism, familiya: o.familiya });
+    setEditForm({ ism: o.ism, familiya: o.familiya, login: o.login });
+    setEditPhoto(o.rasm ?? null);
+    setEditPhotoStatus("idle");
+  }
+
+  function closeEdit() {
+    setEditingId(null);
+    setEditForm({ ism: "", familiya: "", login: "" });
+    setEditPhoto(null);
+    setEditPhotoStatus("idle");
   }
 
   if (!canManage) {
@@ -163,38 +201,14 @@ function OperatorlarPage() {
                     }`}
                     style={{ animation: `micco-rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 50}ms both` }}
                   >
-                    {editingId === o.id ? (
-                      <form
-                        className="flex flex-1 flex-wrap items-center gap-2"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          updateMutation.mutate({ id: o.id, payload: editForm });
-                        }}
-                      >
-                        <input
-                          className="field w-32"
-                          value={editForm.ism}
-                          onChange={(e) => setEditForm((s) => ({ ...s, ism: e.target.value }))}
-                          required
-                        />
-                        <input
-                          className="field w-32"
-                          value={editForm.familiya}
-                          onChange={(e) => setEditForm((s) => ({ ...s, familiya: e.target.value }))}
-                          required
-                        />
-                        <button className="btn-brand px-3 py-1.5" type="submit" disabled={updateMutation.isPending}>
-                          {updateMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                        </button>
-                        <button className="btn-ghost px-3 py-1.5" type="button" onClick={() => setEditingId(null)}>
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </form>
-                    ) : (
-                      <>
+                    <>
                         <div className="flex items-center gap-3">
-                          <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-brand">
-                            <UserCog className="h-4 w-4" />
+                          <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-soft text-brand">
+                            {o.rasm ? (
+                              <img src={o.rasm} alt={`${o.ism} ${o.familiya}`} className="h-full w-full object-cover" />
+                            ) : (
+                              <UserCog className="h-4 w-4" />
+                            )}
                           </div>
                           <div>
                             <p className="flex items-center gap-2 text-sm font-medium">
@@ -246,7 +260,6 @@ function OperatorlarPage() {
                           </button>
                         </div>
                       </>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -330,6 +343,100 @@ function OperatorlarPage() {
                     <UserPlus className="h-4 w-4" />
                   )}
                   Yaratish va login berish
+                </button>
+              </form>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {editingId !== null
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              onClick={closeEdit}
+            >
+              <form
+                className="card-surface my-8 w-full max-w-sm space-y-4 p-5"
+                onClick={(e) => e.stopPropagation()}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  updateMutation.mutate({ id: editingId, payload: { ...editForm, rasm: editPhoto } });
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Operatorni tahrirlash</h2>
+                  <button type="button" className="btn-ghost px-2 py-1.5" onClick={closeEdit} aria-label="Yopish">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Surat</label>
+                  <div className="flex items-center gap-4">
+                    <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted">
+                      {editPhotoStatus === "loading" ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : editPhoto ? (
+                        <img src={editPhoto} alt="Surat" className="h-full w-full object-cover" />
+                      ) : (
+                        <UserRound className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        ref={editPhotoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleEditPhotoFile(file);
+                        }}
+                      />
+                      <button type="button" className="btn-ghost" onClick={() => editPhotoInputRef.current?.click()}>
+                        {editPhoto ? "Suratni almashtirish" : "Surat yuklash"}
+                      </button>
+                      {editPhotoStatus === "error" ? (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] text-danger">
+                          <ImageOff className="h-3 w-3" /> Suratni yuklab bo'lmadi — boshqasini sinab ko'ring.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Ismi</label>
+                  <input
+                    className="field"
+                    placeholder="Ism"
+                    value={editForm.ism}
+                    onChange={(e) => setEditForm((s) => ({ ...s, ism: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Familiyasi</label>
+                  <input
+                    className="field"
+                    placeholder="Familiya"
+                    value={editForm.familiya}
+                    onChange={(e) => setEditForm((s) => ({ ...s, familiya: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Login</label>
+                  <input
+                    className="field"
+                    placeholder="Login"
+                    value={editForm.login}
+                    onChange={(e) => setEditForm((s) => ({ ...s, login: e.target.value }))}
+                    required
+                  />
+                </div>
+                <button className="btn-brand w-full" type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Saqlash
                 </button>
               </form>
             </div>,

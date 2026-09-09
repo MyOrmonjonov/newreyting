@@ -13,7 +13,9 @@ public record UserResponse(
         Role role,
         boolean active,
         String createdByFullName,
-        Instant createdAt
+        Long createdById,
+        Instant createdAt,
+        String rasm
 ) {
     public static UserResponse from(User u) {
         return new UserResponse(
@@ -24,7 +26,9 @@ public record UserResponse(
                 u.getRole(),
                 u.isActive(),
                 u.getCreatedBy() != null ? u.getCreatedBy().getFullName() : null,
-                u.getCreatedAt()
+                u.getCreatedBy() != null ? u.getCreatedBy().getId() : null,
+                u.getCreatedAt(),
+                u.getRasm()
         );
     }
 }

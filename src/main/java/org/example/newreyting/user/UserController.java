@@ -60,7 +60,7 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponse updateOperator(@PathVariable Long id, @Valid @RequestBody UpdateProfileRequest req,
                                         @AuthenticationPrincipal AppUserDetails principal) {
-        return UserResponse.from(userService.updateProfile(id, Role.OPERATOR, req.ism(), req.familiya(), principal.getUser()));
+        return UserResponse.from(userService.updateProfile(id, Role.OPERATOR, req.ism(), req.familiya(), req.login(), req.rasm(), req.ownerId(), principal.getUser()));
     }
 
     @DeleteMapping("/operators/{id}")
@@ -106,7 +106,7 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
     public UserResponse updateMenejer(@PathVariable Long id, @Valid @RequestBody UpdateProfileRequest req,
                                        @AuthenticationPrincipal AppUserDetails principal) {
-        return UserResponse.from(userService.updateProfile(id, Role.MENEJER, req.ism(), req.familiya(), principal.getUser()));
+        return UserResponse.from(userService.updateProfile(id, Role.MENEJER, req.ism(), req.familiya(), req.login(), req.rasm(), req.ownerId(), principal.getUser()));
     }
 
     @DeleteMapping("/menejers/{id}")
@@ -116,7 +116,7 @@ public class UserController {
         userService.delete(id, Role.MENEJER, principal.getUser());
     }
 
-    // --- Supervayzerlar: Admin, Menejer (o'ziniki) yoki Operator (ishchi biriktirish uchun, o'ziniki) ---
+    // --- Supervayzerlar: Admin, Menejer va Operator to'liq boshqara oladi (faqat o'chirish ADMINga xos) ---
 
     @GetMapping("/supervayzers")
     @PreAuthorize("hasAnyRole('ADMIN','MENEJER','OPERATOR')")
@@ -125,7 +125,7 @@ public class UserController {
     }
 
     @PostMapping("/supervayzers")
-    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER','OPERATOR')")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse createSupervayzer(@Valid @RequestBody CreateUserRequest req,
                                            @AuthenticationPrincipal AppUserDetails principal) {
@@ -133,7 +133,7 @@ public class UserController {
     }
 
     @PutMapping("/supervayzers/{id}/password")
-    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER','OPERATOR')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resetSupervayzerPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req,
                                           @AuthenticationPrincipal AppUserDetails principal) {
@@ -141,7 +141,7 @@ public class UserController {
     }
 
     @PutMapping("/supervayzers/{id}/active")
-    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER','OPERATOR')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void setSupervayzerActive(@PathVariable Long id, @Valid @RequestBody UpdateActiveRequest req,
                                       @AuthenticationPrincipal AppUserDetails principal) {
@@ -149,14 +149,14 @@ public class UserController {
     }
 
     @PutMapping("/supervayzers/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','MENEJER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MENEJER','OPERATOR')")
     public UserResponse updateSupervayzer(@PathVariable Long id, @Valid @RequestBody UpdateProfileRequest req,
                                            @AuthenticationPrincipal AppUserDetails principal) {
-        return UserResponse.from(userService.updateProfile(id, Role.SUPERVAYZER, req.ism(), req.familiya(), principal.getUser()));
+        return UserResponse.from(userService.updateProfile(id, Role.SUPERVAYZER, req.ism(), req.familiya(), req.login(), req.rasm(), req.ownerId(), principal.getUser()));
     }
 
-    // Diqqat: MENEJER supervayzer qo'sha/tahrirlay/faolsizlantira oladi, lekin o'chira olmaydi
-    // (faqat ADMIN o'chira oladi) — buyurtma bo'yicha ataylab shunday cheklangan.
+    // Diqqat: MENEJER va OPERATOR supervayzer qo'sha/tahrirlay/faolsizlantira oladi, lekin
+    // o'chira olmaydi (faqat ADMIN o'chira oladi) — buyurtma bo'yicha ataylab shunday cheklangan.
     @DeleteMapping("/supervayzers/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
