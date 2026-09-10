@@ -231,10 +231,11 @@ function OperatorPage() {
     const draft: Record<number, { plan: number; bajarildi: number }> = {};
     for (const m of mahsulotlar) {
       const bor = mavjud.find((n) => n.mahsulotId === m.id);
-      // Plan standart qiymat bilan emas, 0 bilan boshlanadi — shu agent uchun kerakli
-      // mahsulotlarga (masalan 5 tadan 2 tasiga) qancha bo'lsa, o'shancha plan yoziladi;
-      // tegilmagan mahsulot 0/0 bo'lib qoladi va umumiy foizga ta'sir qilmaydi (universal plan).
-      draft[m.id] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: 0, bajarildi: 0 };
+      // Plan mahsulotning standart plani bilan oldindan to'ldiriladi — har bir agent har bir
+      // paket bo'yicha ishlaydi, shuning uchun operator faqat "bajarildi"ni kiritsa yetarli.
+      // Agar bu paket haqiqatan ham shu agentga tegishli bo'lmasa, plan qo'lda 0 qilinadi —
+      // shundagina u umumiy foizga ta'sir qilmaydi.
+      draft[m.id] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: m.standartPlan, bajarildi: 0 };
     }
     setNatijaDraft(draft);
     natijaInitializedRef.current = key;
@@ -286,9 +287,10 @@ function OperatorPage() {
     for (const s of filteredIshchilar) {
       for (const m of mahsulotlar) {
         const bor = oyNatijalari.find((n) => n.ishchiId === s.id && n.mahsulotId === m.id);
-        // Plan 0 bilan boshlanadi — universal plan: har agentga faqat kerakli mahsulot(lar)ga
-        // qancha bo'lsa, o'shancha yoziladi, tegilmagani 0/0 bo'lib umumiy foizga ta'sir qilmaydi.
-        draft[`${s.id}-${m.id}`] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: 0, bajarildi: 0 };
+        // Plan mahsulotning standart plani bilan oldindan to'ldiriladi (eski oylar uchun ham) —
+        // operator har bir paket uchun faqat "bajarildi"ni kiritsa yetarli. Haqiqatan ham shu
+        // agentga tegishli bo'lmagan paket uchun plan qo'lda 0 qilinsa, umumiy foizga ta'sir qilmaydi.
+        draft[`${s.id}-${m.id}`] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: m.standartPlan, bajarildi: 0 };
       }
     }
     setBulkDraft(draft);
@@ -628,9 +630,9 @@ function OperatorPage() {
                       ))}
                     </div>
                     <p className="mt-2 text-[11px] text-muted-foreground">
-                      Chapdagi maydon — plan, o'ngdagi — bajarilgan miqdor. Bu agentga tegishli bo'lmagan mahsulotni 0
-                      holida qoldiring — u umumiy foizga ta'sir qilmaydi (kulrang raqam — mahsulotning standart plani,
-                      xohlasangiz o'shani yozing).
+                      Chapdagi maydon (plan) paketning standart plani bilan avtomatik to'ldirilgan — odatda faqat
+                      o'ngdagi bajarilgan miqdorni kiritsangiz kifoya. Bu paket shu agentga umuman tegishli bo'lmasa,
+                      planni 0 ga o'zgartiring — shundagina u umumiy foizga ta'sir qilmaydi.
                     </p>
                     <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
                       <Donut value={Math.round(natijaPreview * 10) / 10} size={82} stroke={8} />
@@ -706,8 +708,9 @@ function OperatorPage() {
                 ) : (
                   <>
                   <p className="text-[11px] text-muted-foreground">
-                    Har agentga tegishli bo'lmagan mahsulotni 0 holida qoldiring — umumiy foizga ta'sir qilmaydi
-                    (kulrang raqam — mahsulotning standart plani).
+                    Plan har bir paketning standart plani bilan avtomatik to'ldirilgan — odatda faqat Bajarildi
+                    ustunini to'ldirsangiz kifoya. Biror paket shu agentga umuman tegishli bo'lmasa, uning planini
+                    0 ga o'zgartiring — shundagina umumiy foizga ta'sir qilmaydi.
                   </p>
                   <div className="max-h-[55vh] overflow-auto rounded-xl border border-border">
                     <table className="w-full text-sm">
