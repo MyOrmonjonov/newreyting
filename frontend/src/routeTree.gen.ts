@@ -20,6 +20,7 @@ import { Route as OperatorlarRouteImport } from './routes/operatorlar'
 import { Route as ReytingIshchiRouteImport } from './routes/reyting.ishchi'
 import { Route as ReytingMenejerRouteImport } from './routes/reyting.menejer'
 import { Route as ReytingSupervayzerRouteImport } from './routes/reyting.supervayzer'
+import { Route as ReytingTarixRouteImport } from './routes/reyting.tarix'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,11 @@ const ReytingSupervayzerRoute = ReytingSupervayzerRouteImport.update({
   path: '/reyting/supervayzer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReytingTarixRoute = ReytingTarixRouteImport.update({
+  id: '/reyting/tarix',
+  path: '/reyting/tarix',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/reyting/ishchi': typeof ReytingIshchiRoute
   '/reyting/menejer': typeof ReytingMenejerRoute
   '/reyting/supervayzer': typeof ReytingSupervayzerRoute
+  '/reyting/tarix': typeof ReytingTarixRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/reyting/ishchi': typeof ReytingIshchiRoute
   '/reyting/menejer': typeof ReytingMenejerRoute
   '/reyting/supervayzer': typeof ReytingSupervayzerRoute
+  '/reyting/tarix': typeof ReytingTarixRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/reyting/ishchi': typeof ReytingIshchiRoute
   '/reyting/menejer': typeof ReytingMenejerRoute
   '/reyting/supervayzer': typeof ReytingSupervayzerRoute
+  '/reyting/tarix': typeof ReytingTarixRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/reyting/ishchi'
     | '/reyting/menejer'
     | '/reyting/supervayzer'
+    | '/reyting/tarix'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/reyting/ishchi'
     | '/reyting/menejer'
     | '/reyting/supervayzer'
+    | '/reyting/tarix'
   id:
     | '__root__'
     | '/'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/reyting/ishchi'
     | '/reyting/menejer'
     | '/reyting/supervayzer'
+    | '/reyting/tarix'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,6 +183,7 @@ export interface RootRouteChildren {
   ReytingIshchiRoute: typeof ReytingIshchiRoute
   ReytingMenejerRoute: typeof ReytingMenejerRoute
   ReytingSupervayzerRoute: typeof ReytingSupervayzerRoute
+  ReytingTarixRoute: typeof ReytingTarixRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -252,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReytingSupervayzerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reyting/tarix': {
+      id: '/reyting/tarix'
+      path: '/reyting/tarix'
+      fullPath: '/reyting/tarix'
+      preLoaderRoute: typeof ReytingTarixRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -267,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReytingIshchiRoute: ReytingIshchiRoute,
   ReytingMenejerRoute: ReytingMenejerRoute,
   ReytingSupervayzerRoute: ReytingSupervayzerRoute,
+  ReytingTarixRoute: ReytingTarixRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

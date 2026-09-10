@@ -1,12 +1,13 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, Briefcase, FileText, ShieldCheck, SlidersHorizontal, Tv, User, RotateCcw } from "lucide-react";
+import { ArrowLeft, Briefcase, FileText, History, ShieldCheck, SlidersHorizontal, Tv, User, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { to: "/reyting/ishchi", label: "Agent", icon: User },
   { to: "/reyting/supervayzer", label: "Supervayzer", icon: ShieldCheck },
   { to: "/reyting/menejer", label: "Menejer", icon: Briefcase },
+  { to: "/reyting/tarix", label: "Tarix", icon: History },
   { to: "/nizom", label: "Nizom", icon: FileText },
 ] as const;
 
