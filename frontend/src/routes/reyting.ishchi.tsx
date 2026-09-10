@@ -225,6 +225,12 @@ function AgentRating() {
   const hasPodium = Boolean(leader && second && third);
   const listRows = hasPodium ? rows.slice(3) : rows.slice(1);
 
+  const yillikLeader = yillikRows[0];
+  const yillikSecond = yillikRows[1];
+  const yillikThird = yillikRows[2];
+  const hasYillikPodium = Boolean(yillikLeader && yillikSecond && yillikThird);
+  const yillikListRows = hasYillikPodium ? yillikRows.slice(3) : yillikRows;
+
   // FLIP: har LIVE_REFRESH_MS'da yangi ma'lumot kelganda o'rin almashgan qatorlar
   // sakrab qolmasdan, eski joyidan yangi joyiga sirg'alib boradi (jonli tablo hissi).
   const rowElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -430,8 +436,47 @@ function AgentRating() {
 
           {view === "yillik" ? (
             yillikRows.length ? (
+              <>
+              {hasYillikPodium ? (
+                <div className="mb-8 flex items-end justify-center gap-3 sm:gap-8">
+                  <PodiumSlot
+                    avatar={yillikSecond!.avatar}
+                    name={yillikSecond!.fullName}
+                    percent={yillikSecond!.totalBall}
+                    decimals={0}
+                    suffix=" ball"
+                    rank={2}
+                    size="sm"
+                    avatarRef={() => {}}
+                    onSelect={() => setSelectedYillik(yillikSecond!)}
+                  />
+                  <PodiumSlot
+                    avatar={yillikLeader!.avatar}
+                    name={yillikLeader!.fullName}
+                    percent={yillikLeader!.totalBall}
+                    decimals={0}
+                    suffix=" ball"
+                    rank={1}
+                    size="lg"
+                    crown
+                    avatarRef={() => {}}
+                    onSelect={() => setSelectedYillik(yillikLeader!)}
+                  />
+                  <PodiumSlot
+                    avatar={yillikThird!.avatar}
+                    name={yillikThird!.fullName}
+                    percent={yillikThird!.totalBall}
+                    decimals={0}
+                    suffix=" ball"
+                    rank={3}
+                    size="sm"
+                    avatarRef={() => {}}
+                    onSelect={() => setSelectedYillik(yillikThird!)}
+                  />
+                </div>
+              ) : null}
               <div className="space-y-1.5">
-                {yillikRows.map((r) => (
+                {yillikListRows.map((r) => (
                   <div
                     key={r.id}
                     role="button"
@@ -477,6 +522,7 @@ function AgentRating() {
                   </div>
                 ))}
               </div>
+              </>
             ) : (
               <p className="py-16 text-center text-sm text-race-muted">
                 Bu ligada hali agent yo'q.

@@ -27,6 +27,8 @@ export function PodiumSlot({
   crown,
   avatarRef,
   onSelect,
+  decimals = 1,
+  suffix = "%",
 }: {
   avatar: string;
   name: string;
@@ -36,6 +38,10 @@ export function PodiumSlot({
   crown?: boolean;
   avatarRef: Ref<HTMLImageElement>;
   onSelect: () => void;
+  /** Pastdagi qiymat necha xonali ko'rsatilishi (standart: foiz uchun 1). */
+  decimals?: number;
+  /** Pastdagi qiymatga qo'shiladigan birlik (standart: "%"); ball kabi boshqa metrikalar uchun o'zgartiriladi. */
+  suffix?: string;
 }) {
   const { color, glow } = accentFor(rank);
   const avatarSize = size === "lg" ? "h-20 w-20 sm:h-24 sm:w-24" : "h-14 w-14 sm:h-16 sm:w-16";
@@ -163,7 +169,7 @@ export function PodiumSlot({
         />
 
         <p className="text-lg font-black tabular-nums sm:text-2xl" style={{ color }}>
-          <CountUp value={percent} decimals={1} suffix="%" />
+          <CountUp value={percent} decimals={decimals} suffix={suffix} />
         </p>
       </div>
     </Reveal>
