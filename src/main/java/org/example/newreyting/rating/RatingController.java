@@ -92,4 +92,17 @@ public class RatingController {
     public void kunlikOrinYangilash() {
         ratingService.refreshDailyPlaceSnapshots();
     }
+
+    /**
+     * BIR MARTALIK migratsiya: foiz formulasi o'zgargandan keyin (mahsulot/paket kesimidagi
+     * og'irliksiz o'rtacha) allaqachon yakunlangan (MUZLATILGAN) o'tgan oylarni yangi formula
+     * bo'yicha qayta hisoblaydi. Liga a'zoligi o'zgarmaydi — faqat foiz/o'rin/ball yangilanadi.
+     * Odatiy holatda avtomatik chaqirilmaydi, faqat admin bir marta qo'lda ishga tushiradi.
+     */
+    @PostMapping("/qayta-hisobla")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
+    public void qaytaHisobla() {
+        ratingService.recomputeFrozenMonths();
+    }
 }

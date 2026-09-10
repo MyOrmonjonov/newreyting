@@ -24,8 +24,10 @@ import java.util.*;
 
 /**
  * Reyting hisoblash — barcha metodlar faqat o'qiydi, hech narsa saqlamaydi.
- * Formulalar frontend/src/lib/micco-data.ts bilan bir xil (pointsForPlace, overallPercent),
- * shunda demo davridagi mezon xatti-harakati saqlanib qoladi.
+ * Ball jadvali (pointsForPlace) frontend/src/lib/micco-data.ts bilan bir xil, shunda demo
+ * davridagi mezon xatti-harakati saqlanib qoladi. Ishchi (agent) foizi esa
+ * {@link #avgPercentByIshchi} bo'yicha — mahsulot (paket) kesimidagi foizlarning og'irliksiz
+ * o'rtachasi (bitta katta hajmli paket ustunlik qilmasligi uchun).
  */
 @Service
 @Transactional(readOnly = true)
@@ -113,14 +115,25 @@ public class RatingService {
     // PlaceHistoryService.previousPlace) — backend qayta ishga tushirilsa/deploy qilinsa ham
     // yo'qolmaydi (avval xotirada saqlanardi, shuning uchun har deploy'da tozalanib qolardi).
 
-    private Map<Long, int[]> sumByIshchi(List<OylikNatija> rows) {
-        Map<Long, int[]> sums = new HashMap<>();
+    /**
+     * Har bir ishchi bo'yicha — mahsulot (paket) kesimida bajarilish foizlarining OG'IRLIKSIZ
+     * o'rtachasi: har paketning o'z foizi (bajarildi/plan*100) teng vaznda hisobga olinadi,
+     * paket hajmi (miqdori) katta bo'lgani uchun ustunlik qilmaydi. Ishchiga tegishli bo'lmagan
+     * (plan == 0) paketlar o'rtachaga qo'shilmaydi.
+     */
+    private Map<Long, Double> avgPercentByIshchi(List<OylikNatija> rows) {
+        Map<Long, double[]> acc = new HashMap<>();
         for (OylikNatija n : rows) {
-            int[] s = sums.computeIfAbsent(n.getIshchi().getId(), k -> new int[2]);
-            s[0] += n.getPlan();
-            s[1] += n.getBajarildi();
+            if (n.getPlan() <= 0) continue;
+            double[] a = acc.computeIfAbsent(n.getIshchi().getId(), k -> new double[2]);
+            a[0] += overallPercent(n.getBajarildi(), n.getPlan());
+            a[1] += 1;
         }
-        return sums;
+        Map<Long, Double> avg = new HashMap<>();
+        for (Map.Entry<Long, double[]> e : acc.entrySet()) {
+            avg.put(e.getKey(), e.getValue()[0] / e.getValue()[1]);
+        }
+        return avg;
     }
 
     /**
@@ -219,7 +232,7 @@ public class RatingService {
      */
     private List<AgentResponse> computeLiveIshchiReyting(LocalDate month) {
         List<Ishchi> ishchilar = ishchiRepository.findAllWithRefs();
-        Map<Long, int[]> sums = sumByIshchi(natijaRepository.findAllByOy(month));
+        Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(month));
         Map<Long, Integer> trophiesByIshchi = computeTrophies(month);
 
         record Scored(Ishchi ishchi, double percent, boolean hasData) {
@@ -231,9 +244,8 @@ public class RatingService {
         }
         for (Ishchi i : ishchilar) {
             String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
-            boolean hasData = sums.containsKey(i.getId());
-            int[] s = sums.getOrDefault(i.getId(), new int[2]);
-            byLeague.get(league).add(new Scored(i, overallPercent(s[1], s[0]), hasData));
+            boolean hasData = avgPercents.containsKey(i.getId());
+            byLeague.get(league).add(new Scored(i, avgPercents.getOrDefault(i.getId(), 0.0), hasData));
         }
         for (List<Scored> group : byLeague.values()) {
             // Natija kiritilgan ishchilar avval (% bo'yicha), hali natija kiritilmaganlar
@@ -332,16 +344,57 @@ public class RatingService {
         }
     }
 
+    /**
+     * BIR MARTALIK migratsiya: foiz formulasi o'zgargandan keyin (paket kesimidagi og'irliksiz
+     * o'rtacha — {@link #avgPercentByIshchi}) allaqachon MUZLATILGAN (finalize qilingan) o'tgan
+     * oylarni yangi formula bo'yicha qayta hisoblaydi. Liga A'ZOLIGI (o'sha vaqtdagi haqiqiy
+     * ko'tarilish/tushirish qarori) O'ZGARMAYDI — faqat shu liga ICHIDAGI foiz/o'rin/ball yangi
+     * formula bo'yicha qayta tartiblanadi. Nizomning "yakunlangan natija o'zgarmaydi" qoidasidan
+     * ATAYLAB chetlanish (formula xatosini/o'zgarishini tuzatish uchun) — shuning uchun avtomatik
+     * chaqirilmaydi, faqat admin qo'lda (bir marta) ishga tushiradi.
+     */
+    @Transactional
+    public void recomputeFrozenMonths() {
+        for (LocalDate month : yakunRepository.findDistinctOylar()) {
+            recomputeFrozenMonth(month);
+        }
+    }
+
+    private void recomputeFrozenMonth(LocalDate month) {
+        List<OylikYakun> rows = yakunRepository.findAllByOy(month);
+        Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(month));
+
+        Map<String, List<OylikYakun>> byLeague = new LinkedHashMap<>();
+        for (OylikYakun y : rows) {
+            byLeague.computeIfAbsent(y.getLiga(), k -> new ArrayList<>()).add(y);
+        }
+        for (Map.Entry<String, List<OylikYakun>> e : byLeague.entrySet()) {
+            String league = e.getKey();
+            List<OylikYakun> group = e.getValue();
+            group.sort(Comparator.comparing((OylikYakun y) -> !avgPercents.containsKey(y.getIshchi().getId()))
+                    .thenComparing(Comparator.comparingDouble(
+                            (OylikYakun y) -> avgPercents.getOrDefault(y.getIshchi().getId(), 0.0)).reversed()));
+            int place = 0;
+            for (OylikYakun y : group) {
+                place++;
+                boolean hasData = avgPercents.containsKey(y.getIshchi().getId());
+                double percent = avgPercents.getOrDefault(y.getIshchi().getId(), 0.0);
+                int points = hasData ? pointsForLeague(league, place) : 0;
+                y.recompute(place, points, percent);
+            }
+        }
+    }
+
     /** Har bir o'tgan oy uchun umumiy 1-o'rinni egallagan ishchi(lar)ga bittadan trophy qo'shiladi. */
     private Map<Long, Integer> computeTrophies(LocalDate currentOy) {
         List<LocalDate> pastMonths = natijaRepository.findDistinctPastMonths(currentOy);
         Map<Long, Integer> trophies = new HashMap<>();
         for (LocalDate month : pastMonths) {
-            Map<Long, int[]> sums = sumByIshchi(natijaRepository.findAllByOy(month));
+            Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(month));
             double best = -1;
             List<Long> winners = new ArrayList<>();
-            for (Map.Entry<Long, int[]> e : sums.entrySet()) {
-                double percent = overallPercent(e.getValue()[1], e.getValue()[0]);
+            for (Map.Entry<Long, Double> e : avgPercents.entrySet()) {
+                double percent = e.getValue();
                 if (percent > best) {
                     best = percent;
                     winners.clear();

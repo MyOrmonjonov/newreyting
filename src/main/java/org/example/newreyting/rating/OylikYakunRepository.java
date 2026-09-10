@@ -18,4 +18,8 @@ public interface OylikYakunRepository extends JpaRepository<OylikYakun, Long> {
     List<OylikYakun> findAllByOy(@Param("oy") LocalDate oy);
 
     boolean existsByOy(LocalDate oy);
+
+    /** Barcha MUZLATILGAN (finalize qilingan) oylar — formula-tuzatish migratsiyasi uchun. */
+    @Query("SELECT DISTINCT y.oy FROM OylikYakun y ORDER BY y.oy ASC")
+    List<LocalDate> findDistinctOylar();
 }

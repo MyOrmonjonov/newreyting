@@ -82,4 +82,15 @@ public class OylikYakun {
     public double getPercent() {
         return percent;
     }
+
+    /**
+     * Faqat bir martalik formula-tuzatish migratsiyasi uchun ({@link RatingService#recomputeFrozenMonths}) —
+     * boshqa hech qayerda chaqirilmasligi kerak, chunki MUZLATILGAN natija odatda o'zgarmaydi
+     * (shu sababli paket-private — faqat shu package ichidan chaqiriladi).
+     */
+    void recompute(int place, int ball, double percent) {
+        this.place = place;
+        this.ball = ball;
+        this.percent = percent;
+    }
 }
