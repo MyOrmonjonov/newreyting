@@ -25,6 +25,7 @@ import { Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth-context";
 import { readAndResizePhoto } from "@/lib/photo";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
 
 export const Route = createFileRoute("/jamoa")({
   head: () => ({
@@ -169,6 +170,36 @@ function TeamPage() {
     histInitializedRef.current = key;
   }, [showHistModal, histOy, tab, histFetched, histRows, rows]);
 
+  // Sahifa refresh qilinsa ham hali saqlanmagan tarixiy ball/foiz qoralamasi yo'qolmasin
+  // uchun localStorage'da saqlanadi — faqat X tugmasi/backdrop bosilganda yoki muvaffaqiyatli
+  // saqlangandan keyin (closeHistModal) tozalanadi.
+  function histDraftKey(t: Tab) {
+    return `micco:hist-natija:${t}`;
+  }
+
+  useEffect(() => {
+    const saved = loadDraft<{ oy: string; draft: Record<string, { percent: number; ball: number }> }>(
+      histDraftKey(tab),
+    );
+    if (saved) {
+      setHistOy(saved.oy);
+      setHistDraft(saved.draft);
+      setShowHistModal(true);
+      histInitializedRef.current = `${tab}-${saved.oy}`;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!showHistModal) return;
+    saveDraft(histDraftKey(tab), { oy: histOy, draft: histDraft });
+  }, [showHistModal, tab, histOy, histDraft]);
+
+  function closeHistModal() {
+    clearDraft(histDraftKey(tab));
+    setShowHistModal(false);
+  }
+
   const saveHistMutation = useMutation({
     mutationFn: () =>
       api.post("/api/rahbar-natija/bulk", {
@@ -181,7 +212,7 @@ function TeamPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["rahbar-natija", histOy] });
       toast.success(`${rows.length} ta ${tab} uchun tarixiy natija saqlandi`);
-      setShowHistModal(false);
+      closeHistModal();
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Saqlab bo'lmadi"),
   });
@@ -533,7 +564,7 @@ function TeamPage() {
         ? createPortal(
             <div
               className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
-              onClick={() => setShowHistModal(false)}
+              onClick={closeHistModal}
             >
               <div
                 className="card-surface my-8 w-full max-w-2xl space-y-4 p-5"
@@ -551,7 +582,7 @@ function TeamPage() {
                   <button
                     type="button"
                     className="btn-ghost px-2 py-1.5"
-                    onClick={() => setShowHistModal(false)}
+                    onClick={closeHistModal}
                     aria-label="Yopish"
                   >
                     <X className="h-3.5 w-3.5" />

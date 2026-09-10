@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { LEAGUES, VILOYATLAR } from "@/lib/micco-data";
 import { avatarFor } from "@/lib/rating-api";
 import { readAndResizePhoto } from "@/lib/photo";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
 
 export const Route = createFileRoute("/operator")({
   head: () => ({
@@ -240,10 +241,12 @@ function OperatorPage() {
   }, [selectedIshchiId, oy, natijalarFetched, oyNatijalari, mahsulotlar]);
 
   const natijaPreview = useMemo(() => {
-    const rows = Object.values(natijaDraft);
-    const plan = rows.reduce((s, r) => s + r.plan, 0);
-    const bajarildi = rows.reduce((s, r) => s + r.bajarildi, 0);
-    return plan === 0 ? 0 : (bajarildi / plan) * 100;
+    // Har mahsulot (paket) foizi (bajarildi/plan*100) teng vaznda o'rtachaga qo'shiladi —
+    // paket hajmi ustunlik qilmasligi uchun. Plan kiritilmagan (0) paket hisobga olinmaydi.
+    const rows = Object.values(natijaDraft).filter((r) => r.plan > 0);
+    if (rows.length === 0) return 0;
+    const sum = rows.reduce((s, r) => s + (r.bajarildi / r.plan) * 100, 0);
+    return sum / rows.length;
   }, [natijaDraft]);
 
   const saveNatijaMutation = useMutation({
@@ -268,17 +271,11 @@ function OperatorPage() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkDraft, setBulkDraft] = useState<Record<string, { plan: number; bajarildi: number }>>({});
 
-  // Oy o'zgarganda (yangi oy — boshqa ma'lumot to'plami) draft to'liq tozalanadi;
-  // shundan keyin modal ochiq bo'lsa va serverdan ma'lumot kelgan bo'lsa, faqat hali
-  // to'ldirilmagan katakchalar to'ldiriladi (bulkInitializedRef orqali bir marta) — aks
-  // holda fon rejimidagi background refetch hali saqlanmagan kiritilgan qiymatlarni
-  // nolga qaytarib yuborardi.
+  // Modal ochiq bo'lganda oy o'zgarsa (yangi oy — boshqa ma'lumot to'plami) yoki modal
+  // qayta ochilsa, draft FAQAT BIR MARTA serverdan kelgan qiymat bilan to'liq qayta
+  // to'ldiriladi (bulkInitializedRef orqali) — aks holda fon rejimidagi background
+  // refetch hali saqlanmagan kiritilgan qiymatlarni nolga qaytarib yuborardi.
   const bulkInitializedRef = useRef<string | null>(null);
-  useEffect(() => {
-    setBulkDraft({});
-    bulkInitializedRef.current = null;
-  }, [oy]);
-
   useEffect(() => {
     if (!showBulkModal) {
       bulkInitializedRef.current = null;
@@ -298,6 +295,32 @@ function OperatorPage() {
     bulkInitializedRef.current = oy;
   }, [showBulkModal, oy, natijalarFetched, oyNatijalari, mahsulotlar, filteredIshchilar]);
 
+  // Sahifa refresh qilinsa ham hali saqlanmagan ommaviy natija qoralamasi yo'qolmasin uchun
+  // localStorage'da saqlanadi — faqat X tugmasi/backdrop bosilganda yoki muvaffaqiyatli
+  // saqlangandan keyin (closeBulkModal) tozalanadi.
+  const BULK_DRAFT_KEY = "micco:bulk-natija";
+  useEffect(() => {
+    const saved = loadDraft<{ oy: string; draft: Record<string, { plan: number; bajarildi: number }> }>(
+      BULK_DRAFT_KEY,
+    );
+    if (saved) {
+      setOy(saved.oy);
+      setBulkDraft(saved.draft);
+      setShowBulkModal(true);
+      bulkInitializedRef.current = saved.oy;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showBulkModal) return;
+    saveDraft(BULK_DRAFT_KEY, { oy, draft: bulkDraft });
+  }, [showBulkModal, oy, bulkDraft]);
+
+  function closeBulkModal() {
+    clearDraft(BULK_DRAFT_KEY);
+    setShowBulkModal(false);
+  }
+
   const saveBulkMutation = useMutation({
     mutationFn: () =>
       api.post("/api/natijalar/bulk", {
@@ -312,7 +335,7 @@ function OperatorPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["natijalar", oy] });
       toast.success(`${filteredIshchilar.length} ta agent uchun natija saqlandi`);
-      setShowBulkModal(false);
+      closeBulkModal();
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Natijalarni saqlab bo'lmadi"),
   });
@@ -611,7 +634,10 @@ function OperatorPage() {
                     </p>
                     <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
                       <Donut value={Math.round(natijaPreview * 10) / 10} size={82} stroke={8} />
-                      <p className="text-xs text-muted-foreground">Umumiy foiz = jami bajarilgan / jami plan × 100.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Umumiy foiz = har mahsulotning bajarilish foizi (bajarildi/plan×100) o'rtachasi — hech
+                        birining hajmi ustunlik qilmaydi.
+                      </p>
                     </div>
                     <button
                       className="btn-brand mt-4 w-full"
@@ -639,7 +665,7 @@ function OperatorPage() {
         ? createPortal(
             <div
               className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
-              onClick={() => setShowBulkModal(false)}
+              onClick={closeBulkModal}
             >
               <div
                 className="card-surface my-8 w-full max-w-4xl space-y-4 p-5"
@@ -656,7 +682,7 @@ function OperatorPage() {
                   <button
                     type="button"
                     className="btn-ghost px-2 py-1.5"
-                    onClick={() => setShowBulkModal(false)}
+                    onClick={closeBulkModal}
                     aria-label="Yopish"
                   >
                     <X className="h-3.5 w-3.5" />
