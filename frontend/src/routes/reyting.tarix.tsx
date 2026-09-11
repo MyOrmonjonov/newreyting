@@ -32,8 +32,17 @@ type PersonRow = {
   months: (number | null)[]; // 12 ta, har biri o'sha oydagi o'rin (yo'q bo'lsa null)
 };
 
+function elapsedMonths(yil: number): number[] {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+  if (yil > currentYear) return [];
+  const lastMonth = yil === currentYear ? currentMonth : 12;
+  return Array.from({ length: lastMonth }, (_, i) => i + 1);
+}
+
 async function fetchIshchiMatrix(yil: number, league: LeagueKey): Promise<PersonRow[]> {
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const months = elapsedMonths(yil);
   const perMonth = await Promise.all(
     months.map((m) =>
       api.get<AgentApiRow[]>(`/api/reyting/ishchi?oy=${yil}-${String(m).padStart(2, "0")}-01`),
@@ -55,7 +64,7 @@ async function fetchIshchiMatrix(yil: number, league: LeagueKey): Promise<Person
 }
 
 async function fetchRahbarMatrix(yil: number, path: "supervayzer" | "menejer"): Promise<PersonRow[]> {
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const months = elapsedMonths(yil);
   const perMonth = await Promise.all(
     months.map((m) =>
       api.get<RankedApiRow[]>(`/api/reyting/${path}?oy=${yil}-${String(m).padStart(2, "0")}-01`),
