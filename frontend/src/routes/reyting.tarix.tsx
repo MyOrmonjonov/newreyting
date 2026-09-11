@@ -5,7 +5,7 @@ import { User, ShieldCheck, Briefcase, Gem, Crown, Circle, Shield, TrendingUp, t
 import { PublicShell } from "@/components/PublicShell";
 import { LEAGUES, MONTHS, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, type AgentApiRow, type RankedApiRow } from "@/lib/rating-api";
+import { avatarFor } from "@/lib/rating-api";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { cn } from "@/lib/utils";
 
@@ -32,56 +32,27 @@ type PersonRow = {
   months: (number | null)[]; // 12 ta, har biri o'sha oydagi o'rin (yo'q bo'lsa null)
 };
 
-function elapsedMonths(yil: number): number[] {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // 1-12
-  if (yil > currentYear) return [];
-  const lastMonth = yil === currentYear ? currentMonth : 12;
-  return Array.from({ length: lastMonth }, (_, i) => i + 1);
-}
+type IshchiTarixApiRow = { id: number; fullName: string; rasm: string | null; placesByMonth: (number | null)[] };
+type RahbarTarixApiRow = { id: number; fullName: string; placesByMonth: (number | null)[] };
 
 async function fetchIshchiMatrix(yil: number, league: LeagueKey): Promise<PersonRow[]> {
-  const months = elapsedMonths(yil);
-  const perMonth = await Promise.all(
-    months.map((m) =>
-      api.get<AgentApiRow[]>(`/api/reyting/ishchi?oy=${yil}-${String(m).padStart(2, "0")}-01`),
-    ),
-  );
-  const byId = new Map<number, PersonRow>();
-  perMonth.forEach((rows, idx) => {
-    for (const r of rows) {
-      if (r.league !== league) continue;
-      let row = byId.get(r.id);
-      if (!row) {
-        row = { id: r.id, fullName: r.fullName, avatar: r.rasm || avatarFor(`${r.fullName}-${r.id}`), months: Array(12).fill(null) };
-        byId.set(r.id, row);
-      }
-      row.months[idx] = r.place;
-    }
-  });
-  return Array.from(byId.values());
+  const rows = await api.get<IshchiTarixApiRow[]>(`/api/reyting/ishchi/tarix-yillik-matritsa?yil=${yil}&liga=${league}`);
+  return rows.map((r) => ({
+    id: r.id,
+    fullName: r.fullName,
+    avatar: r.rasm || avatarFor(`${r.fullName}-${r.id}`),
+    months: r.placesByMonth,
+  }));
 }
 
 async function fetchRahbarMatrix(yil: number, path: "supervayzer" | "menejer"): Promise<PersonRow[]> {
-  const months = elapsedMonths(yil);
-  const perMonth = await Promise.all(
-    months.map((m) =>
-      api.get<RankedApiRow[]>(`/api/reyting/${path}?oy=${yil}-${String(m).padStart(2, "0")}-01`),
-    ),
-  );
-  const byId = new Map<number, PersonRow>();
-  perMonth.forEach((rows, idx) => {
-    for (const r of rows) {
-      let row = byId.get(r.id);
-      if (!row) {
-        row = { id: r.id, fullName: r.fullName, avatar: avatarFor(`${r.fullName}-${r.id}`), months: Array(12).fill(null) };
-        byId.set(r.id, row);
-      }
-      row.months[idx] = r.place;
-    }
-  });
-  return Array.from(byId.values());
+  const rows = await api.get<RahbarTarixApiRow[]>(`/api/reyting/${path}/tarix-yillik-matritsa?yil=${yil}`);
+  return rows.map((r) => ({
+    id: r.id,
+    fullName: r.fullName,
+    avatar: avatarFor(`${r.fullName}-${r.id}`),
+    months: r.placesByMonth,
+  }));
 }
 
 function placeCellStyle(place: number | null): { color: string; fontWeight?: number } {

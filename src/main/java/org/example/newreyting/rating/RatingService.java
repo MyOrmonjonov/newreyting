@@ -4,6 +4,8 @@ import org.example.newreyting.employee.Ishchi;
 import org.example.newreyting.employee.IshchiRepository;
 import org.example.newreyting.employee.Liga;
 import org.example.newreyting.rating.dto.AgentResponse;
+import org.example.newreyting.rating.dto.IshchiTarixResponse;
+import org.example.newreyting.rating.dto.RahbarTarixResponse;
 import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
 import org.example.newreyting.rating.dto.YillikIshchiResponse;
@@ -727,5 +729,118 @@ public class RatingService {
             ));
         }
         return result;
+    }
+
+    private record MonthPlace(int place, String league) {
+    }
+
+    /**
+     * {@link #computeIshchiReyting}dagi o'rin/liga hisobini qaytaradi, LEKIN trophies va
+     * "bugun/kecha" snapshot yozuvisiz — 12 oylik tarix jadvali faqat o'rinni bilishi kerak,
+     * qolgani (kubok, kunlik snapshot yozish) shu yerda keraksiz og'ir ish bo'lardi.
+     */
+    private Map<Long, MonthPlace> placesForMonth(LocalDate month, List<Ishchi> ishchilar) {
+        List<OylikYakun> frozen = yakunRepository.findAllByOy(month);
+        Map<Long, MonthPlace> result = new HashMap<>();
+        if (!frozen.isEmpty()) {
+            for (OylikYakun y : frozen) {
+                result.put(y.getIshchi().getId(), new MonthPlace(y.getPlace(), y.getLiga()));
+            }
+            return result;
+        }
+        Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(month));
+        record Scored(Ishchi ishchi, double percent, boolean hasData) {
+        }
+        Map<String, List<Scored>> byLeague = new LinkedHashMap<>();
+        for (String key : LEAGUE_KEYS) {
+            byLeague.put(key, new ArrayList<>());
+        }
+        for (Ishchi i : ishchilar) {
+            String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
+            boolean hasData = avgPercents.containsKey(i.getId());
+            byLeague.get(league).add(new Scored(i, avgPercents.getOrDefault(i.getId(), 0.0), hasData));
+        }
+        for (List<Scored> group : byLeague.values()) {
+            group.sort(Comparator.comparing((Scored s) -> !s.hasData())
+                    .thenComparing(Comparator.comparingDouble(Scored::percent).reversed()));
+        }
+        for (String league : LEAGUE_KEYS) {
+            int place = 0;
+            for (Scored s : byLeague.get(league)) {
+                place++;
+                result.put(s.ishchi().getId(), new MonthPlace(place, league));
+            }
+        }
+        return result;
+    }
+
+    /** Berilgan yildan hali o'tmagan oylarni hisoblamaslik uchun — kelajakdagi oy uchun ma'lumot yo'q. */
+    private static int lastElapsedMonth(int yil) {
+        LocalDate now = LocalDate.now();
+        if (yil > now.getYear()) return 0;
+        return yil == now.getYear() ? now.getMonthValue() : 12;
+    }
+
+    /**
+     * 12 oylik tarix jadvali (Ochiq reyting/Tarix sahifasi) uchun — {@code liga} bo'yicha, bitta
+     * so'rovda. Har bir ishchi faqat o'zi shu liga bo'lgan oylarda qatorga kiradi (frontendda
+     * avval har oy uchun alohida so'rov yuborilib xuddi shunday filtrlanardi — endi bitta backend
+     * chaqiruvida, trophies hisoblanmasdan, ancha tezroq).
+     */
+    public List<IshchiTarixResponse> computeIshchiTarixYillik(int yil, String liga) {
+        List<Ishchi> ishchilar = ishchiRepository.findAllWithRefs();
+        Map<Long, Ishchi> ishchiById = new HashMap<>();
+        for (Ishchi i : ishchilar) {
+            ishchiById.put(i.getId(), i);
+        }
+        Map<Long, Integer[]> places = new LinkedHashMap<>();
+        int lastMonth = lastElapsedMonth(yil);
+        for (int m = 1; m <= lastMonth; m++) {
+            LocalDate month = LocalDate.of(yil, m, 1);
+            for (Map.Entry<Long, MonthPlace> e : placesForMonth(month, ishchilar).entrySet()) {
+                if (!e.getValue().league().equals(liga)) continue;
+                Integer[] arr = places.computeIfAbsent(e.getKey(), k -> new Integer[12]);
+                arr[m - 1] = e.getValue().place();
+            }
+        }
+        List<IshchiTarixResponse> result = new ArrayList<>();
+        for (Map.Entry<Long, Integer[]> e : places.entrySet()) {
+            Ishchi i = ishchiById.get(e.getKey());
+            result.add(new IshchiTarixResponse(i.getId(), i.getIsm() + " " + i.getFamiliya(), i.getRasm(),
+                    Arrays.asList(e.getValue())));
+        }
+        return result;
+    }
+
+    private List<RahbarTarixResponse> rahbarTarixYillik(int yil, Role role, boolean isMenejer) {
+        List<User> users = userRepository.findByRoleOrderByFamiliyaAsc(role);
+        Map<Long, Integer[]> places = new LinkedHashMap<>();
+        for (User u : users) {
+            places.put(u.getId(), new Integer[12]);
+        }
+        int lastMonth = lastElapsedMonth(yil);
+        for (int m = 1; m <= lastMonth; m++) {
+            LocalDate month = LocalDate.of(yil, m, 1);
+            List<RankedUserResponse> monthRows = isMenejer ? computeMenejerReyting(month) : computeSupervayzerReyting(month);
+            for (RankedUserResponse r : monthRows) {
+                Integer[] arr = places.get(r.id());
+                if (arr != null) arr[m - 1] = r.place();
+            }
+        }
+        List<RahbarTarixResponse> result = new ArrayList<>();
+        for (User u : users) {
+            result.add(new RahbarTarixResponse(u.getId(), u.getFullName(), Arrays.asList(places.get(u.getId()))));
+        }
+        return result;
+    }
+
+    /** 12 oylik tarix jadvali uchun — supervayzerlar, bitta so'rovda (12 alohida chaqiruv o'rniga). */
+    public List<RahbarTarixResponse> computeSupervayzerTarixYillikMatritsa(int yil) {
+        return rahbarTarixYillik(yil, Role.SUPERVAYZER, false);
+    }
+
+    /** 12 oylik tarix jadvali uchun — menejerlar, bitta so'rovda (12 alohida chaqiruv o'rniga). */
+    public List<RahbarTarixResponse> computeMenejerTarixYillikMatritsa(int yil) {
+        return rahbarTarixYillik(yil, Role.MENEJER, true);
     }
 }

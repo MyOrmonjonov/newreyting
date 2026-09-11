@@ -1,6 +1,8 @@
 package org.example.newreyting.rating;
 
 import org.example.newreyting.rating.dto.AgentResponse;
+import org.example.newreyting.rating.dto.IshchiTarixResponse;
+import org.example.newreyting.rating.dto.RahbarTarixResponse;
 import org.example.newreyting.rating.dto.RankedUserResponse;
 import org.example.newreyting.rating.dto.ScoreboardRowResponse;
 import org.example.newreyting.rating.dto.YillikIshchiResponse;
@@ -68,6 +70,24 @@ public class RatingController {
     @GetMapping("/supervayzer/yillik")
     public List<YillikSupervayzerResponse> supervayzerYillik(@RequestParam int yil) {
         return ratingService.computeYillikSupervayzerReyting(yil);
+    }
+
+    /** 12 oylik tarix jadvali (/reyting/tarix, Agent) — bitta so'rovda, oy sayin 12 marta chaqirish o'rniga. */
+    @GetMapping("/ishchi/tarix-yillik-matritsa")
+    public List<IshchiTarixResponse> ishchiTarixYillikMatritsa(@RequestParam int yil, @RequestParam String liga) {
+        return ratingService.computeIshchiTarixYillik(yil, liga);
+    }
+
+    /** 12 oylik tarix jadvali (/reyting/tarix, Supervayzer) — bitta so'rovda. */
+    @GetMapping("/supervayzer/tarix-yillik-matritsa")
+    public List<RahbarTarixResponse> supervayzerTarixYillikMatritsa(@RequestParam int yil) {
+        return ratingService.computeSupervayzerTarixYillikMatritsa(yil);
+    }
+
+    /** 12 oylik tarix jadvali (/reyting/tarix, Menejer) — bitta so'rovda. */
+    @GetMapping("/menejer/tarix-yillik-matritsa")
+    public List<RahbarTarixResponse> menejerTarixYillikMatritsa(@RequestParam int yil) {
+        return ratingService.computeMenejerTarixYillikMatritsa(yil);
     }
 
     /**
