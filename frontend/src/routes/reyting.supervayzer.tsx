@@ -9,7 +9,8 @@ import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDet
 import { PodiumSlot } from "@/components/Podium";
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, type ScoreboardApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, type ScoreboardApiRow } from "@/lib/rating-api";
+import { usePersistentState } from "@/lib/use-persistent-state";
 
 
 // TV/monitor ekranida ko'rsatish uchun — sahifani qo'lda yangilamasdan, o'zi
@@ -38,10 +39,12 @@ export const Route = createFileRoute("/reyting/supervayzer")({
 });
 
 function SupervisorRating() {
+  const [date, setDate] = usePersistentState("micco-reyting-supervayzer-date", "2026-07-28");
   const [selected, setSelected] = useState<RankedDetailItem | null>(null);
+  const oy = monthParam(date);
   const { data: apiRows = [] } = useQuery({
-    queryKey: ["reyting", "supervayzer", "tarix"],
-    queryFn: () => api.get<ScoreboardApiRow[]>("/api/reyting/supervayzer/tarix?oyCount=7"),
+    queryKey: ["reyting", "supervayzer", "tarix", oy],
+    queryFn: () => api.get<ScoreboardApiRow[]>(`/api/reyting/supervayzer/tarix?oyCount=7&oy=${oy}`),
     refetchInterval: LIVE_REFRESH_MS,
     refetchIntervalInBackground: true,
   });
@@ -124,6 +127,14 @@ function SupervisorRating() {
           <div>
             <h1 className="text-2xl font-black tracking-tight lg:text-3xl">SUPERVAYZER REYTINGI</h1>
             <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-race-muted">{formatOyLabel(currentOy)}</p>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-white/15 bg-white/5 transition-colors focus-within:border-brand">
+            <input
+              type="month"
+              value={date.slice(0, 7)}
+              onChange={(e) => setDate(`${e.target.value}-01`)}
+              className="block max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+            />
           </div>
         </div>
 

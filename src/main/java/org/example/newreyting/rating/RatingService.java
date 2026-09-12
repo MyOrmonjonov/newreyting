@@ -473,12 +473,15 @@ public class RatingService {
         return result;
     }
 
-    /** So'nggi `oyCount` oy bo'yicha supervayzerlar scoreboard'i (oxirgi oy joriy oy hisoblanadi). */
-    public List<ScoreboardRowResponse> computeSupervayzerTarix(int oyCount) {
-        LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+    /**
+     * So'nggi `oyCount` oy bo'yicha supervayzerlar scoreboard'i — oyna `oxirOy` bilan tugaydi
+     * ({@code null} bo'lsa, joriy oy hisoblanadi).
+     */
+    public List<ScoreboardRowResponse> computeSupervayzerTarix(int oyCount, LocalDate oxirOy) {
+        LocalDate lastMonth = (oxirOy != null ? oxirOy : LocalDate.now()).withDayOfMonth(1);
         List<LocalDate> months = new ArrayList<>();
         for (int i = oyCount - 1; i >= 0; i--) {
-            months.add(currentMonth.minusMonths(i));
+            months.add(lastMonth.minusMonths(i));
         }
         return supervayzerScoreboard(months);
     }

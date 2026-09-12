@@ -47,8 +47,10 @@ public class RatingController {
     }
 
     @GetMapping("/supervayzer/tarix")
-    public List<ScoreboardRowResponse> supervayzerTarix(@RequestParam(defaultValue = "5") int oyCount) {
-        return ratingService.computeSupervayzerTarix(oyCount);
+    public List<ScoreboardRowResponse> supervayzerTarix(
+            @RequestParam(defaultValue = "5") int oyCount,
+            @RequestParam(required = false) LocalDate oy) {
+        return ratingService.computeSupervayzerTarix(oyCount, oy);
     }
 
     /** Berilgan yilning barcha 12 oyi — hisobot (dashboard eksport) uchun, {@link RatingService#computeSupervayzerTarixYillik}. */

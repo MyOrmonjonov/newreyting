@@ -386,3 +386,18 @@ oltin/kumush/bronza tusda, liga rangi bo'yicha ajratilgan) tushiradi.
   generatsiya mantig'i namunaviy ma'lumot bilan sinovdan o'tkazilib, ikkala fayl ham
   xatosiz yaratildi (brauzer kengaytmasi ulanmagani uchun to'liq UI orqali — login qilib
   tugmani bosish — sinalmadi, foydalanuvchidan tasdiqlash kerak).
+
+## Supervayzer sahifasiga oy bo'yicha filter qo'shildi (2026-09-12)
+
+`/reyting/supervayzer` sahifasi ilgari doim "joriy oy"dan boshlab orqaga 7 oylik oynani
+ko'rsatardi (oyni tanlab bo'lmasdi). Endi `reyting.ishchi`/`reyting.menejer`dagi kabi
+persistent `input type="month"` filter qo'shildi:
+
+- Backend: `GET /api/reyting/supervayzer/tarix` endi ixtiyoriy `oy` parametrini qabul
+  qiladi (`RatingController.supervayzerTarix`) — berilsa, 7 oylik oyna shu oy bilan
+  tugaydi (`RatingService.computeSupervayzerTarix(oyCount, oxirOy)`); berilmasa avvalgidek
+  joriy oy bilan tugaydi (backward-compatible, boshqa chaqiruvchi yo'q edi).
+- Frontend: `reyting.supervayzer.tsx`ga `usePersistentState("micco-reyting-supervayzer-date", ...)`
+  bilan oy tanlagich qo'shildi, `monthParam()` orqali `oy` query parametriga uzatiladi.
+
+**Deploy qilindi**: backend v23, frontend v56 (ikkalasi ham `Ready`/`Green`).
