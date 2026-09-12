@@ -6,6 +6,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * "Bugun/Kecha" trend strelkasi uchun oldingi (kechagi) o'rinni bazada saqlaydi (RatingService
@@ -31,6 +33,23 @@ public class PlaceHistoryService {
 
     public PlaceHistoryService(IshchiPlaceSnapshotRepository repository) {
         this.repository = repository;
+    }
+
+    /**
+     * Shu oy uchun BARCHA saqlangan "kechagi" o'rinlarni BITTA so'rovda qaytaradi
+     * (ishchi_id -> place) — {@link #previousPlace} ni har bir ishchi uchun alohida
+     * chaqirish o'rniga: har chaqiruv o'z REQUIRES_NEW tranzaksiyasini ochgani uchun N
+     * ishchi uchun N alohida DB round-trip kerak bo'lardi (har 5 soniyada, har ochiq TV
+     * ekrani uchun) — bu backend'ni sekinlashtirib, "qotib qolish" hissi berardi
+     * (o'lchov: /api/reyting/ishchi ~1.7s, N+1 yo'q boshqa endpoint'lar ~0.4s edi).
+     * Faqat ro'yxatda bo'lmagan (shu oy uchun hali qatori yo'q) ishchilar uchun
+     * {@link #previousPlace} chaqiruvchida (RatingService) alohida ishlatilishda qoladi —
+     * bu holat kamdan-kam (oyning birinchi kuni yoki yangi ishchi).
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, Integer> previousPlaces(LocalDate month) {
+        return repository.findAllByOy(month).stream()
+                .collect(Collectors.toMap(IshchiPlaceSnapshot::getIshchiId, IshchiPlaceSnapshot::getPlace));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

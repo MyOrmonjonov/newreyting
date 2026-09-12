@@ -16,6 +16,9 @@ dist-ssr
 .nitro
 *.local
 
+# EB deploy bundles (built locally when deploying, not source)
+micco-frontend-v*.zip
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

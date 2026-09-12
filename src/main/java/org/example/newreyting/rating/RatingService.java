@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Reyting hisoblash — barcha metodlar faqat o'qiydi, hech narsa saqlamaydi.
@@ -236,6 +237,10 @@ public class RatingService {
         List<Ishchi> ishchilar = ishchiRepository.findAllWithRefs();
         Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(month));
         Map<Long, Integer> trophiesByIshchi = computeTrophies(month);
+        // Bitta so'rovda barcha "kechagi" o'rinlar — N ta ishchi uchun N ta alohida DB
+        // chaqiruv o'rniga (pastdagi previousPlaceSafe faqat shu map'da yo'q, kamdan-kam
+        // uchraydigan qatorlar uchun ishlatiladi).
+        Map<Long, Integer> previousPlaces = placeHistoryService.previousPlaces(month);
 
         record Scored(Ishchi ishchi, double percent, boolean hasData) {
         }
@@ -264,7 +269,8 @@ public class RatingService {
                 place++;
                 int years = Period.between(s.ishchi().getIshGaKirganSana(), LocalDate.now()).getYears();
                 int points = s.hasData() ? pointsForLeague(league, place) : 0;
-                int yesterday = previousPlaceSafe(month, s.ishchi().getId(), place);
+                Integer knownYesterday = previousPlaces.get(s.ishchi().getId());
+                int yesterday = knownYesterday != null ? knownYesterday : previousPlaceSafe(month, s.ishchi().getId(), place);
                 result.add(new AgentResponse(
                         s.ishchi().getId(),
                         place,
@@ -388,11 +394,20 @@ public class RatingService {
     }
 
     /** Har bir o'tgan oy uchun umumiy 1-o'rinni egallagan ishchi(lar)ga bittadan trophy qo'shiladi. */
-    private Map<Long, Integer> computeTrophies(LocalDate currentOy) {
-        List<LocalDate> pastMonths = natijaRepository.findDistinctPastMonths(currentOy);
-        Map<Long, Integer> trophies = new HashMap<>();
-        for (LocalDate month : pastMonths) {
-            Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(month));
+    /**
+     * O'tgan oy g'oliblari — kesh (process umri davomida, backend qayta ishga tushirilguncha).
+     * O'tgan (currentOy'dan oldingi) oy natijalari amalda o'zgarmas hisoblanadi (xuddi
+     * OylikYakun "muzlatilgan" natija kabi — Nizomga ko'ra e'lon qilingan natija barqaror
+     * qolishi kerak). Bu kesh bo'lmasa, computeTrophies har chaqiruvda (har 5 soniyada, har
+     * ochiq TV ekrani uchun) BARCHA o'tgan oylar bo'yicha DB'dan qayta hisoblardi — oylar
+     * ko'paygani sayin /api/reyting/ishchi abadiy sekinlashib borar edi (backend "qotib
+     * qolish" shikoyatining asosiy sababi shu edi).
+     */
+    private final Map<LocalDate, List<Long>> trophyWinnersCache = new ConcurrentHashMap<>();
+
+    private List<Long> trophyWinnersForPastMonth(LocalDate month) {
+        return trophyWinnersCache.computeIfAbsent(month, m -> {
+            Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(m));
             double best = -1;
             List<Long> winners = new ArrayList<>();
             for (Map.Entry<Long, Double> e : avgPercents.entrySet()) {
@@ -405,7 +420,15 @@ public class RatingService {
                     winners.add(e.getKey());
                 }
             }
-            for (Long w : winners) {
+            return winners;
+        });
+    }
+
+    private Map<Long, Integer> computeTrophies(LocalDate currentOy) {
+        List<LocalDate> pastMonths = natijaRepository.findDistinctPastMonths(currentOy);
+        Map<Long, Integer> trophies = new HashMap<>();
+        for (LocalDate month : pastMonths) {
+            for (Long w : trophyWinnersForPastMonth(month)) {
                 trophies.merge(w, 1, Integer::sum);
             }
         }

@@ -9,9 +9,13 @@ import java.util.List;
 
 public interface IshchiRepository extends JpaRepository<Ishchi, Long> {
 
+    // supervayzer.createdBy (menejer) LAZY bo'lgani uchun ham fetch qilinadi — aks holda
+    // RatingService.menejerOf() har bir noyob supervayzer uchun alohida SELECT chiqarardi
+    // (har 5 soniyada, har ochiq TV ekrani uchun — /api/reyting/ishchi'ni sekinlashtirgan).
     @Query("""
             SELECT i FROM Ishchi i
-            LEFT JOIN FETCH i.supervayzer
+            LEFT JOIN FETCH i.supervayzer s
+            LEFT JOIN FETCH s.createdBy
             ORDER BY i.familiya ASC
             """)
     List<Ishchi> findAllWithRefs();
