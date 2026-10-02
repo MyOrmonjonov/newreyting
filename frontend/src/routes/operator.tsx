@@ -5,6 +5,7 @@ import { ImageOff, Loader2, Pencil, Plus, Save, Table2, Trash2, UserRound, X } f
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
 import { AppShell, PageHeader } from "@/components/AppShell";
+import { DateFieldDDMMYYYY } from "@/components/DateField";
 import { Donut, Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -670,7 +671,7 @@ function OperatorPage() {
               onClick={closeBulkModal}
             >
               <div
-                className="card-surface my-8 w-full max-w-4xl space-y-4 p-5"
+                className="card-surface my-8 w-full max-w-6xl space-y-4 p-5"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -712,7 +713,7 @@ function OperatorPage() {
                     ustunini to'ldirsangiz kifoya. Biror paket shu agentga umuman tegishli bo'lmasa, uning planini
                     0 ga o'zgartiring — shundagina umumiy foizga ta'sir qilmaydi.
                   </p>
-                  <div className="max-h-[55vh] overflow-auto rounded-xl border border-border">
+                  <div className="max-h-[70vh] overflow-auto rounded-xl border border-border">
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 z-10 bg-card">
                         <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -906,11 +907,9 @@ function OperatorPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Ishga kirgan sana</label>
-                  <input
-                    className="field"
-                    type="date"
+                  <DateFieldDDMMYYYY
                     value={ishchiForm.ishGaKirganSana}
-                    onChange={(e) => setIshchiForm((s) => ({ ...s, ishGaKirganSana: e.target.value }))}
+                    onChange={(iso) => setIshchiForm((s) => ({ ...s, ishGaKirganSana: iso }))}
                     required
                   />
                 </div>

@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { api, ApiError } from "@/lib/api";
 import { PasswordDialog } from "@/components/PasswordDialog";
+import { usePersistentState } from "@/lib/use-persistent-state";
 
 const NAV = [
   { group: "Boshqaruv", items: [
@@ -40,6 +41,7 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = usePersistentState("micco-sidebar-collapsed", false);
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -63,8 +65,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="relative min-h-screen">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 border-r border-white/10 transition-transform duration-300 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 w-64 border-r border-white/10 transition-transform duration-300",
           open ? "translate-x-0" : "-translate-x-full",
+          collapsed ? "lg:-translate-x-full" : "lg:translate-x-0",
         )}
         style={{
           transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
@@ -184,11 +187,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       ) : null}
 
-      <div className="lg:pl-64">
+      <div className={cn("transition-[padding] duration-300", collapsed ? "" : "lg:pl-64")}>
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur lg:px-8">
-          <button className="btn-ghost lg:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menyu">
-            {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button className="btn-ghost lg:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menyu">
+              {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+            <button
+              className="btn-ghost hidden lg:inline-flex"
+              onClick={() => setCollapsed((v) => !v)}
+              aria-label={collapsed ? "Navbar'ni ochish" : "Navbar'ni yopish"}
+            >
+              {collapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+            </button>
+          </div>
           <p className="hidden text-sm text-muted-foreground lg:block">
             Mavsum: <span className="font-medium text-foreground">2026 · Iyul</span>
           </p>
