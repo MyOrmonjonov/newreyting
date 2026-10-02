@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   Menu,
   X,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
   KeyRound,
   Loader2,
@@ -164,6 +166,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
+      <button
+        className="fixed top-[4.25rem] z-50 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-background text-muted-foreground shadow-md transition-[left] duration-300 hover:text-foreground lg:flex"
+        style={{
+          left: collapsed ? "0.75rem" : "15.25rem",
+          transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
+        }}
+        onClick={() => setCollapsed((v) => !v)}
+        aria-label={collapsed ? "Navbar'ni ochish" : "Navbar'ni yopish"}
+      >
+        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+      </button>
+
       {showPasswordDialog ? (
         <PasswordDialog
           title="Parolni almashtirish"
@@ -189,18 +203,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className={cn("transition-[padding] duration-300", collapsed ? "" : "lg:pl-64")}>
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur lg:px-8">
-          <div className="flex items-center gap-1">
-            <button className="btn-ghost lg:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menyu">
-              {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </button>
-            <button
-              className="btn-ghost hidden lg:inline-flex"
-              onClick={() => setCollapsed((v) => !v)}
-              aria-label={collapsed ? "Navbar'ni ochish" : "Navbar'ni yopish"}
-            >
-              {collapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
-            </button>
-          </div>
+          <button className="btn-ghost lg:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menyu">
+            {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
           <p className="hidden text-sm text-muted-foreground lg:block">
             Mavsum: <span className="font-medium text-foreground">2026 · Iyul</span>
           </p>
