@@ -30,7 +30,13 @@ export async function exportBulkNatijaTemplate(input: {
   ws.columns = [
     { width: 8 },
     { width: 26 },
-    ...input.mahsulotlar.flatMap(() => [{ width: 14 }, { width: 14 }]),
+    // "— Bajarildi" header (uzunrog'i) to'liq sig'ishi uchun ustun kengligi
+    // mahsulot nomi uzunligiga qarab moslashadi (qisqa/uzun nomlar bir xilda
+    // siqilib/cho'zilib qolmasligi uchun).
+    ...input.mahsulotlar.flatMap((m) => {
+      const w = Math.min(22, Math.max(13, m.nomi.length + 9));
+      return [{ width: w }, { width: w }];
+    }),
   ];
 
   const noteRow = ws.addRow([
@@ -52,7 +58,7 @@ export async function exportBulkNatijaTemplate(input: {
     cell.font = { bold: true, color: { argb: `FF${WHITE}` } };
     cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
   });
-  headerRow.height = 32;
+  headerRow.height = 42;
 
   input.agents.forEach((a, i) => {
     const cells: (string | number)[] = [a.id, a.fullName];

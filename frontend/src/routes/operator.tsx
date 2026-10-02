@@ -706,32 +706,26 @@ function OperatorPage() {
 
       {showBulkModal
         ? createPortal(
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
-              onClick={closeBulkModal}
-            >
-              <div
-                className="card-surface my-8 w-full max-w-6xl space-y-4 p-5"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold">Ommaviy/tarixiy natija kiritish</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Joriy filtrga mos {filteredIshchilar.length} ta agent uchun — istalgan (shu jumladan o'tgan)
-                      oy tanlab, hammasiga bir vaqtda natija kiriting.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-ghost px-2 py-1.5"
-                    onClick={closeBulkModal}
-                    aria-label="Yopish"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+            <div className="fixed inset-0 z-50 flex flex-col bg-background">
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Ommaviy/tarixiy natija kiritish</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Joriy filtrga mos {filteredIshchilar.length} ta agent uchun — istalgan (shu jumladan o'tgan)
+                    oy tanlab, hammasiga bir vaqtda natija kiriting.
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  className="btn-ghost px-2 py-1.5"
+                  onClick={closeBulkModal}
+                  aria-label="Yopish"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
 
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground">Oy</label>
@@ -794,7 +788,7 @@ function OperatorPage() {
                     ustunini to'ldirsangiz kifoya. Biror paket shu agentga umuman tegishli bo'lmasa, uning planini
                     0 ga o'zgartiring — shundagina umumiy foizga ta'sir qilmaydi.
                   </p>
-                  <div className="max-h-[70vh] overflow-auto rounded-xl border border-border">
+                  <div className="overflow-x-auto rounded-xl border border-border">
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 z-10 bg-card">
                         <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -865,7 +859,9 @@ function OperatorPage() {
                   </div>
                   </>
                 )}
+              </div>
 
+              <div className="shrink-0 border-t border-border px-5 py-4">
                 <button
                   className="btn-brand w-full"
                   onClick={() => saveBulkMutation.mutate()}
