@@ -11,8 +11,8 @@ import {
   ShieldCheck,
   Menu,
   X,
-  ChevronLeft,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
   LogOut,
   KeyRound,
   Loader2,
@@ -88,6 +88,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-sm font-semibold">MICCO</p>
             <p className="text-[11px] text-muted-foreground">Boshqaruv va Reyting</p>
           </div>
+          <button
+            className="btn-ghost ml-auto hidden shrink-0 px-1.5 py-1.5 lg:inline-flex"
+            onClick={() => setCollapsed(true)}
+            aria-label="Navbar'ni yopish"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
         </div>
         <nav className="space-y-6 p-3">
           {NAV.map((g) => (
@@ -166,18 +173,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <button
-        className="fixed top-[4.25rem] z-50 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-background text-muted-foreground shadow-md transition-[left] duration-300 hover:text-foreground lg:flex"
-        style={{
-          left: collapsed ? "0.75rem" : "15.25rem",
-          transitionTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
-        }}
-        onClick={() => setCollapsed((v) => !v)}
-        aria-label={collapsed ? "Navbar'ni ochish" : "Navbar'ni yopish"}
-      >
-        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
-      </button>
-
       {showPasswordDialog ? (
         <PasswordDialog
           title="Parolni almashtirish"
@@ -206,6 +201,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button className="btn-ghost lg:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menyu">
             {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
+          {collapsed ? (
+            <button
+              className="btn-ghost hidden lg:inline-flex"
+              onClick={() => setCollapsed(false)}
+              aria-label="Navbar'ni ochish"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
+          ) : null}
           <p className="hidden text-sm text-muted-foreground lg:block">
             Mavsum: <span className="font-medium text-foreground">2026 · Iyul</span>
           </p>
