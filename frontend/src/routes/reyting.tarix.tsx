@@ -5,7 +5,7 @@ import { User, ShieldCheck, Briefcase, Gem, Crown, Circle, Shield, TrendingUp, t
 import { PublicShell } from "@/components/PublicShell";
 import { LEAGUES, MONTHS, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor } from "@/lib/rating-api";
+import { avatarFor, resolvePhoto } from "@/lib/rating-api";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +40,7 @@ async function fetchIshchiMatrix(yil: number, league: LeagueKey): Promise<Person
   return rows.map((r) => ({
     id: r.id,
     fullName: r.fullName,
-    avatar: r.rasm || avatarFor(`${r.fullName}-${r.id}`),
+    avatar: resolvePhoto(r.rasm) || avatarFor(`${r.fullName}-${r.id}`),
     months: r.placesByMonth,
   }));
 }

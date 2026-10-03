@@ -42,7 +42,7 @@ type IshchiRow = {
 };
 
 type MahsulotRow = { id: number; nomi: string; birlik: string; standartPlan: number };
-type SupervayzerRow = { id: number; ism: string; familiya: string; createdByFullName: string | null };
+type SupervayzerRow = { id: number; ism: string; familiya: string; createdByFullName: string | null; createdById: number | null };
 type NatijaRow = { ishchiId: number; mahsulotId: number; plan: number; bajarildi: number };
 
 const EMPTY_ISHCHI_FORM = {
@@ -213,6 +213,23 @@ function OperatorPage() {
     enabled: !!oy,
   });
 
+  // Tanlangan agentning MENEJERI — faqat shu menejerga biriktirilgan mahsulotlar ko'rsatilishi
+  // uchun (SUPERVAYZER o'zining menejerini to'g'ridan-to'g'ri biladi, boshqalar ishchi →
+  // supervayzer → createdById zanjiri orqali topadi).
+  function menejerIdForIshchi(ishchiId: number): number | null {
+    if (isSupervayzer) return user?.createdById ?? null;
+    const ishchi = ishchilar.find((s) => s.id === ishchiId);
+    if (!ishchi) return null;
+    return supervayzerById.get(ishchi.supervayzerId)?.createdById ?? null;
+  }
+
+  const selectedMenejerId = selectedIshchiId ? menejerIdForIshchi(selectedIshchiId) : null;
+  const { data: scopedMahsulotlar = mahsulotlar } = useQuery({
+    queryKey: ["mahsulotlar", "menejer", selectedMenejerId],
+    queryFn: () => api.get<MahsulotRow[]>(`/api/mahsulotlar/menejer/${selectedMenejerId}`),
+    enabled: selectedMenejerId !== null,
+  });
+
   // Tanlangan agent/oy juftligi uchun FAQAT BIR MARTA serverdan kelgan qiymat bilan
   // to'ldiriladi (natijaInitializedRef orqali) — aks holda fon rejimidagi background refetch
   // (masalan boshqa oyna/tab'ga o'tib qaytganda) hali saqlanmagan kiritilgan qiymatlarni
@@ -229,7 +246,7 @@ function OperatorPage() {
     if (natijaInitializedRef.current === key) return;
     const mavjud = oyNatijalari.filter((n) => n.ishchiId === selectedIshchiId);
     const draft: Record<number, { plan: number; bajarildi: number }> = {};
-    for (const m of mahsulotlar) {
+    for (const m of scopedMahsulotlar) {
       const bor = mavjud.find((n) => n.mahsulotId === m.id);
       // Plan mahsulotning standart plani bilan oldindan to'ldiriladi — har bir agent har bir
       // paket bo'yicha ishlaydi, shuning uchun operator faqat "bajarildi"ni kiritsa yetarli.
@@ -239,7 +256,7 @@ function OperatorPage() {
     }
     setNatijaDraft(draft);
     natijaInitializedRef.current = key;
-  }, [selectedIshchiId, oy, natijalarFetched, oyNatijalari, mahsulotlar]);
+  }, [selectedIshchiId, oy, natijalarFetched, oyNatijalari, scopedMahsulotlar]);
 
   const natijaPreview = useMemo(() => {
     // Har mahsulot (paket) foizi (bajarildi/plan*100) teng vaznda o'rtachaga qo'shiladi —
@@ -590,13 +607,13 @@ function OperatorPage() {
                   />
                 </div>
 
-                {mahsulotlar.length > 0 ? (
+                {scopedMahsulotlar.length > 0 ? (
                   <div className="rounded-xl border border-border p-4">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Mahsulot bo'yicha plan / bajarildi
                     </p>
                     <div className="space-y-3">
-                      {mahsulotlar.map((m) => (
+                      {scopedMahsulotlar.map((m) => (
                         <div key={m.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
                           <span className="text-sm">
                             {m.nomi} <span className="text-xs text-muted-foreground">({m.birlik})</span>

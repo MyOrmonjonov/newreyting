@@ -11,6 +11,7 @@ export type AuthUser = {
   role: Role;
   active: boolean;
   createdByFullName: string | null;
+  createdById: number | null;
   createdAt: string;
 };
 

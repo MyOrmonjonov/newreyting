@@ -1,6 +1,7 @@
 // Backenddagi RatingService javoblariga mos tiplar va yordamchi funksiyalar.
 // micco-data.ts'dagi demo generatorlar (buildLeague/buildManagers/...) o'rniga
 // endi shu tiplar orqali /api/reyting/* dan haqiqiy ma'lumot olinadi.
+import { API_BASE } from "@/lib/api";
 
 export type AgentApiRow = {
   id: number;
@@ -58,6 +59,14 @@ export function stripeFor(id: number): string {
 /** Surat yuklanmagan xodimlar uchun — ism-familiya bosh harflari, rangli doira ichida. */
 export function avatarFor(seed: string): string {
   return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(seed)}&fontWeight=700`;
+}
+
+/** Backend endi `rasm` maydonida base64 surat o'rniga yengil URL yo'lini (masalan
+ * "/api/reyting/ishchi/42/rasm") qaytaradi — javob hajmini kamaytirish va brauzer
+ * keshidan foydalanish uchun (5 soniyada bir marta avtomatik yangilanadigan ochiq
+ * reyting sahifalarida base64'ni qayta-qayta yuklash sekinlikka olib kelgan edi). */
+export function resolvePhoto(path: string | null): string | null {
+  return path ? `${API_BASE}${path}` : null;
 }
 
 /** `<input type=date>` qiymatidan ("2026-07-28") oy so'rov parametrini ("2026-07-01") chiqaradi. */

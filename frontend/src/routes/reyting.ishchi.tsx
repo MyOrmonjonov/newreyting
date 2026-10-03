@@ -17,6 +17,7 @@ import {
   Crown,
   Shield,
   Circle,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
@@ -25,7 +26,7 @@ import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDet
 import { PodiumSlot } from "@/components/Podium";
 import { LEAGUES, MONTHS, AGENT_LEAGUE_POINTS, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, monthParam, type AgentApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, resolvePhoto, type AgentApiRow } from "@/lib/rating-api";
 import { cn } from "@/lib/utils";
 import { usePersistentState } from "@/lib/use-persistent-state";
 
@@ -92,7 +93,7 @@ function toAgent(row: AgentApiRow): Agent {
     points: row.points,
     today: row.today,
     yesterday: row.yesterday,
-    avatar: row.rasm || avatarFor(`${row.fullName}-${row.id}`),
+    avatar: resolvePhoto(row.rasm) || avatarFor(`${row.fullName}-${row.id}`),
     trophies: row.trophies,
     yearsActive: row.yearsActive,
     league: row.league,
@@ -105,7 +106,7 @@ function toYillikAgent(row: YillikIshchiApiRow): YillikAgent {
     place: row.place,
     fullName: row.fullName,
     supervisor: row.supervisorFullName,
-    avatar: row.rasm || avatarFor(`${row.fullName}-${row.id}`),
+    avatar: resolvePhoto(row.rasm) || avatarFor(`${row.fullName}-${row.id}`),
     nomination: row.nomination,
     totalBall: row.totalBall,
     firstPlaces: row.firstPlaces,
@@ -131,16 +132,32 @@ export const Route = createFileRoute("/reyting/ishchi")({
   component: AgentRating,
 });
 
-const LEAGUE_ICONS: Record<LeagueKey, LucideIcon> = {
+type ViewKey = LeagueKey | "respublika";
+
+// "Respublika" — barcha ligalarni bitta ustunda, diamonddan boshlab tartib
+// bilan ko'rsatadigan umumiy reyting (haqiqiy liga emas, shuning uchun
+// AGENT_LEAGUE_POINTS'da yo'q va alohida boshqariladi).
+const RESPUBLIKA_TAB = {
+  key: "respublika" as const,
+  name: "RESPUBLIKA",
+  slogan: "Barcha ligalar — respublika bo'yicha umumiy reyting",
+  accent: "oklch(0.78 0.14 260)",
+  glow: "oklch(0.62 0.17 262)",
+};
+
+const ALL_TABS = [RESPUBLIKA_TAB, ...LEAGUES];
+
+const LEAGUE_ICONS: Record<ViewKey, LucideIcon> = {
   diamond: Gem,
   gold: Crown,
   silver: Circle,
   bronze: Shield,
   rising: TrendingUp,
+  respublika: Landmark,
 };
 
 function AgentRating() {
-  const [league, setLeague] = usePersistentState<LeagueKey>("micco-reyting-ishchi-league", "diamond");
+  const [league, setLeague] = usePersistentState<ViewKey>("micco-reyting-ishchi-league", "diamond");
   const [view, setView] = usePersistentState<"oylik" | "yillik">("micco-reyting-ishchi-view", "oylik");
   const [date, setDate] = usePersistentState("micco-reyting-ishchi-date", "2026-07-28");
   const [selected, setSelected] = useState<Agent | null>(null);
@@ -204,12 +221,19 @@ function AgentRating() {
     refetchIntervalInBackground: true,
   });
 
-  const meta = LEAGUES.find((l) => l.key === league)!;
-  const leaguePoints = AGENT_LEAGUE_POINTS[league];
-  const rows = useMemo(
-    () => allAgents.filter((r) => r.league === league).map(toAgent),
-    [allAgents, league],
-  );
+  const isRespublika = league === "respublika";
+  const meta = isRespublika ? RESPUBLIKA_TAB : LEAGUES.find((l) => l.key === league)!;
+  const leaguePoints = isRespublika ? null : AGENT_LEAGUE_POINTS[league];
+  const rows = useMemo(() => {
+    if (isRespublika) {
+      // Diamonddan boshlab, liga tartibi bo'yicha bitta ustunga jamlanadi;
+      // har birining o'rni endi respublika bo'yicha umumiy o'rin hisoblanadi.
+      return LEAGUES.flatMap((l) => allAgents.filter((r) => r.league === l.key).map(toAgent)).map(
+        (a, i) => ({ ...a, place: i + 1 }),
+      );
+    }
+    return allAgents.filter((r) => r.league === league).map(toAgent);
+  }, [allAgents, league, isRespublika]);
   const yillikRows = useMemo(
     () =>
       allYillikAgents
@@ -271,7 +295,7 @@ function AgentRating() {
               Darajalar
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {LEAGUES.map((l, i) => {
+              {ALL_TABS.map((l, i) => {
                 const Icon = LEAGUE_ICONS[l.key];
                 return (
                   <button
@@ -279,7 +303,7 @@ function AgentRating() {
                     onClick={() => setLeague(l.key)}
                     className={cn(
                       "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wide transition-all duration-300",
-                      i === LEAGUES.length - 1 && LEAGUES.length % 2 === 1 ? "col-span-2" : "",
+                      i === ALL_TABS.length - 1 && ALL_TABS.length % 2 === 1 ? "col-span-2" : "",
                     )}
                     style={
                       league === l.key
@@ -353,7 +377,7 @@ function AgentRating() {
         {/* Liga navigatsiyasi — desktop/tablet; mobilda PublicShell'ning "Filterlar" kartasi ishlatiladi */}
         <div className="hidden flex-wrap items-center justify-center gap-4 border-b border-white/10 px-5 py-5 sm:flex">
           <div className="scrollbar-none relative flex max-w-full flex-wrap justify-center gap-2 overflow-x-auto">
-            {LEAGUES.map((l) => {
+            {ALL_TABS.map((l) => {
               const Icon = LEAGUE_ICONS[l.key];
               return (
                 <button
@@ -583,6 +607,18 @@ function AgentRating() {
                   <p className="truncate text-sm font-bold uppercase tracking-wide">{leader.fullName}</p>
                   <p className="truncate text-[11px] text-race-muted">Supervayzer: {leader.supervisor}</p>
                 </div>
+                {isRespublika ? (
+                  <span
+                    className="shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
+                    style={{
+                      borderColor: LEAGUES.find((l) => l.key === leader.league)!.accent,
+                      color: LEAGUES.find((l) => l.key === leader.league)!.accent,
+                      backgroundColor: `color-mix(in oklab, ${LEAGUES.find((l) => l.key === leader.league)!.accent} 15%, transparent)`,
+                    }}
+                  >
+                    {LEAGUES.find((l) => l.key === leader.league)!.name}
+                  </span>
+                ) : null}
                 <span className="text-2xl font-black tabular-nums">
                   <CountUp value={leader.percent} decimals={1} suffix="%" />
                 </span>
@@ -596,8 +632,9 @@ function AgentRating() {
               // Nizomga ko'ra: har liga 27 kishilik — top-5 (1-5) ko'tariladi,
               // oxirgi 5 (23-27) pastroq ligaga tushadi (o'rin qat'iy, joriy son emas).
               const DANGER_BOUNDARY = 22;
-              const inPromo = league !== "diamond" && r.place <= 5;
-              const inDanger = league !== "rising" && r.place > DANGER_BOUNDARY;
+              const inPromo = !isRespublika && league !== "diamond" && r.place <= 5;
+              const inDanger = !isRespublika && league !== "rising" && r.place > DANGER_BOUNDARY;
+              const rowLeague = isRespublika ? LEAGUES.find((l) => l.key === r.league)! : null;
               return (
                 <div
                   key={r.id}
@@ -637,6 +674,18 @@ function AgentRating() {
                         Supervayzer: {r.supervisor}
                       </p>
                     </div>
+                    {rowLeague ? (
+                      <span
+                        className="hidden shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide sm:inline-block"
+                        style={{
+                          borderColor: rowLeague.accent,
+                          color: rowLeague.accent,
+                          backgroundColor: `color-mix(in oklab, ${rowLeague.accent} 15%, transparent)`,
+                        }}
+                      >
+                        {rowLeague.name}
+                      </span>
+                    ) : null}
                     <div className="hidden w-24 text-right sm:block">
                       <p className="text-[10px] uppercase tracking-widest text-race-muted">Reyting ball</p>
                       <p className="text-sm font-bold tabular-nums">{r.points}</p>
@@ -655,10 +704,10 @@ function AgentRating() {
                     </div>
                   </div>
 
-                  {league !== "diamond" && r.place === 5 ? (
+                  {!isRespublika && league !== "diamond" && r.place === 5 ? (
                     <ZoneLine tone="up" />
                   ) : null}
-                  {league !== "rising" && r.place === DANGER_BOUNDARY ? (
+                  {!isRespublika && league !== "rising" && r.place === DANGER_BOUNDARY ? (
                     <ZoneLine tone="down" />
                   ) : null}
                 </div>
@@ -667,8 +716,9 @@ function AgentRating() {
           </div>
 
           <p className="mt-6 text-[11px] leading-relaxed text-race-muted">
-            Reyting ball — {meta.name} ligasi: 1-o'rin {leaguePoints.p1} ball, 2-o'rin {leaguePoints.p2}, 3-o'rin{" "}
-            {leaguePoints.p3}, so'ng har o'ringa −1, {leaguePoints.floor} balldan pastga tushmaydi.
+            {isRespublika
+              ? "Respublika reytingi — barcha ligalar (Diamond, Gold, Silver, Bronze, Rising) bitta umumiy ro'yxatda, diamonddan boshlab tartiblangan."
+              : `Reyting ball — ${meta.name} ligasi: 1-o'rin ${leaguePoints!.p1} ball, 2-o'rin ${leaguePoints!.p2}, 3-o'rin ${leaguePoints!.p3}, so'ng har o'ringa −1, ${leaguePoints!.floor} balldan pastga tushmaydi.`}
           </p>
           </>
           ) : (

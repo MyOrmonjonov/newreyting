@@ -17,7 +17,14 @@ import { CountUp, Donut, Reveal } from "@/components/motion";
 import { LEAGUES, MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { avatarFor, monthParam, type AgentApiRow, type RankedApiRow, type ScoreboardApiRow } from "@/lib/rating-api";
+import {
+  avatarFor,
+  monthParam,
+  resolvePhoto,
+  type AgentApiRow,
+  type RankedApiRow,
+  type ScoreboardApiRow,
+} from "@/lib/rating-api";
 import { cn } from "@/lib/utils";
 
 type YillikOyRow = { oy: string; plan: number; fakt: number };
@@ -75,7 +82,7 @@ function Dashboard() {
             fullName: a.fullName,
             supervisor: a.supervisorFullName,
             percent: a.percent,
-            avatar: a.rasm || avatarFor(`${a.fullName}-${a.id}`),
+            avatar: resolvePhoto(a.rasm) || avatarFor(`${a.fullName}-${a.id}`),
           })),
       })),
     [agents],

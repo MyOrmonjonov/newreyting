@@ -48,7 +48,7 @@ export const LEAGUES: {
 
 export const PERIOD_LABEL = "2026 IYUL";
 
-/** O'zbekistonning 12 ta viloyati — agent qaysi viloyatda ishlashini belgilash uchun. */
+/** O'zbekistonning hududlari — agent qaysi hududda ishlashini belgilash uchun. */
 export const VILOYATLAR: { key: string; name: string }[] = [
   { key: "ANDIJON", name: "Andijon" },
   { key: "BUXORO", name: "Buxoro" },
@@ -62,6 +62,8 @@ export const VILOYATLAR: { key: string; name: string }[] = [
   { key: "SIRDARYO", name: "Sirdaryo" },
   { key: "SURXONDARYO", name: "Surxondaryo" },
   { key: "TOSHKENT", name: "Toshkent" },
+  { key: "TOSHKENT_VILOYATI", name: "Toshkent viloyati" },
+  { key: "QOQON", name: "Qo'qon shahri" },
 ];
 
 /**

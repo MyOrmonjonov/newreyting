@@ -9,8 +9,10 @@ import org.example.newreyting.rating.dto.YillikIshchiResponse;
 import org.example.newreyting.rating.dto.YillikOyResponse;
 import org.example.newreyting.rating.dto.YillikSupervayzerResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -34,6 +36,14 @@ public class RatingController {
     @GetMapping("/ishchi")
     public List<AgentResponse> ishchi(@RequestParam LocalDate oy) {
         return ratingService.computeIshchiReyting(oy);
+    }
+
+    /** Ishchi surati — {@link AgentResponse#rasm()}/{@link YillikIshchiResponse#rasm()}/
+     * {@link IshchiTarixResponse#rasm()} endi base64 o'rniga shu endpoint yo'lini qaytaradi
+     * (brauzer keshi uchun, {@code Cache-Control: max-age=600}). */
+    @GetMapping("/ishchi/{id}/rasm")
+    public ResponseEntity<byte[]> ishchiRasm(@PathVariable Long id) {
+        return ratingService.ishchiRasm(id);
     }
 
     @GetMapping("/supervayzer")

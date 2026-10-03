@@ -2,7 +2,7 @@
 // ketadi (vite.config.ts). Production'da (frontend Cloudflare Pages'da, backend
 // alohida AWS manzilida bo'lgani uchun) build vaqtida VITE_API_BASE muhit
 // o'zgaruvchisi orqali backend manzili beriladi (masalan https://api.micco.uz).
-const API_BASE = import.meta.env["VITE_API_BASE"] ?? "";
+export const API_BASE = import.meta.env["VITE_API_BASE"] ?? "";
 const TOKEN_KEY = "micco-token";
 
 export class ApiError extends Error {

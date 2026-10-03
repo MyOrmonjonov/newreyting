@@ -17,6 +17,9 @@ import org.example.newreyting.user.Role;
 import org.example.newreyting.user.User;
 import org.example.newreyting.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Reyting hisoblash — barcha metodlar faqat o'qiydi, hech narsa saqlamaydi.
@@ -112,6 +116,31 @@ public class RatingService {
 
     private static double round1(double v) {
         return Math.round(v * 10) / 10.0;
+    }
+
+    /** Ishchi javoblarida (AgentResponse/YillikIshchiResponse/IshchiTarixResponse) `rasm` maydoniga
+     * endi base64 surat o'rniga shu yengil URL yo'li qo'yiladi — javob hajmini (151 ta ishchi uchun
+     * oldin ~2.7MB) keskin kamaytirish va brauzer keshidan foydalanish uchun (5 soniyada bir
+     * avtomatik yangilanadigan ochiq reyting sahifalarida base64'ni qayta-qayta yuborish sekinlikka
+     * olib kelgan edi). Haqiqiy baytlar {@link #ishchiRasm} orqali alohida so'raladi. */
+    private static String rasmPath(Long ishchiId, String rasm) {
+        return (rasm == null || rasm.isBlank()) ? null : "/api/reyting/ishchi/" + ishchiId + "/rasm";
+    }
+
+    /** {@link #rasmPath} — rasm baytlarining o'zi, {@link RatingController#ishchiRasm}. */
+    public ResponseEntity<byte[]> ishchiRasm(Long ishchiId) {
+        String dataUrl = ishchiRepository.findRasmById(ishchiId).orElse(null);
+        if (dataUrl == null || dataUrl.isBlank() || !dataUrl.startsWith("data:") || !dataUrl.contains(",")) {
+            return ResponseEntity.notFound().build();
+        }
+        int comma = dataUrl.indexOf(',');
+        String meta = dataUrl.substring(5, comma);
+        String mimeType = meta.contains(";") ? meta.substring(0, meta.indexOf(';')) : meta;
+        byte[] bytes = Base64.getDecoder().decode(dataUrl.substring(comma + 1));
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(mimeType))
+                .cacheControl(CacheControl.maxAge(10, TimeUnit.MINUTES).cachePublic())
+                .body(bytes);
     }
 
     // "Bugun/Kecha" uchun oldingi o'rin endi bazada saqlanadi (IshchiPlaceSnapshot orqali,
@@ -221,7 +250,7 @@ public class RatingService {
                         i.getIsm() + " " + i.getFamiliya(), i.getSupervayzer().getFullName(),
                         menejerOf(i.getSupervayzer()),
                         round1(y.getPercent()), y.getBall(), y.getPlace(), y.getPlace(),
-                        trophiesByIshchi.getOrDefault(i.getId(), 0), years, y.getLiga(), i.getRasm()
+                        trophiesByIshchi.getOrDefault(i.getId(), 0), years, y.getLiga(), rasmPath(i.getId(), i.getRasm())
                 ));
             }
         }
@@ -286,7 +315,7 @@ public class RatingService {
                         trophiesByIshchi.getOrDefault(s.ishchi().getId(), 0),
                         years,
                         league,
-                        s.ishchi().getRasm()
+                        rasmPath(s.ishchi().getId(), s.ishchi().getRasm())
                 ));
             }
         }
@@ -679,7 +708,7 @@ public class RatingService {
                         s.ishchi().getFamiliya(),
                         s.ishchi().getIsm() + " " + s.ishchi().getFamiliya(),
                         s.ishchi().getSupervayzer().getFullName(),
-                        s.ishchi().getRasm(),
+                        rasmPath(s.ishchi().getId(), s.ishchi().getRasm()),
                         league,
                         place,
                         nomination,
@@ -832,7 +861,7 @@ public class RatingService {
         List<IshchiTarixResponse> result = new ArrayList<>();
         for (Map.Entry<Long, Integer[]> e : places.entrySet()) {
             Ishchi i = ishchiById.get(e.getKey());
-            result.add(new IshchiTarixResponse(i.getId(), i.getIsm() + " " + i.getFamiliya(), i.getRasm(),
+            result.add(new IshchiTarixResponse(i.getId(), i.getIsm() + " " + i.getFamiliya(), rasmPath(i.getId(), i.getRasm()),
                     Arrays.asList(e.getValue())));
         }
         return result;

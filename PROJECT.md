@@ -228,52 +228,73 @@ Foydalanuvchi talabiga ko'ra uchta muhim o'zgarish:
       Beanstalk'ga chiqarildi (pastga qarang).
 - [ ] Refresh-token/logout-invalidation, HTTPS — production'ga chiqishdan oldin.
 
-## AWS'ga deploy qilingan — manzillar va qayta deploy qilish (2026-08-31 dan beri)
+## AWS'ga deploy qilingan — manzillar va qayta deploy qilish (2026-10-03 dan beri YANGI akkaunt)
 
-**Live manzillar** (AWS akkaunt: `205080700819`, region `ap-south-1`):
-- Backend: `http://micco-backend.eba-ghcr2miv.ap-south-1.elasticbeanstalk.com`
-- Frontend: `http://micco-frontend.eba-2rxbbi3w.ap-south-1.elasticbeanstalk.com`
-- EB application nomlari: backend — `micco` (env: `micco-backend`), frontend — `micco-frontend`
-  (env: `micco-frontend`). S3 bundle bucket: `elasticbeanstalk-ap-south-1-205080700819`.
+> **DIQQAT**: 2026-10-03 da butun production (backend + frontend + ma'lumotlar bazasi) eski
+> akkaunt (`205080700819`)dan yangi akkauntga (`985040259171`, bigger server) ko'chirildi va eski
+> akkauntdagi resurslar (EB environment'lar + RDS) **butunlay o'chirildi**. Pastdagi "Live
+> manzillar" endi YANGI akkauntga tegishli. To'liq tarix uchun pastdagi "2026-10-03: AWS
+> migratsiyasi" bo'limiga qarang.
 
-**Qayta deploy qilish** (Windows Git Bash'da, AWS CLI sozlangan bo'lishi kerak — `aws sts
-get-caller-identity` orqali tekshiriladi):
+**Live manzillar** (AWS akkaunt: `985040259171`, IAM user `micco.muhammadyusuf`, profil nomi
+local CLI'da `micco-new`, region `ap-south-1`):
+- Backend: `http://micco-backend.ap-south-1.elasticbeanstalk.com`
+- Frontend: `http://micco-frontend.ap-south-1.elasticbeanstalk.com`
+- EB application nomlari: backend — `micco` (env: `micco-backend`, instance `t4g.medium`/4GB
+  ARM), frontend — `micco-frontend` (env: `micco-frontend`, instance `t4g.micro` ARM). S3 bundle
+  bucket: `elasticbeanstalk-ap-south-1-985040259171`.
+- RDS: `micco-db`, `db.t4g.micro` (ARM), Postgres 16.15, 20GB gp2, baza nomi `micco`, master user
+  `micco_admin`. Endpoint va parol EB environment o'zgaruvchilarida (`POSTGRES_URL`/
+  `POSTGRES_PASSWORD`) — `aws elasticbeanstalk describe-configuration-settings
+  --application-name micco --environment-name micco-backend --profile micco-new --region
+  ap-south-1` orqali ko'riladi, bu yerga qo'lda yozilmaydi.
+- Instance role (`aws-elasticbeanstalk-ec2-role`)ga `AmazonSSMManagedInstanceCore` biriktirilgan
+  — kerak bo'lsa SSH/portsiz, `aws ssm send-command --instance-ids <id> --document-name
+  AWS-RunShellScript ...` orqali serverga kirish mumkin.
 
-Backend (jar versiyasini +1 oshirib, masalan v6):
+**Qayta deploy qilish** (Windows Git Bash'da; endi hamma joyda `--profile micco-new`):
+
+Backend (jar versiyasini +1 oshirib, masalan v30):
 ```bash
 ./mvnw.cmd -q clean package -DskipTests
-aws s3 cp target/newreyting-0.0.1-SNAPSHOT.jar s3://elasticbeanstalk-ap-south-1-205080700819/micco-v6.jar
-aws elasticbeanstalk create-application-version --application-name micco --version-label v6 \
-  --source-bundle S3Bucket=elasticbeanstalk-ap-south-1-205080700819,S3Key=micco-v6.jar
-aws elasticbeanstalk update-environment --environment-name micco-backend --version-label v6
+aws s3 cp target/newreyting-0.0.1-SNAPSHOT.jar s3://elasticbeanstalk-ap-south-1-985040259171/micco-v30.jar --profile micco-new
+aws elasticbeanstalk create-application-version --application-name micco --version-label v30 \
+  --source-bundle S3Bucket=elasticbeanstalk-ap-south-1-985040259171,S3Key=micco-v30.jar \
+  --process --profile micco-new --region ap-south-1
+aws elasticbeanstalk update-environment --environment-name micco-backend --version-label v30 --profile micco-new --region ap-south-1
 ```
 
-Frontend (`frontend/` papkasida, versiyani +1 oshirib, masalan v8):
+Frontend (`frontend/` papkasida, versiyani +1 oshirib, masalan v68):
 ```bash
-VITE_API_BASE=http://micco-backend.eba-ghcr2miv.ap-south-1.elasticbeanstalk.com npm run build
+VITE_API_BASE=http://micco-backend.ap-south-1.elasticbeanstalk.com npm run build
 # .output/package.json avtomatik yaratilmaydi — har build'dan keyin qo'lda yozish kerak:
 #   {"name":"micco-frontend","private":true,"type":"module","scripts":{"start":"node server/index.mjs"}}
 # ZIP albatta Python bilan (PowerShell Compress-Archive backslash ishlatadi — Linux'da unzip xato beradi):
 python3 -c "
 import zipfile, os
-zf = zipfile.ZipFile('micco-frontend-v8.zip', 'w', zipfile.ZIP_DEFLATED)
+zf = zipfile.ZipFile('micco-frontend-v68.zip', 'w', zipfile.ZIP_DEFLATED)
 for root, dirs, files in os.walk('.output'):
     for f in files:
         full = os.path.join(root, f)
         zf.write(full, os.path.relpath(full, '.output').replace(os.sep, '/'))
 "
-aws s3 cp micco-frontend-v8.zip s3://elasticbeanstalk-ap-south-1-205080700819/micco-frontend-v8.zip
-aws elasticbeanstalk create-application-version --application-name micco-frontend --version-label v8 \
-  --source-bundle S3Bucket=elasticbeanstalk-ap-south-1-205080700819,S3Key=micco-frontend-v8.zip
-aws elasticbeanstalk update-environment --environment-name micco-frontend --version-label v8
+aws s3 cp micco-frontend-v68.zip s3://elasticbeanstalk-ap-south-1-985040259171/micco-frontend-v68.zip --profile micco-new
+aws elasticbeanstalk create-application-version --application-name micco-frontend --version-label v68 \
+  --source-bundle S3Bucket=elasticbeanstalk-ap-south-1-985040259171,S3Key=micco-frontend-v68.zip \
+  --process --profile micco-new --region ap-south-1
+aws elasticbeanstalk update-environment --environment-name micco-frontend --version-label v68 --profile micco-new --region ap-south-1
 ```
 
-Holatni kuzatish: `aws elasticbeanstalk describe-environments --environment-names micco-backend
-micco-frontend --query "Environments[].[EnvironmentName,Status,Health,VersionLabel]" --output table`
-— `Ready` + `Green` bo'lguncha kutish kerak (odatda 1-3 daqiqa).
+Holatni kuzatish: `aws elasticbeanstalk describe-environments --application-name micco
+--environment-names micco-backend --profile micco-new --region ap-south-1 --query
+"Environments[0].[Status,Health,VersionLabel]" --output table` (frontend uchun
+`--application-name micco-frontend --environment-names micco-frontend`) — `Ready` + `Green`
+bo'lguncha kutish kerak (odatda 1-5 daqiqa).
 
-**Deploy tarixi**: backend v1-v6, frontend v1-v10 (oxirgi: backend v6 — quyidagi ikki xatolik
-tuzatildi; frontend v10 — podium (top-3) dizayni to'liq yangilandi, quyida batafsil).
+**Deploy tarixi (yangi akkaunt)**: backend v27 (eskidan ko'chirilgan jar) → v28 (rasm
+endpoint/javob hajmi optimizatsiyasi) → v29 (menejer-mahsulot biriktirish); frontend v65
+(ko'chirish) → v66 (rasm URL'ga o'tkazildi) → v67 (mahsulot filtri). Eski akkauntdagi tarix
+(v1-v27 backend, v1-v64 frontend) pastdagi bo'limlarda saqlanadi — endi faqat tarixiy ma'lumot.
 
 ## To'liq audit — 2026-09-01 (statistika/bugun-kecha xatoliklarini tekshirish)
 
@@ -401,3 +422,60 @@ persistent `input type="month"` filter qo'shildi:
   bilan oy tanlagich qo'shildi, `monthParam()` orqali `oy` query parametriga uzatiladi.
 
 **Deploy qilindi**: backend v23, frontend v56 (ikkalasi ham `Ready`/`Green`).
+
+## Ishchi reytingiga "Respublika" umumiy ko'rinishi va yangi hududlar qo'shildi (2026-09-14)
+
+- `Viloyat` enum'iga (backend) va `VILOYATLAR` (frontend) ro'yxatiga `TOSHKENT_VILOYATI`,
+  `QOQON` qo'shildi.
+- `/reyting/ishchi` sahifasiga barcha ligalarni (diamonddan boshlab) bitta umumiy ro'yxatda
+  ko'rsatuvchi yangi **"Respublika"** tabi qo'shildi (haqiqiy liga emas — `LEAGUES`/
+  `AGENT_LEAGUE_POINTS`ga kirmaydi, alohida `RESPUBLIKA_TAB`/`isRespublika` mantig'i bilan
+  boshqariladi).
+
+**Deploy qilindi**: backend v27, frontend v58 (ikkalasi ham `Ready`/`Green`).
+
+**Respublika tabi qayta tartiblandi va podium qo'shildi** (2026-09-14, davomi): "Respublika"
+tugmasi endi birinchi o'rinda (Diamond'dan oldin) turadi. Respublika ko'rinishi ham boshqa
+ligalar kabi top-3 podium bilan boshlanadi (`leader`/`second`/`third` endi respublika uchun
+ham `rows`dan hisoblanadi, alohida shart yo'q), qolgan o'rinlar pastda ro'yxatda — har qatorda
+qaysi ligadan ekanligini ko'rsatuvchi rang-belgi saqlanib qoldi. Ko'tarilish/tushish
+strelkalari (promo/danger zona) faqat haqiqiy ligalarda ko'rinadi, respublikada yo'q (u haqiqiy
+liga emas, birlashtirilgan ro'yxat).
+
+**Deploy qilindi**: frontend v59 (`Ready`/`Green`, backend o'zgarmadi — hali ham v27).
+
+## 2026-10-03: AWS migratsiyasi — eski akkaunt (205080700819) butunlay o'chirildi
+
+**Sabab**: eski backend (`t3.micro`, 1GB RAM) 92% xotira bilan ishlardi, davriy "Severe"/100%
+4xx health flip'lar bo'lib turardi (har safar ~1 daqiqada o'zi tiklanardi). Qaror: yangi, kattaroq
+serverga, YANGI AWS akkauntga (`985040259171`) to'liq ko'chirish.
+
+**Qilingan ishlar**:
+1. Yangi akkauntda RDS (`micco-db`, `db.t4g.micro`, Postgres 16.15, 20GB) va EB environment
+   (`micco-backend`, `t4g.medium`/4GB, Corretto 17) yaratildi.
+2. Ma'lumotlar to'liq ko'chirildi: `pg_dump`/`pg_restore` (SSM orqali, ikkala RDS'ni internetga
+   ochmasdan — instance role'ga `AmazonSSMManagedInstanceCore` qo'shib, server ichidan). Qator
+   soni eski/yangida solishtirilib tasdiqlandi: `app_user` 35, `ishchi` 151, `oylik_natija` 755,
+   `oylik_yakun` 149, `rahbar_oylik_natija` 170 — barchasi bir xil, bitta ham yo'qolmagan.
+3. Frontend ham yangi akkauntga ko'chirildi (`micco-frontend`, `t4g.micro`, Node.js 22),
+   `VITE_API_BASE` yangi backend manziliga, `CORS_ALLOWED_ORIGIN` yangi frontend manziliga
+   yangilandi.
+4. Brauzerda (Chrome avtomatizatsiyasi orqali) tasdiqlandi — rasmlar, podium, barcha ligalar
+   eski sayt bilan bir xil ko'rinadi.
+5. Eski akkauntdagi `micco-db` RDS'ning yakuniy snapshot'i olindi
+   (`micco-db-final-before-migration-20261003`, eski akkauntda, zarurat bo'lsa tiklash uchun),
+   so'ng eski `micco-backend`/`micco-frontend` EB environment'lari va eski RDS **butunlay
+   o'chirildi**. Eski EB Application'lar (`micco`, `micco-frontend`) va ularning eski S3
+   bucket'i (`elasticbeanstalk-ap-south-1-205080700819`) ataylab o'chirilmadi (eski app
+   versiyalari/jar'lari tarixiy murojaat uchun qoldi, lekin hech qanday compute/billing
+   ishlamayapti).
+
+**Shu migratsiya davomida qo'shilgan ikki funksiya ham yangi akkauntga deploy qilindi**:
+- Ishchi reytingi javob hajmini (~2.75MB → ~48KB) kamaytirish — rasmlar endi JSON ichida emas,
+  alohida keshlanadigan `/api/reyting/ishchi/{id}/rasm` orqali (backend v28/frontend v66).
+- Menejerga mahsulot biriktirish (ko'pdan-ko'p) — operator natija kiritganda faqat shu menejerning
+  mahsulotlari ko'rinadi (backend v29/frontend v67). Batafsil — quyidagi tegishli bo'limga qarang
+  (agar alohida yozilgan bo'lsa) yoki git tarixiga.
+
+**Keyingi safar ulanish uchun**: yuqoridagi "Live manzillar" va "Qayta deploy qilish" bo'limiga
+qarang — hammasi `--profile micco-new` bilan.

@@ -6,8 +6,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface IshchiRepository extends JpaRepository<Ishchi, Long> {
+
+    /** Faqat `rasm` ustuni — {@code /api/reyting/ishchi/{id}/rasm} uchun, boshqa maydonlarni
+     * (va LAZY bog'lanishlarni) ortiqcha yuklamaslik uchun. */
+    @Query("SELECT i.rasm FROM Ishchi i WHERE i.id = :id")
+    Optional<String> findRasmById(@Param("id") Long id);
 
     // supervayzer.createdBy (menejer) LAZY bo'lgani uchun ham fetch qilinadi — aks holda
     // RatingService.menejerOf() har bir noyob supervayzer uchun alohida SELECT chiqarardi

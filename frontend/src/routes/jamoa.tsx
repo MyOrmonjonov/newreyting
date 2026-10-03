@@ -17,6 +17,9 @@ import {
   Trash2,
   X,
   Save,
+  Download,
+  Upload,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/AppShell";
@@ -26,6 +29,7 @@ import { api, ApiError } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth-context";
 import { readAndResizePhoto } from "@/lib/photo";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
+import { exportHistNatijaExcel, importHistNatijaExcel } from "@/lib/hist-natija-excel";
 
 export const Route = createFileRoute("/jamoa")({
   head: () => ({
@@ -198,6 +202,86 @@ function TeamPage() {
   function closeHistModal() {
     clearDraft(histDraftKey(tab));
     setShowHistModal(false);
+  }
+
+  const histImportInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Menejerga qaysi mahsulotlar tegishli ekanini belgilash — operator natija kiritganda
+  // shu menejerning supervayzer/agentlariga faqat shu mahsulotlar ko'rsatiladi (hech narsa
+  // biriktirilmagan bo'lsa — hammasi, eski xatti-harakat; backend MenejerMahsulotService'ga qarang).
+  const [productsTarget, setProductsTarget] = useState<UserRow | null>(null);
+  const [productsDraft, setProductsDraft] = useState<Set<number>>(new Set());
+  const productsInitializedRef = useRef<number | null>(null);
+
+  type MahsulotRow = { id: number; nomi: string; birlik: string };
+  const { data: allMahsulotlar = [] } = useQuery({
+    queryKey: ["mahsulotlar"],
+    queryFn: () => api.get<MahsulotRow[]>("/api/mahsulotlar"),
+    enabled: productsTarget !== null,
+  });
+  const { data: assignedMahsulotIds = [], isFetched: assignedFetched } = useQuery({
+    queryKey: ["mahsulotlar", "menejer", productsTarget?.id, "tanlangan"],
+    queryFn: () => api.get<number[]>(`/api/mahsulotlar/menejer/${productsTarget!.id}/tanlangan`),
+    enabled: productsTarget !== null,
+  });
+
+  useEffect(() => {
+    if (!productsTarget || !assignedFetched) return;
+    if (productsInitializedRef.current === productsTarget.id) return;
+    setProductsDraft(new Set(assignedMahsulotIds));
+    productsInitializedRef.current = productsTarget.id;
+  }, [productsTarget, assignedFetched, assignedMahsulotIds]);
+
+  function closeProductsModal() {
+    setProductsTarget(null);
+    productsInitializedRef.current = null;
+  }
+
+  const saveProductsMutation = useMutation({
+    mutationFn: () =>
+      api.put(`/api/mahsulotlar/menejer/${productsTarget!.id}`, Array.from(productsDraft)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["mahsulotlar", "menejer", productsTarget?.id] });
+      toast.success(`"${productsTarget!.ism} ${productsTarget!.familiya}" uchun mahsulotlar saqlandi`);
+      closeProductsModal();
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Saqlab bo'lmadi"),
+  });
+
+  function handleHistExport() {
+    const data = rows.map((r) => {
+      const v = histDraft[String(r.id)] ?? { percent: 0, ball: 0 };
+      return { id: r.id, ism: r.ism, familiya: r.familiya, percent: v.percent, ball: v.ball };
+    });
+    void exportHistNatijaExcel({ tabLabel: tab, oy: histOy.slice(0, 7), rows: data });
+  }
+
+  async function handleHistImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    let parsed: { id: number; percent: number; ball: number }[];
+    try {
+      parsed = await importHistNatijaExcel(file);
+    } catch {
+      toast.error("Excel faylni o'qib bo'lmadi — fayl formatini tekshiring");
+      return;
+    }
+    const knownIds = new Set(rows.map((r) => r.id));
+    const matchedRows = parsed.filter((p) => knownIds.has(p.id));
+    if (matchedRows.length === 0) {
+      toast.error("Fayldagi ID'lar joriy ro'yxat bilan mos kelmadi");
+      return;
+    }
+    setHistDraft((d) => {
+      const next = { ...d };
+      for (const p of matchedRows) next[String(p.id)] = { percent: p.percent, ball: p.ball };
+      return next;
+    });
+    const skipped = parsed.length - matchedRows.length;
+    toast.success(
+      `${matchedRows.length} ta qator import qilindi${skipped > 0 ? `, ${skipped} ta ID topilmadi` : ""}`,
+    );
   }
 
   const saveHistMutation = useMutation({
@@ -400,6 +484,11 @@ function TeamPage() {
                           </div>
                         </div>
                         <div className="flex flex-wrap justify-end gap-2">
+                          {tab === "menejer" ? (
+                            <button className="btn-ghost" onClick={() => setProductsTarget(r)}>
+                              <Package className="h-3.5 w-3.5" /> Mahsulotlar
+                            </button>
+                          ) : null}
                           <button className="btn-ghost" onClick={() => startEdit(r)}>
                             <Pencil className="h-3.5 w-3.5" /> Tahrirlash
                           </button>
@@ -589,14 +678,43 @@ function TeamPage() {
                   </button>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Oy</label>
-                  <input
-                    type="month"
-                    className="field w-40"
-                    value={histOy.slice(0, 7)}
-                    onChange={(e) => setHistOy(`${e.target.value}-01`)}
-                  />
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Oy</label>
+                    <input
+                      type="month"
+                      className="field w-40"
+                      value={histOy.slice(0, 7)}
+                      onChange={(e) => setHistOy(`${e.target.value}-01`)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-ghost gap-1.5 px-3 py-1.5 text-xs"
+                      onClick={handleHistExport}
+                      disabled={rows.length === 0}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Excel'ga yuklab olish
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost gap-1.5 px-3 py-1.5 text-xs"
+                      onClick={() => histImportInputRef.current?.click()}
+                      disabled={rows.length === 0}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Excel'dan yuklash
+                    </button>
+                    <input
+                      ref={histImportInputRef}
+                      type="file"
+                      accept=".xlsx"
+                      className="hidden"
+                      onChange={(e) => void handleHistImportFile(e)}
+                    />
+                  </div>
                 </div>
 
                 {rows.length === 0 ? (
@@ -667,6 +785,83 @@ function TeamPage() {
                     <Save className="h-4 w-4" />
                   )}
                   {rows.length} ta {tab} uchun saqlash
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {productsTarget
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              onClick={closeProductsModal}
+            >
+              <div
+                className="card-surface my-8 w-full max-w-md space-y-4 p-5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Mahsulotlar — {productsTarget.ism} {productsTarget.familiya}
+                    </h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Belgilangan mahsulotlar shu menejerning supervayzer va agentlariga natija
+                      kiritilganda ko'rsatiladi. Hech biri belgilanmasa — hammasi ko'rinadi.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1.5"
+                    onClick={closeProductsModal}
+                    aria-label="Yopish"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {allMahsulotlar.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Hali mahsulot qo'shilmagan.</p>
+                ) : (
+                  <ul className="max-h-[50vh] space-y-1 overflow-auto rounded-xl border border-border p-2">
+                    {allMahsulotlar.map((m) => (
+                      <li key={m.id}>
+                        <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/70">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-brand"
+                            checked={productsDraft.has(m.id)}
+                            onChange={(e) =>
+                              setProductsDraft((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(m.id);
+                                else next.delete(m.id);
+                                return next;
+                              })
+                            }
+                          />
+                          <span>
+                            {m.nomi} <span className="text-xs text-muted-foreground">({m.birlik})</span>
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <button
+                  className="btn-brand w-full"
+                  onClick={() => saveProductsMutation.mutate()}
+                  disabled={saveProductsMutation.isPending}
+                >
+                  {saveProductsMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Saqlash
                 </button>
               </div>
             </div>,
