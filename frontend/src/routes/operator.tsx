@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageOff, Loader2, Pencil, Plus, Save, Table2, Trash2, UserRound, X } from "lucide-react";
+import { FileDown, FileUp, ImageOff, Loader2, Pencil, Plus, Save, Table2, Trash2, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
 import { AppShell, PageHeader } from "@/components/AppShell";
@@ -359,6 +359,47 @@ function OperatorPage() {
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "Natijalarni saqlab bo'lmadi"),
   });
 
+  // --- Ommaviy natija uchun Excel shablon eksport/import (ekrandagi jadvalni qo'lda
+  // to'ldirish o'rniga, shablonni yuklab olib, Excel'da to'ldirib qayta yuklash) ---
+  const [exportingTemplate, setExportingTemplate] = useState(false);
+  const [importingTemplate, setImportingTemplate] = useState(false);
+  const bulkFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleExportTemplate() {
+    setExportingTemplate(true);
+    try {
+      const { exportBulkNatijaTemplate } = await import("@/lib/bulk-natija-excel");
+      await exportBulkNatijaTemplate({
+        oy,
+        agents: filteredIshchilar.map((s) => ({ id: s.id, fullName: `${s.ism} ${s.familiya}` })),
+        mahsulotlar,
+        draft: bulkDraft,
+      });
+    } catch {
+      toast.error("Shablonni yuklab bo'lmadi");
+    } finally {
+      setExportingTemplate(false);
+    }
+  }
+
+  async function handleImportTemplate(file: File) {
+    setImportingTemplate(true);
+    try {
+      const { importBulkNatijaExcel } = await import("@/lib/bulk-natija-excel");
+      const parsed = await importBulkNatijaExcel(file, mahsulotlar);
+      if (!parsed) {
+        toast.error("Fayl formati mos emas — avval \"Shablonni yuklab olish\" bilan olingan faylni ishlating");
+        return;
+      }
+      setBulkDraft((prev) => ({ ...prev, ...parsed }));
+      toast.success("Fayldan o'qildi — pastdagi jadvalni ko'rib chiqing va \"Saqlash\"ni bosing");
+    } catch {
+      toast.error("Faylni o'qib bo'lmadi");
+    } finally {
+      setImportingTemplate(false);
+    }
+  }
+
   // --- Surat (kichraytirilgan holda, o'zgarishsiz saqlanadi — ishchi saqlanganda shu surat reytingda ham ko'rinadi) ---
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoStatus, setPhotoStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -708,14 +749,55 @@ function OperatorPage() {
                   </button>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Oy</label>
-                  <input
-                    type="month"
-                    className="field w-40"
-                    value={oy.slice(0, 7)}
-                    onChange={(e) => setOy(`${e.target.value}-01`)}
-                  />
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Oy</label>
+                    <input
+                      type="month"
+                      className="field w-40"
+                      value={oy.slice(0, 7)}
+                      onChange={(e) => setOy(`${e.target.value}-01`)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => void handleExportTemplate()}
+                      disabled={exportingTemplate || filteredIshchilar.length === 0}
+                    >
+                      {exportingTemplate ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FileDown className="h-3.5 w-3.5" />
+                      )}
+                      Shablonni yuklab olish
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => bulkFileInputRef.current?.click()}
+                      disabled={importingTemplate}
+                    >
+                      {importingTemplate ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FileUp className="h-3.5 w-3.5" />
+                      )}
+                      Excel'dan yuklash
+                    </button>
+                    <input
+                      ref={bulkFileInputRef}
+                      type="file"
+                      accept=".xlsx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) void handleImportTemplate(file);
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {filteredIshchilar.length === 0 ? (
