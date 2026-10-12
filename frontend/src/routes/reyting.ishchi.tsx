@@ -599,7 +599,20 @@ function AgentRating() {
                       style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
+                      <p
+                        className={cn(
+                          "truncate text-xs font-bold uppercase tracking-wide sm:text-sm",
+                          inPromo && "text-success",
+                          inDanger && "text-danger",
+                        )}
+                        style={
+                          inPromo
+                            ? { textShadow: "0 0 12px color-mix(in oklab, var(--color-success) 55%, transparent)" }
+                            : inDanger
+                              ? { textShadow: "0 0 12px color-mix(in oklab, var(--color-danger) 55%, transparent)" }
+                              : undefined
+                        }
+                      >
                         {r.fullName}
                       </p>
                       <p className="truncate text-[10px] text-race-muted sm:text-[11px]">
