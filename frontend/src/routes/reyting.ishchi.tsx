@@ -561,11 +561,16 @@ function AgentRating() {
           {/* Barcha o'rinlar (1-o'rin ham qayta chiqadi) */}
           <div className="space-y-2">
             {listRows.map((r) => {
-              // Nizomga ko'ra: har liga 27 kishilik — top-5 (1-5) ko'tariladi,
-              // oxirgi 5 (23-27) pastroq ligaga tushadi (o'rin qat'iy, joriy son emas).
-              const DANGER_BOUNDARY = 22;
-              const inPromo = !isRespublika && league !== "diamond" && r.place <= 5;
-              const inDanger = !isRespublika && league !== "rising" && r.place > DANGER_BOUNDARY;
+              // Nizomga ko'ra top-5 ko'tariladi, oxirgi 5 pastroq ligaga tushadi — lekin liganing
+              // haqiqiy a'zo soni 27 bo'lmasligi mumkin (backenddagi finalizeMonth xuddi shunday,
+              // `upperGroup.size() - demoteCount` orqali, NISBIY chegaradan foydalanadi, qat'iy "22"
+              // emas). Diamond/Rising'da ham ikkala zona ko'rsatiladi — Diamonddan faqat Gold'ga
+              // tushish bor (ko'tarilish yo'q), Rising'dan faqat Bronze'ga ko'tarilish bor (tushish
+              // yo'q), lekin TOP-5/BOTTOM-5 ta'kidlanishi barcha ligada bir xil ko'rinishda bo'lishi
+              // uchun ikkisi ham chiqariladi.
+              const DANGER_BOUNDARY = rows.length - Math.min(5, rows.length);
+              const inPromo = !isRespublika && r.place <= 5;
+              const inDanger = !isRespublika && r.place > DANGER_BOUNDARY && !inPromo;
               const rowLeague = isRespublika ? LEAGUES.find((l) => l.key === r.league)! : null;
               return (
                 <div
@@ -649,10 +654,8 @@ function AgentRating() {
                     </div>
                   </div>
 
-                  {!isRespublika && league !== "diamond" && r.place === 5 ? (
-                    <ZoneLine tone="up" />
-                  ) : null}
-                  {!isRespublika && league !== "rising" && r.place === DANGER_BOUNDARY ? (
+                  {!isRespublika && rows.length > 5 && r.place === 5 ? <ZoneLine tone="up" /> : null}
+                  {!isRespublika && DANGER_BOUNDARY > 0 && r.place === DANGER_BOUNDARY ? (
                     <ZoneLine tone="down" />
                   ) : null}
                 </div>
