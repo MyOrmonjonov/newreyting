@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate } from "animejs";
 import { Percent } from "lucide-react";
@@ -9,7 +9,7 @@ import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDet
 import { PodiumSlot } from "@/components/Podium";
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, monthParam, type RankedApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, todayDateInput, type RankedApiRow } from "@/lib/rating-api";
 import { usePersistentState } from "@/lib/use-persistent-state";
 
 
@@ -38,7 +38,17 @@ export const Route = createFileRoute("/reyting/menejer")({
 });
 
 function ManagerRating() {
-  const [date, setDate] = usePersistentState("micco-reyting-menejer-date", "2026-07-28");
+  const [date, setDate] = usePersistentState("micco-reyting-menejer-date", todayDateInput());
+  // Avvalgi sessiyadan localStorage'da qolib ketgan eski oyni joriy oyga tuzatadi — reyting.ishchi.tsx
+  // dagi izohga qarang (bir xil sabab: TV ekrani oylar davomida eski, 0%li oyda qotib qolmasin).
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const today = todayDateInput();
+      setDate((current) => (current.slice(0, 7) !== today.slice(0, 7) ? today : current));
+    }, 0);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selected, setSelected] = useState<RankedDetailItem | null>(null);
   const oy = monthParam(date);
 
@@ -117,7 +127,7 @@ function ManagerRating() {
               type="month"
               value={date.slice(0, 7)}
               onChange={(e) => setDate(`${e.target.value}-01`)}
-              className="block max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+              className="[color-scheme:dark] block max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
             />
           </div>
         </div>

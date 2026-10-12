@@ -45,6 +45,8 @@ public interface IshchiRepository extends JpaRepository<Ishchi, Long> {
 
     boolean existsBySupervayzerId(Long supervayzerId);
 
+    long countBySupervayzerId(Long supervayzerId);
+
     /** Foydalanuvchi o'chirilishidan oldin — bu metadata maydon, o'chirilayotgan userga FK to'sqinlik qilmasligi uchun bo'shatiladi. */
     @Modifying
     @Query("UPDATE Ishchi i SET i.createdBy = null WHERE i.createdBy.id = :userId")

@@ -3,6 +3,7 @@ package org.example.newreyting.employee;
 import jakarta.validation.Valid;
 import org.example.newreyting.auth.AppUserDetails;
 import org.example.newreyting.employee.dto.CreateIshchiRequest;
+import org.example.newreyting.employee.dto.IshchiRasmResponse;
 import org.example.newreyting.employee.dto.IshchiResponse;
 import org.example.newreyting.employee.dto.UpdateIshchiRequest;
 import org.springframework.http.HttpStatus;
@@ -25,7 +26,14 @@ public class IshchiController {
 
     @GetMapping
     public List<IshchiResponse> list(@AuthenticationPrincipal AppUserDetails principal) {
-        return ishchiService.listVisibleTo(principal.getUser()).stream().map(IshchiResponse::from).toList();
+        return ishchiService.listVisibleTo(principal.getUser()).stream().map(IshchiResponse::listItem).toList();
+    }
+
+    /** Tahrirlash oynasi uchun — ro'yxatdagi (endi URL bo'lgan) {@code rasm} o'rniga haqiqiy
+     * (base64) qiymatni oldindan to'ldirish uchun alohida so'raladi. */
+    @GetMapping("/{id}/rasm")
+    public IshchiRasmResponse rasm(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
+        return new IshchiRasmResponse(ishchiService.getRasm(id, principal.getUser()));
     }
 
     @PostMapping
@@ -47,7 +55,8 @@ public class IshchiController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR','SUPERVAYZER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
-        ishchiService.delete(id, principal.getUser());
+    public void delete(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean force,
+                        @AuthenticationPrincipal AppUserDetails principal) {
+        ishchiService.delete(id, principal.getUser(), force);
     }
 }

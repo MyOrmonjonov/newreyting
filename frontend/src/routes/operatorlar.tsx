@@ -133,12 +133,24 @@ function OperatorlarPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/users/operators/${id}`),
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      api.delete(`/api/users/operators/${id}${force ? "?force=true" : ""}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["users", "operators"] });
       toast.success("Operator o'chirildi");
     },
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "O'chirib bo'lmadi"),
+    onError: (err, variables) => {
+      // Backend "bog'liq menejer/supervayzer/agent/oylik natijalar bor, baribir
+      // o'chirilsinmi?" deb aniq sonlar bilan so'ragan bo'lsa — tasdiqlansa force=true
+      // bilan qayta yuboramiz.
+      if (err instanceof ApiError && err.requiresForce && !variables.force) {
+        if (window.confirm(err.message)) {
+          deleteMutation.mutate({ id: variables.id, force: true });
+        }
+        return;
+      }
+      toast.error(err instanceof ApiError ? err.message : "O'chirib bo'lmadi");
+    },
   });
 
   function startEdit(o: UserRow) {
@@ -251,7 +263,7 @@ function OperatorlarPage() {
                             className="btn-ghost text-destructive"
                             onClick={() => {
                               if (window.confirm(`"${o.ism} ${o.familiya}"ni butunlay o'chirishga ishonchingiz komilmi?`)) {
-                                deleteMutation.mutate(o.id);
+                                deleteMutation.mutate({ id: o.id });
                               }
                             }}
                             disabled={deleteMutation.isPending}

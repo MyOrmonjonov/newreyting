@@ -292,9 +292,130 @@ Holatni kuzatish: `aws elasticbeanstalk describe-environments --application-name
 bo'lguncha kutish kerak (odatda 1-5 daqiqa).
 
 **Deploy tarixi (yangi akkaunt)**: backend v27 (eskidan ko'chirilgan jar) → v28 (rasm
-endpoint/javob hajmi optimizatsiyasi) → v29 (menejer-mahsulot biriktirish); frontend v65
-(ko'chirish) → v66 (rasm URL'ga o'tkazildi) → v67 (mahsulot filtri). Eski akkauntdagi tarix
-(v1-v27 backend, v1-v64 frontend) pastdagi bo'limlarda saqlanadi — endi faqat tarixiy ma'lumot.
+endpoint/javob hajmi optimizatsiyasi) → v29 (menejer-mahsulot biriktirish) → v30 (operator
+natija kiritishda menejerga biriktirilgan mahsulotlar ro'yxati to'g'ri yangilanishi + agentni
+bog'liq oylik natija/reyting yozuvlari bilan birga "force" o'chirish) → v31 (xuddi shu "force"
+o'chirish Operator/Menejer/Supervayzer uchun ham — o'chirilayotgan user yaratgan/boshqargan
+pastdagi hammasi — nabira foydalanuvchilar, ularning agentlari va oylik natija/reyting
+yozuvlari — rekursiv o'chiriladi, oldin aniq sonlar bilan tasdiqlash so'raladi) → v32 (admin
+panel sekinlashuvi/"qotishi" — `/api/ishchilar` ro'yxati endi har bir agent suratini base64
+emas, keshlanadigan URL sifatida qaytaradi — `/api/reyting/ishchi/{id}/rasm` bilan bir xil
+yondashuv; tahrirlashda haqiqiy surat alohida `/api/ishchilar/{id}/rasm`dan olinadi) → v33
+(Audit log endi FAQAT ADMIN uchun — `AuditController` ilgari `hasAnyRole('ADMIN','OPERATOR',
+'MENEJER','SUPERVAYZER')` edi, endi `hasRole('ADMIN')`) → v34 (natijalarni yuklash sekinligi:
+`oylik_natija` jadvalining yagona indeksi (ishchi_id, mahsulot_id, oy) kompozit unikal
+cheklovi edi — `oy` unda OXIRGI ustun bo'lgani uchun, FAQAT `oy` bo'yicha filtrlaydigan
+`GET /api/natijalar?oy=` (operator panelida har oy natija ro'yxati yuklanganda chaqiriladi)
+bu indeksdan samarali foydalana olmasdi, jadval kattalashgani sari sekinlashib borardi.
+Tuzatish: `OylikNatija.oy`ga alohida indeks (`idx_oylik_natija_oy`, Hibernate
+ddl-auto=update orqali shu deploy'da avtomatik yaratiladi) qo'shildi; shu bilan birga
+`OylikNatijaService.listByOy` endi yengilroq so'rov (`findAllByOyLight` — faqat
+ishchi+mahsulot JOIN FETCH, supervayzer YO'Q) ishlatadi, chunki supervayzer faqat
+`RatingService`ning reyting hisob-kitoblariga kerak (u hamon asl `findAllByOy`ni ishlatadi) —
+operator panelidagi oddiy ro'yxat uchun bu JOIN ortiqcha yuk edi) → v35 (JIDDIY XATOLIK:
+menejer reytingida mantiqsiz foiz, masalan 191.5%, ko'rinib qolgan edi — sabab, ma'lumot
+kiritish xatosi EMAS, balki haqiqiy backend xatosi: `RatingService`da plan/bajarildi
+yig'indilari `int[]` massivda saqlanardi. Agar menejerga tegishli agentlar orasida
+"Summa" kabi yuqori qiymatli (yuz millionlab so'mlik) mahsulot bo'lsa, ko'p agent
+bo'yicha yig'indi `int`ning maksimal qiymatidan (~2.14 mlrd) oshib, SHOVQINSIZ
+"aylanib" (overflow) ketardi — natijada kichik, buzilgan yig'indi hosil bo'lib,
+foiz mantiqsiz darajada shishib ketardi. Live API orqali xom ma'lumotlarni qayta
+hisoblab (haqiqiy jami plan=4,785,041,680, bajarildi=938,483,794), aynan shu sonlar
+32-bit overflow qilganda 191.5% chiqishini aniq tasdiqladim (haqiqiy foiz — 19.6%).
+Tuzatish: `computeSupervayzerReyting`, `computeMenejerReyting`, `rankUsers`,
+`supervayzerScoreboard`dagi barcha `int[]` akkumulyatorlar `long[]`ga, `overallPercent`
+imzosi `(int,int)`dan `(long,long)`ga o'zgartirildi; xuddi shu xavf bor
+`computeYillikStatistika` (bosh dashboard yillik grafigi, butun tashkilot bo'yicha
+yig'indi) va uning `YillikOyResponse` DTO'si (`int`→`long`) ham tuzatildi. Deploy'dan
+keyin `/api/reyting/menejer` to'g'ridan-to'g'ri tekshirilib, 191.5% → 19.6%ga
+tuzatilgani tasdiqlandi); frontend v65
+(ko'chirish) → v66 (rasm URL'ga o'tkazildi) → v67 (mahsulot filtri) → v68 (yuqoridagi ikkita
+tuzatish bilan mos) → v69 (ommaviy/tarixiy natija kiritish jadvalida har bir agent uchun FAQAT
+o'z menejeriga biriktirilgan mahsulot ustunlari to'ldirish uchun chiziladi, qolganlari "—"
+bilan nofaol ko'rsatiladi va saqlashda yuborilmaydi) → v70 (joriy filtrdagi hech bir agentga
+tegishli bo'lmagan mahsulot ustuni butunlay yashiriladi — bekorga joy egallamasin uchun) → v71
+(jamoa.tsx/operatorlar.tsx o'chirish tugmalari ham yuqoridagi backend v31 "force" o'chirishga
+mos — bloklanganda aniq sonlar bilan tasdiqlatib, "force=true" bilan qayta yuboradi) → v72
+(operator.tsx: "Mavjud xodimlar" jadvali endi bir vaqtda 15 tadan sahifalanadi — admin panelda
+yuzlab agent bo'lsa UI qotmasin uchun; tahrirlashda surat backend v32'dagi yangi
+`/api/ishchilar/{id}/rasm`dan alohida olinadi) → v73 (v72 bagi: ro'yxatdagi yangi rasm URL'i
+`resolvePhoto`/`API_BASE` orqali o'tkazilmagani uchun production'da — frontend/backend boshqa
+domenda bo'lgani sababli — rasmlar butunlay ko'rinmay qolgan edi, tuzatildi) → v74 (yuqoridagi
+backend v33'ga mos — Audit log nav'da faqat ADMIN'ga ko'rinadi, `AppShell.tsx`dagi NAV
+elementi `adminOnly` bilan belgilangan; `audit.tsx` boshqa rol to'g'ridan-to'g'ri URL orqali
+kirsa ham so'rov yubormay "Ruxsat cheklangan" xabarini ko'rsatadi) → v75 (operator.tsx:
+"Oylik natija kiritish" (bitta agent) oynasidagi oldindan ko'rish foizi (natijaPreview/Donut)
+ochiq reytingdagi haqiqiy foizdan farq qilib qolardi — sabab: forma faqat
+`scopedMahsulotlar`ni (menejerga HOZIR biriktirilgan mahsulotlarni) ko'rsatardi, lekin
+backend'dagi reyting foizi shu agentning OY DAVOMIDA SAQLANGAN barcha natija yozuvlari
+bo'yicha hisoblanadi — qamrovdan keyinroq chiqarilgan/chiqarilmagan mahsulotlarga oid eski
+saqlangan yozuvlar ham baribir backend hisobida ishtirok etardi, lekin formada ko'rinmay,
+oldindan ko'rishga kirmasdi. Tuzatish: forma endi `scopedMahsulotlar` + agentning shu oy
+uchun allaqachon saqlangan (hatto qamrovdan tashqaridagi) mahsulotlari UNIYASini
+(`formMahsulotlar`) ko'rsatadi — endi ikkala joydagi foiz bir xil) → v76 (JIDDIY XATOLIK:
+ochiq reyting sahifalarida "hammasi 0% bo'lib qoldi" — sabab, `index.tsx` (bosh dashboard),
+`reyting.ishchi.tsx`, `reyting.menejer.tsx`, `reyting.supervayzer.tsx` oy/sana tanlagichi
+QATTIQ YOZILGAN "2026-07-28" sanaga default qilingan edi (ilgari dasturlash vaqtidagi test
+qoldig'i) — vaqt shu oydan uzoqlashgani sari, sahifalar hamon o'sha eski, muzlab qolgan oyni
+so'rab, o'sha oyda deyarli natija kiritilmagani uchun hamma 0% ko'rinib qolgan. HECH QANDAY
+ma'lumot yo'qolmagan — faqat noto'g'ri oy so'ralayotgan edi. Tuzatish: `rating-api.ts`ga
+`todayDateInput()` (doim HAQIQIY bugungi sana) qo'shildi, barcha 4 joyda shu ishlatildi;
+localStorage'da eski sana saqlanib qolgan qurilmalar (TV ekranlari) uchun ham 3 ta
+persistlangan reyting sahifasida bir martalik "mount'da tuzatish" effekti qo'shildi
+(`setTimeout(0)` + funksional `setState` — `usePersistentState`ning o'zidagi
+localStorage'dan o'qish effekti tugashini kutish uchun), shunda keyingi sahifa
+yuklanishida avtomatik joriy oyga o'tadi, foydalanuvchi sessiya davomida qo'lda boshqa oy
+tanlasa bu effekt aralashmaydi) → v77 (oy/sana tanlagichdagi brauzer taqvim belgisi
+(calendar picker icon) qora fonda ko'rinmay qolgan edi — `reyting.ishchi.tsx` (sarlavha va
+yon panel filtridagi ikkalasi) va `reyting.menejer.tsx`ga `[color-scheme:dark]` qo'shildi —
+`reyting.supervayzer.tsx`da bu allaqachon bor edi, shu konvensiyaga moslashtirildi; faqat
+to'q fonli ochiq reyting sahifalariga tegishli, oq fonli boshqaruv panel oy input'lariga
+tegmaydi) → v78 (natija saqlashda tushunarsiz "Xatolik yuz berdi (403)" xabari — sabab:
+bu backendda (`SecurityConfig`) muddati tugagan/yaroqsiz JWT YOKI faolsizlantirilgan hisob
+har doim 403 bilan qaytadi (401 emas — standart Spring Security xatti-harakati, chunki
+maxsus AuthenticationEntryPoint sozlanmagan), haqiqiy biznes-qoida taqiqlari esa 409 bilan
+keladi (`IllegalArgumentException`) — demak bu ilovada 403 deyarli har doim "sessiyangiz
+tugagan" degani. Tuzatish: `api.ts` endi 401/403 kelsa (faqat `/api/auth/login`ning o'zi
+bundan mustasno — u yerda 403/401 "hisob faol emas"/"login-parol xato" kabi aniq xabar
+bo'lib, foydalanuvchiga ko'rsatilishi SHART) tokenni tozalab, "Sessiya muddati tugadi —
+qayta kiring" xabari bilan avtomatik `/login`ga yo'naltiradi) → v79 (v78 REAKTIV edi — faqat
+foydalanuvchi biror amal qilganda (saqlash va h.k.) tekshirilardi; endi PROAKTIV ham: `api.ts`
+dagi yangi `decodeJwtExpMs()` JWT'ning "exp" da'vosini o'qiydi (faqat o'qish, xavfsizlik
+tekshiruvi emas — haqiqiy tekshiruv hamon backendda), `auth-context.tsx`dagi
+`scheduleExpiry()` esa aynan shu vaqtda ishga tushadigan fon `setTimeout` qo'yadi (login
+qilinganda va sahifa ochilib `/api/auth/me` muvaffaqiyatli bo'lganda) — 12 soat (720 daqiqa)
+to'lgan zahoti, foydalanuvchi HECH NARSA bosmasa ham, avtomatik tokenni tozalab
+`/login?reason=expired`ga o'tkazadi; `login.tsx` shu parametrni ko'rib, "Sessiya muddati
+tugadi — qayta kiring" degan tinch xabar ko'rsatadi (v78dagi reaktiv yo'l ham endi shu bir
+xil parametr bilan yo'naltiradi). Diqqat: faolsizlantirilgan hisob holatini bu taymer
+qamramaydi (token muddati o'zgarmaydi) — u hamon v78dagi reaktiv 403 tekshiruvi orqali
+ushlanadi) → v80 (operator.tsx: bitta agent uchun "Oylik natija kiritish" modali qayta
+dizayn qilindi — foydalanuvchi "uzunlik qilyabdi, noqulay" deb shikoyat qildi: ilgari bitta
+cheksiz o'suvchi ustun edi, mahsulot ko'p bo'lsa modal butun viewport'dan oshib ketib,
+"Natijani saqlash" tugmasi va foiz ko'rsatkichi uzoq ro'yxat ostida ko'milib qolardi.
+Endi `flex flex-col max-h-[88vh]` — sarlavha MAHKAM tepada, mahsulot ro'yxati ICHKI
+scroll qiladigan o'rtadagi qism (ustun sarlavhasi bilan, zichroq qator joylashuvi), pastda
+esa Donut foiz + saqlash tugmasi MAHKAM turadi — mahsulot soni qancha ko'p bo'lmasin,
+doim ko'rinadi) → v81 (v80'dagi "MAHSULOT/PLAN/BAJARILDI" ustun sarlavhasi scroll
+qilganda yo'qolib ketardi — foydalanuvchi "gacha sor bo'masdan noqulay" deb ko'rsatdi;
+`sticky top-0 z-10 bg-card` qo'shildi, endi scroll qilinganda ham tepada yopishib
+qoladi. Jonli saytda brauzer orqali tekshirilib, ikkalasi ham (mahkam sarlavha/tugma +
+yopishqoq ustun sarlavhasi) tasdiqlandi) → v82-v84 (`reyting.ishchi.tsx`: foydalanuvchi so'rovi
+bilan agentlar reytingidagi podium qayta ko'rib chiqildi — ilgari 1,2,3-o'rinlar UCHTASI HAM
+tepada alohida "podium" sifatida chiqib, pastdagi to'liq ro'yxatdan chiqarib tashlanardi. Endi
+FAQAT 1-o'rin tepada alohida (toj/katta avatar bilan) ko'rsatiladi, 2 va 3-o'rinlar esa pastdagi
+to'liq ro'yxatda oddiy qatorlar sifatida chiqadi; ro'yxat o'zi endi BARCHA o'rinlarni (1-o'rin
+ham qayta) ko'rsatadi — `hasPodium`/`second`/`third` o'zgaruvchilari va shartli render olib
+tashlandi, `listRows = rows` (ilgari `rows.slice(1)`/`rows.slice(3)`) qilindi. Xuddi shu
+o'zgarish yillik reyting podiumiga (`yillikLeader`/`yillikListRows`) ham qo'llandi. Jonli saytda
+iterativ tekshirilgan, versiya raqamlari shu jarayonda productionda ketma-ket oshirilgan) → v85
+(yuqoridagi o'zgarishni yakunlab, lokal manba bilan productionni mos holatga keltirish uchun
+qayta deploy — kod o'zgarishi yo'q); backend tomonda ham xuddi shunga mos — v35'dan keyin
+sessiya davomida versiya raqami qo'lda v36'ga oshirilgan edi (kod o'zgarishi yo'q), v37 esa
+yuqoridagi frontend bilan birga lokal manbani productionga moslashtirish uchun qayta deploy
+(bu ham kod o'zgarishi yo'q, faqat versiya raqami). Eski akkauntdagi
+tarix (v1-v27 backend, v1-v64 frontend) pastdagi bo'limlarda saqlanadi — endi faqat tarixiy
+ma'lumot.
 
 ## To'liq audit — 2026-09-01 (statistika/bugun-kecha xatoliklarini tekshirish)
 

@@ -17,6 +17,12 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
     }
 
+    @ExceptionHandler(DeleteRequiresForceException.class)
+    public ResponseEntity<Map<String, Object>> handleDeleteRequiresForce(DeleteRequiresForceException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", e.getMessage(), "requiresForce", true));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException e) {
         Map<String, String> errors = new LinkedHashMap<>();

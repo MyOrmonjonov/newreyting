@@ -109,8 +109,14 @@ public class RatingService {
         return Math.max(floor, p3 + 3 - place);
     }
 
-    /** Umumiy foiz = jami bajarilgan / jami plan * 100 (og'irlikli). */
-    public static double overallPercent(int bajarildi, int plan) {
+    /** Umumiy foiz = jami bajarilgan / jami plan * 100 (og'irlikli).
+     * Diqqat: parametrlar {@code long} — chaqiruvchilar ko'p agent/mahsulot bo'yicha RAXOM
+     * plan/bajarildi qiymatlarini (masalan so'm miqdoridagi "Summa" turidagi paketlar) to'g'ridan
+     * -to'g'ri qo'shib keladi; bir nechta o'nlab agentning bunday yirik (yuz millionlab so'mlik)
+     * qiymatlari yig'indisi {@code int}ning max qiymatidan (~2.14 mlrd) osongina oshib, sekin
+     * (shovqinsiz) "aylanib" (overflow) noto'g'ri, kichik (hatto manfiy) yig'indiga olib kelardi —
+     * natijada mantiqsiz foiz (masalan 191.5%) chiqib qolgan edi. */
+    public static double overallPercent(long bajarildi, long plan) {
         return plan == 0 ? 0 : (bajarildi * 100.0) / plan;
     }
 
@@ -467,10 +473,10 @@ public class RatingService {
     public List<RankedUserResponse> computeSupervayzerReyting(LocalDate oy) {
         LocalDate month = oy.withDayOfMonth(1);
         List<User> supervayzerlar = userRepository.findByRoleOrderByFamiliyaAsc(Role.SUPERVAYZER);
-        Map<Long, int[]> sums = new HashMap<>();
+        Map<Long, long[]> sums = new HashMap<>();
         for (OylikNatija n : natijaRepository.findAllByOy(month)) {
             Long supId = n.getIshchi().getSupervayzer().getId();
-            int[] s = sums.computeIfAbsent(supId, k -> new int[2]);
+            long[] s = sums.computeIfAbsent(supId, k -> new long[2]);
             s[0] += n.getPlan();
             s[1] += n.getBajarildi();
         }
@@ -480,11 +486,11 @@ public class RatingService {
     public List<RankedUserResponse> computeMenejerReyting(LocalDate oy) {
         LocalDate month = oy.withDayOfMonth(1);
         List<User> menejerlar = userRepository.findByRoleOrderByFamiliyaAsc(Role.MENEJER);
-        Map<Long, int[]> sums = new HashMap<>();
+        Map<Long, long[]> sums = new HashMap<>();
         for (OylikNatija n : natijaRepository.findAllByOy(month)) {
             User createdBy = n.getIshchi().getSupervayzer().getCreatedBy();
             if (createdBy == null) continue;
-            int[] s = sums.computeIfAbsent(createdBy.getId(), k -> new int[2]);
+            long[] s = sums.computeIfAbsent(createdBy.getId(), k -> new long[2]);
             s[0] += n.getPlan();
             s[1] += n.getBajarildi();
         }
@@ -497,7 +503,7 @@ public class RatingService {
      * o'rin (place) esa baribir foiz bo'yicha saralashdan chiqadi (qo'lda kiritilgan va jonli
      * hisoblangan qatorlar bir ro'yxatda aralash bo'lishi mumkin).
      */
-    private List<RankedUserResponse> rankUsers(List<User> users, Map<Long, int[]> sums, Map<Long, RahbarOylikNatija> overrides) {
+    private List<RankedUserResponse> rankUsers(List<User> users, Map<Long, long[]> sums, Map<Long, RahbarOylikNatija> overrides) {
         record Scored(User user, double percent, boolean hasData, Integer manualBall) {
         }
         List<Scored> scored = users.stream()
@@ -507,7 +513,7 @@ public class RatingService {
                         return new Scored(u, override.getPercent(), true, override.getBall());
                     }
                     boolean hasData = sums.containsKey(u.getId());
-                    int[] s = sums.getOrDefault(u.getId(), new int[2]);
+                    long[] s = sums.getOrDefault(u.getId(), new long[2]);
                     return new Scored(u, overallPercent(s[1], s[0]), hasData, null);
                 })
                 .sorted(Comparator.comparing((Scored s) -> !s.hasData())
@@ -558,10 +564,10 @@ public class RatingService {
         Map<LocalDate, Map<Long, Double>> percentByMonth = new LinkedHashMap<>();
         Map<LocalDate, Map<Long, Integer>> pointsByMonth = new LinkedHashMap<>();
         for (LocalDate month : months) {
-            Map<Long, int[]> sums = new HashMap<>();
+            Map<Long, long[]> sums = new HashMap<>();
             for (OylikNatija n : natijaRepository.findAllByOy(month)) {
                 Long supId = n.getIshchi().getSupervayzer().getId();
-                int[] s = sums.computeIfAbsent(supId, k -> new int[2]);
+                long[] s = sums.computeIfAbsent(supId, k -> new long[2]);
                 s[0] += n.getPlan();
                 s[1] += n.getBajarildi();
             }
@@ -574,7 +580,7 @@ public class RatingService {
                 if (override != null) {
                     percents.put(u.getId(), override.getPercent());
                 } else {
-                    int[] s = sums.getOrDefault(u.getId(), new int[2]);
+                    long[] s = sums.getOrDefault(u.getId(), new long[2]);
                     percents.put(u.getId(), overallPercent(s[1], s[0]));
                 }
             }
@@ -625,8 +631,8 @@ public class RatingService {
         List<YillikOyResponse> result = new ArrayList<>();
         for (int oy = 1; oy <= 12; oy++) {
             LocalDate month = LocalDate.of(yil, oy, 1);
-            int plan = 0;
-            int fakt = 0;
+            long plan = 0;
+            long fakt = 0;
             for (OylikNatija n : natijaRepository.findAllByOy(month)) {
                 plan += n.getPlan();
                 fakt += n.getBajarildi();

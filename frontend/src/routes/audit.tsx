@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Search, ShieldAlert } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { Reveal } from "@/components/motion";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
 type AuditEntryRow = {
   id: number;
@@ -41,13 +42,20 @@ const ROLES = ["Barchasi", "Admin", "Operator", "Menejer", "Supervayzer"];
 const ACTIONS = ["Barchasi", "qo'shdi", "o'zgartirdi", "o'chirdi", "kirdi"];
 
 function AuditPage() {
+  const { user } = useAuth();
   const [role, setRole] = useState("Barchasi");
   const [action, setAction] = useState("Barchasi");
   const [q, setQ] = useState("");
 
+  // Audit log — faqat ADMIN uchun (backend AuditController ham hasRole('ADMIN') bilan
+  // cheklangan). Boshqa rol to'g'ridan-to'g'ri URL orqali kirsa ham, 403 o'rniga tushunarli
+  // xabar ko'rsin deb so'rov umuman yuborilmaydi.
+  const isAdmin = user?.role === "ADMIN";
+
   const { data: audit = [], isLoading } = useQuery({
     queryKey: ["audit"],
     queryFn: () => api.get<AuditEntryRow[]>("/api/audit"),
+    enabled: isAdmin,
   });
 
   const rows = useMemo(
@@ -67,6 +75,20 @@ function AuditPage() {
     "o'chirdi": "bg-destructive/12 text-destructive",
     kirdi: "bg-brand-soft text-brand",
   };
+
+  if (!isAdmin) {
+    return (
+      <AppShell>
+        <PageHeader title="Audit log" subtitle="Ruxsat cheklangan" />
+        <div className="card-surface flex flex-col items-center gap-2 p-10 text-center">
+          <ShieldAlert className="h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Bu bo'limni sizning rolingiz ({user?.role.toLowerCase()}) uchun ko'rish ruxsati yo'q.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

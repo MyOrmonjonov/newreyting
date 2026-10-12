@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileDown, FileUp, ImageOff, Loader2, Pencil, Plus, Save, Table2, Trash2, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
@@ -9,7 +9,7 @@ import { Donut, Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { LEAGUES, VILOYATLAR } from "@/lib/micco-data";
-import { avatarFor } from "@/lib/rating-api";
+import { avatarFor, resolvePhoto } from "@/lib/rating-api";
 import { readAndResizePhoto } from "@/lib/photo";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
 
@@ -112,10 +112,33 @@ function OperatorPage() {
   const hasActiveFilter =
     filterSupervayzerId !== FILTER_ALL || filterMenejer !== FILTER_ALL || filterLiga !== FILTER_ALL || filterViloyat !== FILTER_ALL;
 
+  // --- Asosiy jadval sahifalanishi — admin panelda yuzlab agent bo'lsa, hammasini bir
+  // vaqtda chizish (ayniqsa rasm bilan) UI'ni sekinlashtiradi/"qotiradi", shuning uchun
+  // bir vaqtda faqat 15 tasi chiziladi.
+  const AGENTS_PER_PAGE = 15;
+  const [agentPage, setAgentPage] = useState(1);
+  useEffect(() => {
+    setAgentPage(1);
+  }, [filterSupervayzerId, filterMenejer, filterLiga, filterViloyat]);
+  const agentPageCount = Math.max(1, Math.ceil(filteredIshchilar.length / AGENTS_PER_PAGE));
+  useEffect(() => {
+    if (agentPage > agentPageCount) setAgentPage(agentPageCount);
+  }, [agentPage, agentPageCount]);
+  const pagedIshchilar = useMemo(
+    () => filteredIshchilar.slice((agentPage - 1) * AGENTS_PER_PAGE, agentPage * AGENTS_PER_PAGE),
+    [filteredIshchilar, agentPage],
+  );
+
   // --- Yangi ishchi qo'shish / tahrirlash (modal) ---
   const [ishchiForm, setIshchiForm] = useState(EMPTY_ISHCHI_FORM);
   const [editingIshchiId, setEditingIshchiId] = useState<number | null>(null);
   const [showIshchiModal, setShowIshchiModal] = useState(false);
+  // startEditIshchi'dagi surat so'rovi javobi kech kelsa, hamon o'sha agentga tegishli
+  // ekanini tekshirish uchun (state o'rniga ref — closure eskirmasligi kerak).
+  const editingIshchiIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    editingIshchiIdRef.current = editingIshchiId;
+  }, [editingIshchiId]);
 
   const createIshchiMutation = useMutation({
     mutationFn: () =>
@@ -162,12 +185,24 @@ function OperatorPage() {
   });
 
   const deleteIshchiMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/ishchilar/${id}`),
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      api.delete(`/api/ishchilar/${id}${force ? "?force=true" : ""}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["ishchilar"] });
       toast.success("Agent o'chirildi");
     },
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "Agentni o'chirib bo'lmadi"),
+    onError: (err, variables) => {
+      // Backend "bog'liq oylik natija/reyting yozuvlari bor, baribir o'chirilsinmi?" deb
+      // aniq ma'lumot (sonlar) bilan so'ragan bo'lsa — foydalanuvchiga shu matnni ko'rsatib,
+      // tasdiqlasa force=true bilan qayta yuboramiz.
+      if (err instanceof ApiError && err.requiresForce && !variables.force) {
+        if (window.confirm(err.message)) {
+          deleteIshchiMutation.mutate({ id: variables.id, force: true });
+        }
+        return;
+      }
+      toast.error(err instanceof ApiError ? err.message : "Agentni o'chirib bo'lmadi");
+    },
   });
 
   function startEditIshchi(s: IshchiRow) {
@@ -181,9 +216,26 @@ function OperatorPage() {
       boshlangichLiga: s.boshlangichLiga ?? "rising",
       viloyat: s.viloyat ?? "",
     });
-    setPhoto(s.rasm ?? null);
-    setPhotoStatus("idle");
     setShowIshchiModal(true);
+    // Ro'yxatdagi `s.rasm` endi haqiqiy surat emas, faqat keshlanadigan URL (admin panelni
+    // tezlashtirish uchun) — tahrirlashda (saqlashda qayta yuborish kerak bo'lgani uchun)
+    // haqiqiy (base64) qiymat alohida so'raladi.
+    setPhoto(null);
+    setPhotoStatus(s.rasm ? "loading" : "idle");
+    if (s.rasm) {
+      api
+        .get<{ rasm: string | null }>(`/api/ishchilar/${s.id}/rasm`)
+        .then(({ rasm }) => {
+          // Shu orada oyna yopilib, boshqa agent tahrirlashga ochilgan bo'lishi mumkin —
+          // eskirgan javob uning suratini bosib yozib qo'ymasin.
+          if (editingIshchiIdRef.current !== s.id) return;
+          setPhoto(rasm);
+          setPhotoStatus("idle");
+        })
+        .catch(() => {
+          if (editingIshchiIdRef.current === s.id) setPhotoStatus("error");
+        });
+    }
   }
 
   function openCreateIshchi() {
@@ -224,11 +276,33 @@ function OperatorPage() {
   }
 
   const selectedMenejerId = selectedIshchiId ? menejerIdForIshchi(selectedIshchiId) : null;
-  const { data: scopedMahsulotlar = mahsulotlar } = useQuery({
+  const { data: scopedMahsulotlar = mahsulotlar, isFetched: scopedMahsulotlarFetched } = useQuery({
     queryKey: ["mahsulotlar", "menejer", selectedMenejerId],
     queryFn: () => api.get<MahsulotRow[]>(`/api/mahsulotlar/menejer/${selectedMenejerId}`),
     enabled: selectedMenejerId !== null,
   });
+
+  // Reytingdagi haqiqiy foiz (backend) shu agentning OY DAVOMIDA SAQLANGAN barcha natija
+  // yozuvlari bo'yicha hisoblanadi — menejerga HOZIR biriktirilgan mahsulotlar bilan
+  // cheklanmaydi (biriktirish keyinroq o'zgargan/olib tashlangan bo'lishi mumkin). Shuning
+  // uchun bu yerdagi forma ham FAQAT scopedMahsulotlar (kiritish uchun ko'rsatiladigan yangi
+  // paketlar) emas, balki shularning UNIYASI + agentning shu oy uchun allaqachon saqlangan
+  // (hatto hozir qamrovdan tashqaridagi) paketlarini ham o'z ichiga oladi — aks holda
+  // bu yerdagi oldindan ko'rish (natijaPreview) ochiq reytingdagi haqiqiy foizdan farq qilib
+  // qolardi (qamrovdan tashqarida qolgan saqlangan yozuvlar forma'da ko'rinmay, lekin
+  // backend hisobida baribir ishtirok etardi).
+  const formMahsulotlar = useMemo(() => {
+    const map = new Map<number, MahsulotRow>();
+    for (const m of scopedMahsulotlar) map.set(m.id, m);
+    if (selectedIshchiId) {
+      for (const n of oyNatijalari) {
+        if (n.ishchiId !== selectedIshchiId || map.has(n.mahsulotId)) continue;
+        const full = mahsulotlar.find((m) => m.id === n.mahsulotId);
+        if (full) map.set(n.mahsulotId, full);
+      }
+    }
+    return Array.from(map.values());
+  }, [scopedMahsulotlar, oyNatijalari, selectedIshchiId, mahsulotlar]);
 
   // Tanlangan agent/oy juftligi uchun FAQAT BIR MARTA serverdan kelgan qiymat bilan
   // to'ldiriladi (natijaInitializedRef orqali) — aks holda fon rejimidagi background refetch
@@ -242,11 +316,15 @@ function OperatorPage() {
       return;
     }
     if (!natijalarFetched) return;
+    // Menejerga biriktirilgan mahsulotlar ro'yxati hali serverdan kelmagan bo'lsa kutamiz —
+    // aks holda vaqtincha "hammasi" fallback bilan qoralama to'ldirilib, haqiqiy (filtrlangan)
+    // ro'yxat kelganda ham qayta tuzilmay, noto'g'ri holatda qulflanib qolardi.
+    if (selectedMenejerId !== null && !scopedMahsulotlarFetched) return;
     const key = `${selectedIshchiId}-${oy}`;
     if (natijaInitializedRef.current === key) return;
     const mavjud = oyNatijalari.filter((n) => n.ishchiId === selectedIshchiId);
     const draft: Record<number, { plan: number; bajarildi: number }> = {};
-    for (const m of scopedMahsulotlar) {
+    for (const m of formMahsulotlar) {
       const bor = mavjud.find((n) => n.mahsulotId === m.id);
       // Plan mahsulotning standart plani bilan oldindan to'ldiriladi — har bir agent har bir
       // paket bo'yicha ishlaydi, shuning uchun operator faqat "bajarildi"ni kiritsa yetarli.
@@ -256,7 +334,7 @@ function OperatorPage() {
     }
     setNatijaDraft(draft);
     natijaInitializedRef.current = key;
-  }, [selectedIshchiId, oy, natijalarFetched, oyNatijalari, scopedMahsulotlar]);
+  }, [selectedIshchiId, oy, natijalarFetched, oyNatijalari, formMahsulotlar, selectedMenejerId, scopedMahsulotlarFetched]);
 
   const natijaPreview = useMemo(() => {
     // Har mahsulot (paket) foizi (bajarildi/plan*100) teng vaznda o'rtachaga qo'shiladi —
@@ -289,6 +367,63 @@ function OperatorPage() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkDraft, setBulkDraft] = useState<Record<string, { plan: number; bajarildi: number }>>({});
 
+  // Jadvaldagi agentlar bir nechta xil menejerga tegishli bo'lishi mumkin — har biriga
+  // biriktirilgan mahsulotlar ro'yxati alohida so'raladi, shunda har bir agent qatorida FAQAT
+  // o'z menejeriga tegishli paketlar to'ldirish uchun chizilib, qolganlari chizilmaydi/ko'rinmaydi.
+  const distinctMenejerIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const s of filteredIshchilar) {
+      const mid = menejerIdForIshchi(s.id);
+      if (mid !== null) ids.add(mid);
+    }
+    return Array.from(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredIshchilar, ishchilar, supervayzerById, isSupervayzer, user?.createdById]);
+
+  const scopedQueries = useQueries({
+    queries: distinctMenejerIds.map((menejerId) => ({
+      queryKey: ["mahsulotlar", "menejer", menejerId],
+      queryFn: () => api.get<MahsulotRow[]>(`/api/mahsulotlar/menejer/${menejerId}`),
+      enabled: showBulkModal,
+    })),
+  });
+  const scopedByMenejer = useMemo(() => {
+    const map = new Map<number, { ids: Set<number>; fetched: boolean }>();
+    distinctMenejerIds.forEach((menejerId, i) => {
+      const q = scopedQueries[i];
+      map.set(menejerId, { ids: new Set((q?.data ?? []).map((m) => m.id)), fetched: !!q?.isFetched });
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [distinctMenejerIds, scopedQueries]);
+  const allScopedFetched = distinctMenejerIds.every((id) => scopedByMenejer.get(id)?.fetched);
+
+  // Shu agent uchun qaysi mahsulot ID'lari to'ldirish uchun chizilishi kerakligini aniqlaydi —
+  // null = hali noma'lum/menejer topilmadi, xavfsiz fallback sifatida hammasi ko'rsatiladi.
+  function visibleMahsulotIdsFor(ishchiId: number): Set<number> | null {
+    const mid = menejerIdForIshchi(ishchiId);
+    if (mid === null) return null;
+    const entry = scopedByMenejer.get(mid);
+    if (!entry || !entry.fetched) return null;
+    return entry.ids;
+  }
+
+  // Jadval ustunlari — faqat joriy filtrdagi agentlardan KAMIDA BITTASIGA tegishli mahsulotlar
+  // uchun chiziladi (hech kimga tegishli bo'lmagan ustun butunlay yashiriladi, bekorga joy
+  // egallamasin uchun). Biror agentning ro'yxati hali noma'lum (null) bo'lsa, xavfsiz fallback
+  // sifatida hammasi ko'rsatiladi.
+  const visibleMahsulotlar = useMemo(() => {
+    if (!allScopedFetched) return mahsulotlar;
+    const unionIds = new Set<number>();
+    for (const s of filteredIshchilar) {
+      const ids = visibleMahsulotIdsFor(s.id);
+      if (ids === null) return mahsulotlar;
+      for (const id of ids) unionIds.add(id);
+    }
+    return mahsulotlar.filter((m) => unionIds.has(m.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mahsulotlar, filteredIshchilar, allScopedFetched, scopedByMenejer]);
+
   // Modal ochiq bo'lganda oy o'zgarsa (yangi oy — boshqa ma'lumot to'plami) yoki modal
   // qayta ochilsa, draft FAQAT BIR MARTA serverdan kelgan qiymat bilan to'liq qayta
   // to'ldiriladi (bulkInitializedRef orqali) — aks holda fon rejimidagi background
@@ -299,20 +434,26 @@ function OperatorPage() {
       bulkInitializedRef.current = null;
       return;
     }
-    if (!natijalarFetched || bulkInitializedRef.current === oy) return;
+    // Har bir agentning menejeriga biriktirilgan mahsulotlar ro'yxati hali serverdan kelmagan
+    // bo'lsa kutamiz — aks holda vaqtincha "hammasi" fallback bilan qoralama to'ldirilib,
+    // haqiqiy (filtrlangan) ro'yxat kelganda ham qayta tuzilmay qolardi.
+    if (!natijalarFetched || !allScopedFetched || bulkInitializedRef.current === oy) return;
     const draft: Record<string, { plan: number; bajarildi: number }> = {};
     for (const s of filteredIshchilar) {
+      const visibleIds = visibleMahsulotIdsFor(s.id);
       for (const m of mahsulotlar) {
+        // Bu paket shu agentning menejeriga biriktirilmagan bo'lsa — jadvalda unga umuman
+        // to'ldirish maydoni chizilmaydi (pastdagi render ham shu to'plamni tekshiradi).
+        if (visibleIds !== null && !visibleIds.has(m.id)) continue;
         const bor = oyNatijalari.find((n) => n.ishchiId === s.id && n.mahsulotId === m.id);
         // Plan mahsulotning standart plani bilan oldindan to'ldiriladi (eski oylar uchun ham) —
-        // operator har bir paket uchun faqat "bajarildi"ni kiritsa yetarli. Haqiqatan ham shu
-        // agentga tegishli bo'lmagan paket uchun plan qo'lda 0 qilinsa, umumiy foizga ta'sir qilmaydi.
+        // operator har bir paket uchun faqat "bajarildi"ni kiritsa yetarli.
         draft[`${s.id}-${m.id}`] = bor ? { plan: bor.plan, bajarildi: bor.bajarildi } : { plan: m.standartPlan, bajarildi: 0 };
       }
     }
     setBulkDraft(draft);
     bulkInitializedRef.current = oy;
-  }, [showBulkModal, oy, natijalarFetched, oyNatijalari, mahsulotlar, filteredIshchilar]);
+  }, [showBulkModal, oy, natijalarFetched, oyNatijalari, mahsulotlar, filteredIshchilar, allScopedFetched, scopedByMenejer]);
 
   // Sahifa refresh qilinsa ham hali saqlanmagan ommaviy natija qoralamasi yo'qolmasin uchun
   // localStorage'da saqlanadi — faqat X tugmasi/backdrop bosilganda yoki muvaffaqiyatli
@@ -344,12 +485,15 @@ function OperatorPage() {
     mutationFn: () =>
       api.post("/api/natijalar/bulk", {
         oy,
-        satrlar: filteredIshchilar.flatMap((s) =>
-          mahsulotlar.map((m) => {
-            const v = bulkDraft[`${s.id}-${m.id}`] ?? { plan: 0, bajarildi: 0 };
-            return { ishchiId: s.id, mahsulotId: m.id, plan: v.plan, bajarildi: v.bajarildi };
-          }),
-        ),
+        satrlar: filteredIshchilar.flatMap((s) => {
+          const visibleIds = visibleMahsulotIdsFor(s.id);
+          return mahsulotlar
+            .filter((m) => visibleIds === null || visibleIds.has(m.id))
+            .map((m) => {
+              const v = bulkDraft[`${s.id}-${m.id}`] ?? { plan: 0, bajarildi: 0 };
+              return { ishchiId: s.id, mahsulotId: m.id, plan: v.plan, bajarildi: v.bajarildi };
+            });
+        }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["natijalar", oy] });
@@ -372,7 +516,7 @@ function OperatorPage() {
       await exportBulkNatijaTemplate({
         oy,
         agents: filteredIshchilar.map((s) => ({ id: s.id, fullName: `${s.ism} ${s.familiya}` })),
-        mahsulotlar,
+        mahsulotlar: visibleMahsulotlar,
         draft: bulkDraft,
       });
     } catch {
@@ -386,7 +530,7 @@ function OperatorPage() {
     setImportingTemplate(true);
     try {
       const { importBulkNatijaExcel } = await import("@/lib/bulk-natija-excel");
-      const parsed = await importBulkNatijaExcel(file, mahsulotlar);
+      const parsed = await importBulkNatijaExcel(file, visibleMahsulotlar);
       if (!parsed) {
         toast.error("Fayl formati mos emas — avval \"Shablonni yuklab olish\" bilan olingan faylni ishlating");
         return;
@@ -528,7 +672,7 @@ function OperatorPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredIshchilar.map((s, i) => {
+                    {pagedIshchilar.map((s, i) => {
                       const league = LEAGUES.find((l) => l.key === s.boshlangichLiga);
                       return (
                       <tr
@@ -541,7 +685,7 @@ function OperatorPage() {
                         <td className="px-5 py-3 font-medium">
                           <span className="flex items-center gap-3">
                             <img
-                              src={s.rasm || avatarFor(`${s.ism} ${s.familiya}-${s.id}`)}
+                              src={resolvePhoto(s.rasm) || avatarFor(`${s.ism} ${s.familiya}-${s.id}`)}
                               alt=""
                               className="h-8 w-8 shrink-0 rounded-full object-cover"
                               style={{ border: "1px solid color-mix(in oklab, white 15%, transparent)" }}
@@ -589,7 +733,7 @@ function OperatorPage() {
                                 className="btn-ghost px-2 py-1 text-destructive"
                                 onClick={() => {
                                   if (window.confirm(`"${s.ism} ${s.familiya}"ni o'chirishga ishonchingiz komilmi?`)) {
-                                    deleteIshchiMutation.mutate(s.id);
+                                    deleteIshchiMutation.mutate({ id: s.id });
                                   }
                                 }}
                                 disabled={deleteIshchiMutation.isPending}
@@ -604,6 +748,36 @@ function OperatorPage() {
                     })}
                   </tbody>
                 </table>
+                {agentPageCount > 1 ? (
+                  <div className="flex items-center justify-between gap-3 border-t border-white/10 px-5 py-3">
+                    <p className="text-xs text-muted-foreground">
+                      {(agentPage - 1) * AGENTS_PER_PAGE + 1}
+                      {"–"}
+                      {Math.min(agentPage * AGENTS_PER_PAGE, filteredIshchilar.length)} / {filteredIshchilar.length} ta agent
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn-ghost px-2 py-1 text-xs disabled:opacity-40"
+                        onClick={() => setAgentPage((p) => Math.max(1, p - 1))}
+                        disabled={agentPage <= 1}
+                      >
+                        Oldingi
+                      </button>
+                      <span className="text-xs text-muted-foreground">
+                        {agentPage} / {agentPageCount}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-ghost px-2 py-1 text-xs disabled:opacity-40"
+                        onClick={() => setAgentPage((p) => Math.min(agentPageCount, p + 1))}
+                        disabled={agentPage >= agentPageCount}
+                      >
+                        Keyingi
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -613,14 +787,15 @@ function OperatorPage() {
       {selectedIshchiId
         ? createPortal(
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
               onClick={() => setSelectedIshchiId("")}
             >
               <div
-                className="card-surface my-8 w-full max-w-md space-y-4 p-5"
+                className="card-surface flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden p-0"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-start justify-between gap-3">
+                {/* Sarlavha — doim ko'rinadi (ro'y hatxatda qolmaydi) */}
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-5">
                   <div>
                     <h2 className="text-lg font-semibold">Oylik natija kiritish</h2>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -630,7 +805,7 @@ function OperatorPage() {
                   </div>
                   <button
                     type="button"
-                    className="btn-ghost px-2 py-1.5"
+                    className="btn-ghost shrink-0 px-2 py-1.5"
                     onClick={() => setSelectedIshchiId("")}
                     aria-label="Yopish"
                   >
@@ -638,82 +813,92 @@ function OperatorPage() {
                   </button>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Oy</label>
-                  <input
-                    type="month"
-                    className="field w-40"
-                    value={oy.slice(0, 7)}
-                    onChange={(e) => setOy(`${e.target.value}-01`)}
-                  />
-                </div>
+                {formMahsulotlar.length > 0 ? (
+                  <>
+                    {/* O'rtasi — faqat shu qism skrоll qilinadi, mahsulot ko'p bo'lsa ham
+                        sarlavha va pastdagi saqlash tugmasi doim ko'rinib turadi. */}
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Oy</label>
+                        <input
+                          type="month"
+                          className="field w-40"
+                          value={oy.slice(0, 7)}
+                          onChange={(e) => setOy(`${e.target.value}-01`)}
+                        />
+                      </div>
 
-                {scopedMahsulotlar.length > 0 ? (
-                  <div className="rounded-xl border border-border p-4">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Mahsulot bo'yicha plan / bajarildi
-                    </p>
-                    <div className="space-y-3">
-                      {scopedMahsulotlar.map((m) => (
-                        <div key={m.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-                          <span className="text-sm">
-                            {m.nomi} <span className="text-xs text-muted-foreground">({m.birlik})</span>
-                          </span>
-                          <input
-                            className="field w-24"
-                            type="number"
-                            placeholder={String(m.standartPlan)}
-                            value={natijaDraft[m.id]?.plan ?? 0}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) =>
-                              setNatijaDraft((s) => ({
-                                ...s,
-                                [m.id]: { plan: Number(e.target.value), bajarildi: s[m.id]?.bajarildi ?? 0 },
-                              }))
-                            }
-                          />
-                          <input
-                            className="field w-24"
-                            type="number"
-                            value={natijaDraft[m.id]?.bajarildi ?? 0}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) =>
-                              setNatijaDraft((s) => ({
-                                ...s,
-                                [m.id]: { plan: s[m.id]?.plan ?? 0, bajarildi: Number(e.target.value) },
-                              }))
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      Chapdagi maydon (plan) paketning standart plani bilan avtomatik to'ldirilgan — odatda faqat
-                      o'ngdagi bajarilgan miqdorni kiritsangiz kifoya. Bu paket shu agentga umuman tegishli bo'lmasa,
-                      planni 0 ga o'zgartiring — shundagina u umumiy foizga ta'sir qilmaydi.
-                    </p>
-                    <div className="mt-4 flex items-center gap-4 rounded-lg bg-muted/60 p-3">
-                      <Donut value={Math.round(natijaPreview * 10) / 10} size={82} stroke={8} />
-                      <p className="text-xs text-muted-foreground">
-                        Umumiy foiz = har mahsulotning bajarilish foizi (bajarildi/plan×100) o'rtachasi — hech
-                        birining hajmi ustunlik qilmaydi.
+                      <div className="sticky top-0 z-10 mt-4 grid grid-cols-[1fr_5rem_5rem] items-center gap-x-2 gap-y-1 border-b border-border bg-card pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <span>Mahsulot</span>
+                        <span className="text-center">Plan</span>
+                        <span className="text-center">Bajarildi</span>
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {formMahsulotlar.map((m) => (
+                          <div key={m.id} className="grid grid-cols-[1fr_5rem_5rem] items-center gap-x-2 py-2.5">
+                            <span className="min-w-0 truncate text-sm" title={`${m.nomi} (${m.birlik})`}>
+                              {m.nomi} <span className="text-xs text-muted-foreground">({m.birlik})</span>
+                            </span>
+                            <input
+                              className="field w-full px-2 text-center"
+                              type="number"
+                              placeholder={String(m.standartPlan)}
+                              value={natijaDraft[m.id]?.plan ?? 0}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) =>
+                                setNatijaDraft((s) => ({
+                                  ...s,
+                                  [m.id]: { plan: Number(e.target.value), bajarildi: s[m.id]?.bajarildi ?? 0 },
+                                }))
+                              }
+                            />
+                            <input
+                              className="field w-full px-2 text-center"
+                              type="number"
+                              value={natijaDraft[m.id]?.bajarildi ?? 0}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) =>
+                                setNatijaDraft((s) => ({
+                                  ...s,
+                                  [m.id]: { plan: s[m.id]?.plan ?? 0, bajarildi: Number(e.target.value) },
+                                }))
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                        Chapdagi maydon (plan) paketning standart plani bilan avtomatik to'ldirilgan — odatda faqat
+                        o'ngdagi bajarilgan miqdorni kiritsangiz kifoya. Bu paket shu agentga umuman tegishli
+                        bo'lmasa, planni 0 ga o'zgartiring — shundagina u umumiy foizga ta'sir qilmaydi.
                       </p>
                     </div>
-                    <button
-                      className="btn-brand mt-4 w-full"
-                      onClick={() => saveNatijaMutation.mutate()}
-                      disabled={saveNatijaMutation.isPending}
-                    >
-                      {saveNatijaMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      Natijani saqlash
-                    </button>
-                  </div>
+
+                    {/* Pastki qism — doim ko'rinadi: umumiy foiz va saqlash tugmasi. */}
+                    <div className="shrink-0 border-t border-border bg-muted/40 p-5">
+                      <div className="flex items-center gap-4">
+                        <Donut value={Math.round(natijaPreview * 10) / 10} size={64} stroke={7} />
+                        <p className="text-xs text-muted-foreground">
+                          Umumiy foiz = har mahsulotning bajarilish foizi (bajarildi/plan×100) o'rtachasi — hech
+                          birining hajmi ustunlik qilmaydi.
+                        </p>
+                      </div>
+                      <button
+                        className="btn-brand mt-4 w-full"
+                        onClick={() => saveNatijaMutation.mutate()}
+                        disabled={saveNatijaMutation.isPending}
+                      >
+                        {saveNatijaMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        Natijani saqlash
+                      </button>
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Avval Mahsulotlar bo'limida mahsulot qo'shing.</p>
+                  <p className="p-5 text-sm text-muted-foreground">Avval Mahsulotlar bo'limida mahsulot qo'shing.</p>
                 )}
               </div>
             </div>,
@@ -816,7 +1001,7 @@ function OperatorPage() {
                       <thead className="sticky top-0 z-10 bg-card">
                         <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                           <th className="px-3 py-2 font-medium">Agent</th>
-                          {mahsulotlar.map((m) => (
+                          {visibleMahsulotlar.map((m) => (
                             <th key={m.id} className="px-3 py-2 text-center font-medium" colSpan={2}>
                               {m.nomi} <span className="normal-case text-[10px]">({m.birlik})</span>
                             </th>
@@ -824,7 +1009,7 @@ function OperatorPage() {
                         </tr>
                         <tr className="border-b border-border text-left text-[10px] uppercase tracking-wider text-muted-foreground">
                           <th className="px-3 py-1 font-medium"></th>
-                          {mahsulotlar.map((m) => (
+                          {visibleMahsulotlar.map((m) => (
                             <Fragment key={m.id}>
                               <th className="px-2 py-1 text-center font-medium">Plan</th>
                               <th className="px-2 py-1 text-center font-medium">Bajarildi</th>
@@ -833,13 +1018,25 @@ function OperatorPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredIshchilar.map((s) => (
+                        {filteredIshchilar.map((s) => {
+                          const visibleIds = visibleMahsulotIdsFor(s.id);
+                          return (
                           <tr key={s.id} className="border-b border-white/[0.06] last:border-0">
                             <td className="whitespace-nowrap px-3 py-1.5 font-medium">
                               {s.ism} {s.familiya}
                             </td>
-                            {mahsulotlar.map((m) => {
+                            {visibleMahsulotlar.map((m) => {
                               const key = `${s.id}-${m.id}`;
+                              // Bu paket shu agentning menejeriga biriktirilmagan — to'ldirish
+                              // uchun maydon chizilmaydi, o'rniga bo'sh/nofaol katak ko'rsatiladi.
+                              if (visibleIds !== null && !visibleIds.has(m.id)) {
+                                return (
+                                  <Fragment key={key}>
+                                    <td className="px-1 py-1 text-center text-muted-foreground">—</td>
+                                    <td className="px-1 py-1 text-center text-muted-foreground">—</td>
+                                  </Fragment>
+                                );
+                              }
                               const v = bulkDraft[key] ?? { plan: 0, bajarildi: 0 };
                               return (
                                 <Fragment key={key}>
@@ -876,7 +1073,8 @@ function OperatorPage() {
                               );
                             })}
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

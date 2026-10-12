@@ -7,9 +7,14 @@ const TOKEN_KEY = "micco-token";
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Backend "bog'liq ma'lumotlar bor, baribir o'chirilsinmi?" deb so'ragan holat
+   * (DeleteRequiresForceException) — true bo'lsa, UI tasdiqlatib qayta so'rovni
+   * force=true bilan yuborishi mumkin. */
+  requiresForce: boolean;
+  constructor(status: number, message: string, requiresForce = false) {
     super(message);
     this.status = status;
+    this.requiresForce = requiresForce;
   }
 }
 
@@ -58,10 +63,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     let message = `Xatolik yuz berdi (${res.status})`;
+    let requiresForce = false;
     try {
       const body = await res.json();
       const first = body?.message ?? Object.values(body ?? {})[0];
       if (typeof first === "string") message = first;
+      requiresForce = body?.requiresForce === true;
     } catch {
       /* javob JSON bo'lmasligi mumkin */
     }
@@ -80,7 +87,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       throw new ApiError(res.status, "Sessiya muddati tugadi — qayta kiring");
     }
 
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, requiresForce);
   }
 
   if (res.status === 204) return undefined as T;

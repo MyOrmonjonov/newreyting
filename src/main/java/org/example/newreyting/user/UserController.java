@@ -66,8 +66,9 @@ public class UserController {
     @DeleteMapping("/operators/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteOperator(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
-        userService.delete(id, Role.OPERATOR, principal.getUser());
+    public void deleteOperator(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean force,
+                                @AuthenticationPrincipal AppUserDetails principal) {
+        userService.delete(id, Role.OPERATOR, principal.getUser(), force);
     }
 
     // --- Menejerlar: Admin yoki Operator qo'sha/ko'ra oladi (Operator faqat o'zinikini) ---
@@ -112,8 +113,9 @@ public class UserController {
     @DeleteMapping("/menejers/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteMenejer(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
-        userService.delete(id, Role.MENEJER, principal.getUser());
+    public void deleteMenejer(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean force,
+                               @AuthenticationPrincipal AppUserDetails principal) {
+        userService.delete(id, Role.MENEJER, principal.getUser(), force);
     }
 
     // --- Supervayzerlar: Admin, Menejer va Operator to'liq boshqara oladi (faqat o'chirish ADMINga xos) ---
@@ -160,7 +162,8 @@ public class UserController {
     @DeleteMapping("/supervayzers/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteSupervayzer(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails principal) {
-        userService.delete(id, Role.SUPERVAYZER, principal.getUser());
+    public void deleteSupervayzer(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean force,
+                                   @AuthenticationPrincipal AppUserDetails principal) {
+        userService.delete(id, Role.SUPERVAYZER, principal.getUser(), force);
     }
 }

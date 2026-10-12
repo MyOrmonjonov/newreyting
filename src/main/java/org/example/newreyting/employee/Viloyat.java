@@ -4,7 +4,7 @@ package org.example.newreyting.employee;
 public enum Viloyat {
     ANDIJON, BUXORO, FARGONA, JIZZAX, XORAZM, NAMANGAN, NAVOIY,
     QASHQADARYO, SAMARQAND, SIRDARYO, SURXONDARYO, TOSHKENT,
-    TOSHKENT_VILOYATI, QOQON;
+    TOSHKENT_VILOYATI, QOQON, QORAQALPOGISTON;
 
     public String key() {
         return name();

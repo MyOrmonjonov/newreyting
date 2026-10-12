@@ -2,12 +2,19 @@ package org.example.newreyting.user;
 
 import org.example.newreyting.audit.AuditService;
 import org.example.newreyting.audit.HarakatTuri;
+import org.example.newreyting.config.DeleteRequiresForceException;
+import org.example.newreyting.employee.Ishchi;
 import org.example.newreyting.employee.IshchiRepository;
+import org.example.newreyting.product.MenejerMahsulotRepository;
+import org.example.newreyting.rating.OylikYakunRepository;
+import org.example.newreyting.rating.RahbarOylikNatijaRepository;
+import org.example.newreyting.result.OylikNatijaRepository;
 import org.example.newreyting.user.dto.CreateUserRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -15,13 +22,24 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final IshchiRepository ishchiRepository;
+    private final OylikNatijaRepository natijaRepository;
+    private final OylikYakunRepository oylikYakunRepository;
+    private final MenejerMahsulotRepository menejerMahsulotRepository;
+    private final RahbarOylikNatijaRepository rahbarOylikNatijaRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
 
     public UserService(UserRepository userRepository, IshchiRepository ishchiRepository,
+                        OylikNatijaRepository natijaRepository, OylikYakunRepository oylikYakunRepository,
+                        MenejerMahsulotRepository menejerMahsulotRepository,
+                        RahbarOylikNatijaRepository rahbarOylikNatijaRepository,
                         PasswordEncoder passwordEncoder, AuditService auditService) {
         this.userRepository = userRepository;
         this.ishchiRepository = ishchiRepository;
+        this.natijaRepository = natijaRepository;
+        this.oylikYakunRepository = oylikYakunRepository;
+        this.menejerMahsulotRepository = menejerMahsulotRepository;
+        this.rahbarOylikNatijaRepository = rahbarOylikNatijaRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
     }
@@ -156,22 +174,84 @@ public class UserService {
         return user;
     }
 
-    /** Haqiqiy o'chirish — faqat unga bog'liq (u yaratgan/boshqargan) faol ma'lumot bo'lmasa. */
+    /** Ta'sir hisobi — "force" o'chirish tasdiqlash xabari uchun (rekursiv: bolalar/nabira
+     * foydalanuvchilar va ularning agentlari/oylik natijalari ham sanaladi). */
+    private static final class DeleteImpact {
+        int childUsers;
+        int agents;
+        long natijaRecords;
+
+        boolean hasAnything() {
+            return childUsers > 0 || agents > 0;
+        }
+    }
+
+    private void collectImpact(User user, DeleteImpact impact) {
+        for (User child : userRepository.findByCreatedById(user.getId())) {
+            impact.childUsers++;
+            collectImpact(child, impact);
+        }
+        if (user.getRole() == Role.SUPERVAYZER) {
+            List<Ishchi> agents = ishchiRepository.findAllBySupervayzerId(user.getId());
+            impact.agents += agents.size();
+            for (Ishchi a : agents) {
+                impact.natijaRecords += natijaRepository.countByIshchiId(a.getId());
+                impact.natijaRecords += oylikYakunRepository.countByIshchiId(a.getId());
+            }
+        }
+    }
+
+    private String buildImpactMessage(User user, DeleteImpact impact) {
+        List<String> parts = new ArrayList<>();
+        if (impact.childUsers > 0) {
+            parts.add(impact.childUsers + " ta u yaratgan/boshqargan foydalanuvchi (menejer/supervayzer)");
+        }
+        if (impact.agents > 0) {
+            parts.add(impact.agents + " ta agent");
+        }
+        if (impact.natijaRecords > 0) {
+            parts.add(impact.natijaRecords + " ta oylik natija/reyting yozuvi");
+        }
+        return "\"" + user.getFullName() + "\"ni o'chirishga bog'liq ma'lumotlar bor: " + String.join(", ", parts)
+                + " — baribir o'chirilsa, shular ham butunlay o'chiriladi (tiklab bo'lmaydigan tarzda yo'qoladi). Davom etasizmi?";
+    }
+
+    /** Userni (va kerak bo'lsa pastidagi hammasini — nabira foydalanuvchilar, agentlar, ularning
+     * oylik natijalari) rekursiv o'chiradi. Avval bolalar, keyin o'zi — FK tartibiga mos. */
+    private void cascadeDelete(User user) {
+        for (User child : userRepository.findByCreatedById(user.getId())) {
+            cascadeDelete(child);
+        }
+        if (user.getRole() == Role.SUPERVAYZER) {
+            List<Ishchi> agents = ishchiRepository.findAllBySupervayzerId(user.getId());
+            for (Ishchi a : agents) {
+                oylikYakunRepository.deleteByIshchiId(a.getId());
+                natijaRepository.deleteByIshchiId(a.getId());
+            }
+            ishchiRepository.deleteAll(agents);
+        }
+        ishchiRepository.clearCreatedBy(user.getId());
+        menejerMahsulotRepository.deleteByMenejerId(user.getId());
+        rahbarOylikNatijaRepository.deleteByUserId(user.getId());
+        userRepository.delete(user);
+    }
+
+    /** Haqiqiy o'chirish. {@code force=false} bo'lsa va bog'liq ma'lumotlar (u yaratgan
+     * foydalanuvchilar, supervayzer bo'lsa — agentlari) mavjud bo'lsa, aniq sonlar bilan
+     * tasdiqlash so'raladi ({@link DeleteRequiresForceException}); {@code force=true} bo'lsa,
+     * hammasi rekursiv ravishda birga o'chiriladi. */
     @Transactional
-    public void delete(Long userId, Role expectedRole, User actor) {
+    public void delete(Long userId, Role expectedRole, User actor, boolean force) {
         User user = findByIdAndRole(userId, expectedRole);
-        if (userRepository.existsByCreatedById(userId)) {
-            throw new IllegalArgumentException(
-                    "\"" + user.getFullName() + "\"ni o'chirib bo'lmaydi — u yaratgan foydalanuvchilar mavjud, avval ularni o'chiring/qayta biriktiring");
+        DeleteImpact impact = new DeleteImpact();
+        collectImpact(user, impact);
+        if (impact.hasAnything() && !force) {
+            throw new DeleteRequiresForceException(buildImpactMessage(user, impact));
         }
-        if (expectedRole == Role.SUPERVAYZER && ishchiRepository.existsBySupervayzerId(userId)) {
-            throw new IllegalArgumentException(
-                    "\"" + user.getFullName() + "\"ni o'chirib bo'lmaydi — unga biriktirilgan agentlar mavjud, avval ularni boshqa supervayzerga o'tkazing yoki o'chiring");
-        }
-        ishchiRepository.clearCreatedBy(userId);
         String nomi = user.getFullName();
-        userRepository.deleteById(userId);
-        auditService.record(actor, HarakatTuri.OCHIRDI, nomi);
+        cascadeDelete(user);
+        auditService.record(actor, HarakatTuri.OCHIRDI,
+                nomi + (impact.hasAnything() ? " (bog'liq foydalanuvchilar/agentlar bilan birga)" : ""));
     }
 
     private User findByIdAndRole(Long userId, Role expectedRole) {

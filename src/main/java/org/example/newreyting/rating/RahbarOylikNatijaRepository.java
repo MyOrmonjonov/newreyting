@@ -1,6 +1,7 @@
 package org.example.newreyting.rating;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,4 +15,8 @@ public interface RahbarOylikNatijaRepository extends JpaRepository<RahbarOylikNa
     List<RahbarOylikNatija> findAllByOy(@Param("oy") LocalDate oy);
 
     Optional<RahbarOylikNatija> findByUserIdAndOy(@Param("userId") Long userId, @Param("oy") LocalDate oy);
+
+    @Modifying
+    @Query("DELETE FROM RahbarOylikNatija r WHERE r.user.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }

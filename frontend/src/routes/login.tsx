@@ -17,6 +17,12 @@ function LoginPage() {
   const [form, setForm] = useState({ login: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // auth-context.tsx'dagi fon taymer yoki api.ts'dagi 401/403 tutqichi sessiya muddati
+  // tugagani sababli shu yerga yo'naltirganda, buni aniq tushuntirish uchun (faqat o'qiladi,
+  // URL'dan tozalanmaydi — sahifa qayta yuklanganda yo'qoladi, bu yetarli).
+  const [expiredNotice] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("reason") === "expired",
+  );
 
   useEffect(() => {
     if (!loading && user) {
@@ -55,6 +61,11 @@ function LoginPage() {
           onSubmit={handleSubmit}
           className="space-y-4 rounded-2xl border border-white/10 bg-race-panel p-6 shadow-lift"
         >
+          {expiredNotice ? (
+            <p className="rounded-lg border border-brand/30 bg-brand/10 px-3 py-2 text-xs text-race-fg">
+              Sessiya muddati tugadi — qayta kiring.
+            </p>
+          ) : null}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-race-muted">Login</label>
             <input

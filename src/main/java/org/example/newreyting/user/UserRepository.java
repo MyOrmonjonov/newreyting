@@ -32,4 +32,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByRole(Role role);
 
     boolean existsByCreatedById(Long createdById);
+
+    /** To'g'ridan-to'g'ri shu user yaratgan BARCHA (istalgan rol) foydalanuvchilar — "force"
+     * o'chirishda rekursiv ravishda pastga tushib, hammasini birga o'chirish uchun. */
+    List<User> findByCreatedById(Long createdById);
 }

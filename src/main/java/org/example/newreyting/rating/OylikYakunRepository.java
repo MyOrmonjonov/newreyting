@@ -1,6 +1,7 @@
 package org.example.newreyting.rating;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -22,6 +23,12 @@ public interface OylikYakunRepository extends JpaRepository<OylikYakun, Long> {
     List<OylikYakun> findAllByOy(@Param("oy") LocalDate oy);
 
     boolean existsByOy(LocalDate oy);
+
+    long countByIshchiId(Long ishchiId);
+
+    @Modifying
+    @Query("DELETE FROM OylikYakun y WHERE y.ishchi.id = :ishchiId")
+    void deleteByIshchiId(@Param("ishchiId") Long ishchiId);
 
     /** Barcha MUZLATILGAN (finalize qilingan) oylar — formula-tuzatish migratsiyasi uchun. */
     @Query("SELECT DISTINCT y.oy FROM OylikYakun y ORDER BY y.oy ASC")

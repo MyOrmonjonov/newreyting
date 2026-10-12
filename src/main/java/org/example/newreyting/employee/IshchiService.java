@@ -2,8 +2,10 @@ package org.example.newreyting.employee;
 
 import org.example.newreyting.audit.AuditService;
 import org.example.newreyting.audit.HarakatTuri;
+import org.example.newreyting.config.DeleteRequiresForceException;
 import org.example.newreyting.employee.dto.CreateIshchiRequest;
 import org.example.newreyting.employee.dto.UpdateIshchiRequest;
+import org.example.newreyting.rating.OylikYakunRepository;
 import org.example.newreyting.result.OylikNatijaRepository;
 import org.example.newreyting.user.Role;
 import org.example.newreyting.user.User;
@@ -11,6 +13,7 @@ import org.example.newreyting.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -19,13 +22,16 @@ public class IshchiService {
     private final IshchiRepository ishchiRepository;
     private final UserRepository userRepository;
     private final OylikNatijaRepository natijaRepository;
+    private final OylikYakunRepository oylikYakunRepository;
     private final AuditService auditService;
 
     public IshchiService(IshchiRepository ishchiRepository, UserRepository userRepository,
-                          OylikNatijaRepository natijaRepository, AuditService auditService) {
+                          OylikNatijaRepository natijaRepository, OylikYakunRepository oylikYakunRepository,
+                          AuditService auditService) {
         this.ishchiRepository = ishchiRepository;
         this.userRepository = userRepository;
         this.natijaRepository = natijaRepository;
+        this.oylikYakunRepository = oylikYakunRepository;
         this.auditService = auditService;
     }
 
@@ -55,6 +61,17 @@ public class IshchiService {
 
     public Ishchi getById(Long id) {
         return ishchiRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Agent topilmadi"));
+    }
+
+    /** Tahrirlash oynasi suratni oldindan to'ldirishi uchun — ro'yxat endi suratning o'zini emas,
+     * faqat keshlanadigan URL'ini qaytaradi ({@link IshchiController#list}), shuning uchun
+     * tahrirlashda haqiqiy (base64) qiymat shu alohida so'rov orqali olinadi. */
+    public String getRasm(Long id, User currentUser) {
+        Ishchi ishchi = getById(id);
+        if (!canManage(currentUser, ishchi)) {
+            throw new IllegalArgumentException("Bu agentni ko'rish huquqingiz yo'q");
+        }
+        return ishchi.getRasm();
     }
 
     @Transactional
@@ -128,18 +145,34 @@ public class IshchiService {
     }
 
     @Transactional
-    public void delete(Long id, User currentUser) {
+    public void delete(Long id, User currentUser, boolean force) {
         Ishchi ishchi = getById(id);
         if (!canManage(currentUser, ishchi)) {
             throw new IllegalArgumentException("Bu agentni o'chirish huquqingiz yo'q");
         }
-        if (natijaRepository.existsByIshchiId(id)) {
-            throw new IllegalArgumentException(
-                    "\"" + ishchi.getIsm() + " " + ishchi.getFamiliya() + "\" agentini o'chirib bo'lmaydi — unga bog'liq oylik natijalar mavjud");
+        long natijaCount = natijaRepository.countByIshchiId(id);
+        long yakunCount = oylikYakunRepository.countByIshchiId(id);
+        boolean hasNatijalar = natijaCount > 0 || yakunCount > 0;
+        if (hasNatijalar && !force) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("\"").append(ishchi.getIsm()).append(" ").append(ishchi.getFamiliya())
+                    .append("\" agentini o'chirishga bog'liq ma'lumotlar bor: ");
+            List<String> parts = new ArrayList<>();
+            if (natijaCount > 0) parts.add(natijaCount + " ta oylik natija yozuvi");
+            if (yakunCount > 0) parts.add(yakunCount + " ta muzlatilgan (yakunlangan oy) reyting yozuvi");
+            sb.append(String.join(" va ", parts));
+            sb.append(" — baribir o'chirilsa, shular ham butunlay o'chiriladi (bu agentning o'tgan oylardagi "
+                    + "natijalari/reytingi tiklab bo'lmaydigan tarzda yo'qoladi). Davom etasizmi?");
+            throw new DeleteRequiresForceException(sb.toString());
         }
         String nomi = ishchi.getIsm() + " " + ishchi.getFamiliya();
+        if (hasNatijalar) {
+            oylikYakunRepository.deleteByIshchiId(id);
+            natijaRepository.deleteByIshchiId(id);
+        }
         ishchiRepository.deleteById(id);
-        auditService.record(currentUser, HarakatTuri.OCHIRDI, "Agent: " + nomi);
+        auditService.record(currentUser, HarakatTuri.OCHIRDI,
+                "Agent: " + nomi + (hasNatijalar ? " (bog'liq oylik natijalar bilan birga)" : ""));
     }
 
     private User resolveSupervayzer(Long requestedSupervayzerId, User currentUser) {

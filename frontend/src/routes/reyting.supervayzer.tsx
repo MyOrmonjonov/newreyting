@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate } from "animejs";
 import { TrendingUp, Star, Trophy, Percent, CalendarDays } from "lucide-react";
@@ -9,7 +9,7 @@ import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDet
 import { PodiumSlot } from "@/components/Podium";
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, monthParam, type ScoreboardApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, todayDateInput, type ScoreboardApiRow } from "@/lib/rating-api";
 import { usePersistentState } from "@/lib/use-persistent-state";
 
 
@@ -39,7 +39,17 @@ export const Route = createFileRoute("/reyting/supervayzer")({
 });
 
 function SupervisorRating() {
-  const [date, setDate] = usePersistentState("micco-reyting-supervayzer-date", "2026-07-28");
+  const [date, setDate] = usePersistentState("micco-reyting-supervayzer-date", todayDateInput());
+  // Avvalgi sessiyadan localStorage'da qolib ketgan eski oyni joriy oyga tuzatadi — reyting.ishchi.tsx
+  // dagi izohga qarang (bir xil sabab: TV ekrani oylar davomida eski, 0%li oyda qotib qolmasin).
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const today = todayDateInput();
+      setDate((current) => (current.slice(0, 7) !== today.slice(0, 7) ? today : current));
+    }, 0);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selected, setSelected] = useState<RankedDetailItem | null>(null);
   const oy = monthParam(date);
   const { data: apiRows = [] } = useQuery({

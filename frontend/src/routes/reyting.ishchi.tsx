@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate } from "animejs";
 import {
@@ -21,12 +21,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
-import { CountUp, Reveal, Trend } from "@/components/motion";
+import { Reveal, Trend } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
 import { PodiumSlot } from "@/components/Podium";
 import { LEAGUES, MONTHS, AGENT_LEAGUE_POINTS, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, monthParam, resolvePhoto, type AgentApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, resolvePhoto, todayDateInput, type AgentApiRow } from "@/lib/rating-api";
 import { cn } from "@/lib/utils";
 import { usePersistentState } from "@/lib/use-persistent-state";
 
@@ -159,7 +159,25 @@ const LEAGUE_ICONS: Record<ViewKey, LucideIcon> = {
 function AgentRating() {
   const [league, setLeague] = usePersistentState<ViewKey>("micco-reyting-ishchi-league", "diamond");
   const [view, setView] = usePersistentState<"oylik" | "yillik">("micco-reyting-ishchi-view", "oylik");
-  const [date, setDate] = usePersistentState("micco-reyting-ishchi-date", "2026-07-28");
+  const [date, setDate] = usePersistentState("micco-reyting-ishchi-date", todayDateInput());
+  // Avvalgi SESSIYADAN localStorage'da qolib ketgan sana (masalan kecha/o'tgan oyda qolib
+  // ketgan) joriy oy bilan mos kelmasa — bir martalik avtomatik tuzatiladi. Aks holda bu
+  // ochiq (TV ekranidagi) reyting sahifasi oylar davomida eski, kam/hech natija kiritilmagan
+  // oyda "qotib" qolib, hamma agentning foizi 0% ko'rinib qolardi. setTimeout(0) orqali
+  // `usePersistentState`ning o'zidagi (localStorage'dan o'qiydigan) ICHKI effekti avval
+  // tugashini kutamiz — aks holda effektlar tartibi tufayli hali eski qiymat qo'llanmagan
+  // paytda tekshirib, hech narsa tuzatmay qolardi. Funksional yangilash (current => ...)
+  // eski closure qiymatiga emas, ENG SO'NGGI holatga tayanishini kafolatlaydi. Sessiya
+  // davomida foydalanuvchi qo'lda boshqa oyni tanlasa, bu effekt qayta ishlamaydi (faqat
+  // mount'da bir marta).
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const today = todayDateInput();
+      setDate((current) => (current.slice(0, 7) !== today.slice(0, 7) ? today : current));
+    }, 0);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selected, setSelected] = useState<Agent | null>(null);
   const [selectedYillik, setSelectedYillik] = useState<YillikAgent | null>(null);
   const oy = monthParam(date);
@@ -244,16 +262,10 @@ function AgentRating() {
   );
 
   const leader = rows[0];
-  const second = rows[1];
-  const third = rows[2];
-  const hasPodium = Boolean(leader && second && third);
-  const listRows = hasPodium ? rows.slice(3) : rows.slice(1);
+  const listRows = rows;
 
   const yillikLeader = yillikRows[0];
-  const yillikSecond = yillikRows[1];
-  const yillikThird = yillikRows[2];
-  const hasYillikPodium = Boolean(yillikLeader && yillikSecond && yillikThird);
-  const yillikListRows = hasYillikPodium ? yillikRows.slice(3) : yillikRows;
+  const yillikListRows = yillikRows;
 
   // FLIP: har LIVE_REFRESH_MS'da yangi ma'lumot kelganda o'rin almashgan qatorlar
   // sakrab qolmasdan, eski joyidan yangi joyiga sirg'alib boradi (jonli tablo hissi).
@@ -286,7 +298,7 @@ function AgentRating() {
       onResetFilters={() => {
         setLeague("diamond");
         setView("oylik");
-        setDate("2026-07-28");
+        setDate(todayDateInput());
       }}
       filters={
         <div className="space-y-4">
@@ -355,7 +367,7 @@ function AgentRating() {
                   type="month"
                   value={date.slice(0, 7)}
                   onChange={(e) => setDate(`${e.target.value}-01`)}
-                  className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                  className="[color-scheme:dark] block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
                 />
               </div>
             ) : (
@@ -365,7 +377,7 @@ function AgentRating() {
                   value={yil}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
-                  className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                  className="[color-scheme:dark] block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
                 />
               </div>
             )}
@@ -432,7 +444,7 @@ function AgentRating() {
                   type="month"
                   value={date.slice(0, 7)}
                   onChange={(e) => setDate(`${e.target.value}-01`)}
-                  className="block max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                  className="[color-scheme:dark] block max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
                 />
               </div>
             ) : (
@@ -442,7 +454,7 @@ function AgentRating() {
                   value={yil}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => setDate(`${e.target.value || yil}-01-28`)}
-                  className="block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
+                  className="[color-scheme:dark] block w-full max-w-full border-0 bg-transparent px-3 py-2 text-sm text-race-fg outline-none"
                 />
               </div>
             )}
@@ -461,41 +473,19 @@ function AgentRating() {
           {view === "yillik" ? (
             yillikRows.length ? (
               <>
-              {hasYillikPodium ? (
-                <div className="mb-8 flex items-end justify-center gap-3 sm:gap-8">
+              {yillikLeader ? (
+                <div className="mb-8 flex items-end justify-center">
                   <PodiumSlot
-                    avatar={yillikSecond!.avatar}
-                    name={yillikSecond!.fullName}
-                    percent={yillikSecond!.totalBall}
-                    decimals={0}
-                    suffix=" ball"
-                    rank={2}
-                    size="sm"
-                    avatarRef={() => {}}
-                    onSelect={() => setSelectedYillik(yillikSecond!)}
-                  />
-                  <PodiumSlot
-                    avatar={yillikLeader!.avatar}
-                    name={yillikLeader!.fullName}
-                    percent={yillikLeader!.totalBall}
+                    avatar={yillikLeader.avatar}
+                    name={yillikLeader.fullName}
+                    percent={yillikLeader.totalBall}
                     decimals={0}
                     suffix=" ball"
                     rank={1}
                     size="lg"
                     crown
                     avatarRef={() => {}}
-                    onSelect={() => setSelectedYillik(yillikLeader!)}
-                  />
-                  <PodiumSlot
-                    avatar={yillikThird!.avatar}
-                    name={yillikThird!.fullName}
-                    percent={yillikThird!.totalBall}
-                    decimals={0}
-                    suffix=" ball"
-                    rank={3}
-                    size="sm"
-                    avatarRef={() => {}}
-                    onSelect={() => setSelectedYillik(yillikThird!)}
+                    onSelect={() => setSelectedYillik(yillikLeader)}
                   />
                 </div>
               ) : null}
@@ -554,79 +544,21 @@ function AgentRating() {
             )
           ) : leader ? (
           <>
-          {/* Podium — top 3 o'rin */}
-          {hasPodium ? (
-            <div className="mb-8 flex items-end justify-center gap-3 sm:gap-8">
-              <PodiumSlot
-                avatar={second!.avatar}
-                name={second!.fullName}
-                percent={second!.percent}
-                rank={2}
-                size="sm"
-                avatarRef={() => {}}
-                onSelect={() => setSelected(second!)}
-              />
-              <PodiumSlot
-                avatar={leader.avatar}
-                name={leader.fullName}
-                percent={leader.percent}
-                rank={1}
-                size="lg"
-                crown
-                avatarRef={() => {}}
-                onSelect={() => setSelected(leader)}
-              />
-              <PodiumSlot
-                avatar={third!.avatar}
-                name={third!.fullName}
-                percent={third!.percent}
-                rank={3}
-                size="sm"
-                avatarRef={() => {}}
-                onSelect={() => setSelected(third!)}
-              />
-            </div>
-          ) : (
-            <Reveal>
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelected(leader)}
-                onKeyDown={(e) => e.key === "Enter" && setSelected(leader)}
-                className="card-row podium-glow mb-5 cursor-pointer active:scale-[0.99]"
-                style={{ borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }}
-              >
-                <span className="w-8 shrink-0 text-center text-2xl font-black tabular-nums">1</span>
-                <img
-                  src={leader.avatar}
-                  alt={leader.fullName}
-                  className="avatar-ring h-14 w-14 shrink-0"
-                  style={{ borderColor: "var(--color-accent-gold)" }}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold uppercase tracking-wide">{leader.fullName}</p>
-                  <p className="truncate text-[11px] text-race-muted">Supervayzer: {leader.supervisor}</p>
-                </div>
-                {isRespublika ? (
-                  <span
-                    className="shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
-                    style={{
-                      borderColor: LEAGUES.find((l) => l.key === leader.league)!.accent,
-                      color: LEAGUES.find((l) => l.key === leader.league)!.accent,
-                      backgroundColor: `color-mix(in oklab, ${LEAGUES.find((l) => l.key === leader.league)!.accent} 15%, transparent)`,
-                    }}
-                  >
-                    {LEAGUES.find((l) => l.key === leader.league)!.name}
-                  </span>
-                ) : null}
-                <span className="text-2xl font-black tabular-nums">
-                  <CountUp value={leader.percent} decimals={1} suffix="%" />
-                </span>
-              </div>
-            </Reveal>
-          )}
+          {/* Faqat 1-o'rin alohida ko'rsatiladi — 2 va 3-o'rinlar pastdagi to'liq ro'yxatda */}
+          <div className="mb-8 flex items-end justify-center">
+            <PodiumSlot
+              avatar={leader.avatar}
+              name={leader.fullName}
+              percent={leader.percent}
+              rank={1}
+              size="lg"
+              crown
+              avatarRef={() => {}}
+              onSelect={() => setSelected(leader)}
+            />
+          </div>
 
-          {/* Qolgan o'rinlar */}
+          {/* Barcha o'rinlar (1-o'rin ham qayta chiqadi) */}
           <div className="space-y-2">
             {listRows.map((r) => {
               // Nizomga ko'ra: har liga 27 kishilik — top-5 (1-5) ko'tariladi,

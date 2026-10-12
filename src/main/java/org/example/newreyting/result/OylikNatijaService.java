@@ -33,7 +33,7 @@ public class OylikNatijaService {
     }
 
     public List<OylikNatija> listByOy(LocalDate oy) {
-        return natijaRepository.findAllByOy(oy.withDayOfMonth(1));
+        return natijaRepository.findAllByOyLight(oy.withDayOfMonth(1));
     }
 
     @Transactional

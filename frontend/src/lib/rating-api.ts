@@ -73,3 +73,12 @@ export function resolvePhoto(path: string | null): string | null {
 export function monthParam(dateStr: string): string {
   return `${dateStr.slice(0, 7)}-01`;
 }
+
+/** Reyting sahifalarining oy/yil tanlagichi uchun boshlang'ich/"bugun" qiymati — doim
+ * HOZIRGI sana, qotib qolgan qattiq yozilgan sana emas (ilgari "2026-07-28" kabi bitta
+ * sana qattiq yozilgan edi: vaqt o'tib bugungi oy bundan uzoqlashganda, reyting sahifalari
+ * joriy oy o'rniga o'sha eski oyni ko'rsatardi — agar o'sha eski oyda natija deyarli
+ * kiritilmagan bo'lsa, hamma foiz 0% bo'lib ko'rinardi). */
+export function todayDateInput(): string {
+  return new Date().toISOString().slice(0, 10);
+}

@@ -6,8 +6,14 @@ import org.example.newreyting.product.Mahsulot;
 
 import java.time.LocalDate;
 
+/** Diqqat: unikal cheklov (ishchi_id, mahsulot_id, oy) ustunlari shu tartibda indekslanadi —
+ * {@code oy} oxirgi ustun bo'lgani uchun, FAQAT {@code oy} bo'yicha filtrlovchi so'rovlar
+ * (masalan {@link OylikNatijaRepository#findAllByOy}, natija kiritish/ko'rish sahifasi har
+ * oy yuklanganda ishlatadi) bu indeksdan samarali foydalana olmaydi — jadval kattalashgani
+ * sari sekinlashib boraveradi. Shuning uchun {@code oy} uchun alohida indeks qo'shilgan. */
 @Entity
-@Table(name = "oylik_natija", uniqueConstraints = @UniqueConstraint(columnNames = {"ishchi_id", "mahsulot_id", "oy"}))
+@Table(name = "oylik_natija", uniqueConstraints = @UniqueConstraint(columnNames = {"ishchi_id", "mahsulot_id", "oy"}),
+        indexes = @Index(name = "idx_oylik_natija_oy", columnList = "oy"))
 public class OylikNatija {
 
     @Id

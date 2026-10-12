@@ -21,6 +21,7 @@ import {
   avatarFor,
   monthParam,
   resolvePhoto,
+  todayDateInput,
   type AgentApiRow,
   type RankedApiRow,
   type ScoreboardApiRow,
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
-  const [date, setDate] = useState("2026-07-28");
+  const [date, setDate] = useState(todayDateInput());
   const oy = monthParam(date);
   const yil = Number(date.slice(0, 4));
 

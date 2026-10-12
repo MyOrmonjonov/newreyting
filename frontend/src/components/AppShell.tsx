@@ -28,7 +28,9 @@ const NAV = [
     { to: "/operatorlar", label: "Operatorlar", icon: UserPlus },
     { to: "/jamoa", label: "Menejer / Supervayzer", icon: UserCog },
     { to: "/mahsulotlar", label: "Mahsulotlar", icon: Package },
-    { to: "/audit", label: "Audit log", icon: ScrollText },
+    // Audit log — faqat ADMIN ko'rishi kerak (backend ham AuditController'da hasRole('ADMIN')
+    // bilan cheklangan), shuning uchun boshqa rollarga nav'da umuman ko'rsatilmaydi.
+    { to: "/audit", label: "Audit log", icon: ScrollText, adminOnly: true },
   ]},
   { group: "Reytinglar", items: [
     { to: "/reyting/ishchi", label: "Agent reytingi", icon: Trophy },
@@ -85,13 +87,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
         <nav className="space-y-6 p-3">
-          {NAV.map((g) => (
+          {NAV.map((g) => {
+            const visibleItems = g.items.filter((it) => !("adminOnly" in it && it.adminOnly) || user.role === "ADMIN");
+            if (visibleItems.length === 0) return null;
+            return (
             <div key={g.group}>
               <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 {g.group}
               </p>
               <div className="space-y-1">
-                {g.items.map((it) => {
+                {visibleItems.map((it) => {
                   const active = pathname === it.to;
                   return (
                     <Link
@@ -129,7 +134,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
         <div
           className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl border border-white/10 p-3"

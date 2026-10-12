@@ -64,6 +64,7 @@ export const VILOYATLAR: { key: string; name: string }[] = [
   { key: "TOSHKENT", name: "Toshkent" },
   { key: "TOSHKENT_VILOYATI", name: "Toshkent viloyati" },
   { key: "QOQON", name: "Qo'qon shahri" },
+  { key: "QORAQALPOGISTON", name: "Qoraqalpog'iston" },
 ];
 
 /**

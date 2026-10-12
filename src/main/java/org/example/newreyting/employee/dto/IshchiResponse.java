@@ -30,4 +30,24 @@ public record IshchiResponse(
                 i.getViloyat() != null ? i.getViloyat().key() : null
         );
     }
+
+    /** Ro'yxat uchun — {@code rasm} to'liq base64 o'rniga keshlanadigan URL'ga almashtiriladi
+     * (xuddi {@code RatingService.rasmPath} kabi), aks holda ko'p agentli ro'yxat javobi
+     * o'nlab megabaytga yetib, admin panelni sekinlashtirar/qotirar edi. */
+    public static IshchiResponse listItem(Ishchi i) {
+        String rasm = i.getRasm();
+        String rasmUrl = (rasm == null || rasm.isBlank()) ? null : "/api/reyting/ishchi/" + i.getId() + "/rasm";
+        return new IshchiResponse(
+                i.getId(),
+                i.getIsm(),
+                i.getFamiliya(),
+                i.getSupervayzer().getId(),
+                i.getSupervayzer().getFullName(),
+                i.getIshGaKirganSana(),
+                i.isActive(),
+                i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : null,
+                rasmUrl,
+                i.getViloyat() != null ? i.getViloyat().key() : null
+        );
+    }
 }
