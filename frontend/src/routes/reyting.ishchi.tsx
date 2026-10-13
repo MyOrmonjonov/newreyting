@@ -561,16 +561,18 @@ function AgentRating() {
           {/* Barcha o'rinlar (1-o'rin ham qayta chiqadi) */}
           <div className="space-y-2">
             {listRows.map((r) => {
-              // Nizomga ko'ra top-5 ko'tariladi, oxirgi 5 pastroq ligaga tushadi — lekin liganing
-              // haqiqiy a'zo soni 27 bo'lmasligi mumkin (backenddagi finalizeMonth xuddi shunday,
-              // `upperGroup.size() - demoteCount` orqali, NISBIY chegaradan foydalanadi, qat'iy "22"
-              // emas). Diamond/Rising'da ham ikkala zona ko'rsatiladi — Diamonddan faqat Gold'ga
-              // tushish bor (ko'tarilish yo'q), Rising'dan faqat Bronze'ga ko'tarilish bor (tushish
-              // yo'q), lekin TOP-5/BOTTOM-5 ta'kidlanishi barcha ligada bir xil ko'rinishda bo'lishi
-              // uchun ikkisi ham chiqariladi.
-              const DANGER_BOUNDARY = rows.length - Math.min(5, rows.length);
+              // Nizomga ko'ra top-5 ko'tariladi, oxirgi 5 (23-27-o'rin) pastroq ligaga tushadi.
+              // DIQQAT: foydalanuvchi bilan tasdiqlangan ATAYLAB QAROR — chegara QAT'IY 22
+              // (23-27-o'rin), liganing HAQIQIY a'zo soniga BOG'LIQ EMAS, garchi hozir hech bir
+              // liga aniq 27 kishilik bo'lmasa ham (masalan Rising'da 44 kishi bor — backenddagi
+              // `finalizeMonth`ning `upperGroup.size() - demoteCount` nisbiy formulasiga ko'ra
+              // HAQIQATDA 40-44-o'rin tushadi, 23-27 esa unday emas). Foydalanuvchi bu
+              // nomuvofiqlikdan xabardor qilingan va shunga qaramay qat'iy 23-27'ni so'radi — bu
+              // yerda "tuzatish" deb o'ylab qayta nisbiy qilib qo'yilmasin. Diamond/Rising'da ham
+              // ikkala zona ko'rsatiladi (faqat bitta yo'nalishda haqiqiy ta'sir bo'lsa ham).
+              const DANGER_BOUNDARY = 22;
               const inPromo = !isRespublika && r.place <= 5;
-              const inDanger = !isRespublika && r.place > DANGER_BOUNDARY && !inPromo;
+              const inDanger = !isRespublika && r.place > DANGER_BOUNDARY;
               const rowLeague = isRespublika ? LEAGUES.find((l) => l.key === r.league)! : null;
               return (
                 <div
@@ -655,9 +657,7 @@ function AgentRating() {
                   </div>
 
                   {!isRespublika && rows.length > 5 && r.place === 5 ? <ZoneLine tone="up" /> : null}
-                  {!isRespublika && DANGER_BOUNDARY > 0 && r.place === DANGER_BOUNDARY ? (
-                    <ZoneLine tone="down" />
-                  ) : null}
+                  {!isRespublika && r.place === DANGER_BOUNDARY ? <ZoneLine tone="down" /> : null}
                 </div>
               );
             })}
