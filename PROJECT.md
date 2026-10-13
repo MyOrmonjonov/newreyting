@@ -413,7 +413,27 @@ iterativ tekshirilgan, versiya raqamlari shu jarayonda productionda ketma-ket os
 qayta deploy — kod o'zgarishi yo'q); backend tomonda ham xuddi shunga mos — v35'dan keyin
 sessiya davomida versiya raqami qo'lda v36'ga oshirilgan edi (kod o'zgarishi yo'q), v37 esa
 yuqoridagi frontend bilan birga lokal manbani productionga moslashtirish uchun qayta deploy
-(bu ham kod o'zgarishi yo'q, faqat versiya raqami). Eski akkauntdagi
+(bu ham kod o'zgarishi yo'q, faqat versiya raqami) → v86 (agentlar reytingida top-5/bottom-5
+ismlar rangi bilan ajratildi — promo zonasida yashil, relegatsiya zonasida qizil, mavjud
+chevron rangiga mos yengil porlash bilan) → v87 (qizil zonaning pastki chegarasi liganing
+HAQIQIY a'zo soniga nisbiy qilindi — backend finalizeMonth bilan bir xil formula) → v88
+(foydalanuvchi bilan muhokamadan keyin v87 BEKOR qilindi — chegara qat'iy 23-27-o'ringa
+qaytarildi, kodda ATAYLAB QAROR deb izohlangan, pastga qarang). Backend v38: foydalanuvchi
+jonli saytda Diamond ligasida 28 kishi (Nizomdagi 27 o'rniga) borligini payqadi — sabab,
+`finalizeMonth` faqat LEAGUE_CAP'dan OSHGANINI pastga tushirardi (bu ham shu sessiyada
+backend v37'ga qo'shilgan edi), lekin KAMINI pastki liganing eng yaxshilaridan tortib
+TO'LDIRMASDI. v38'da ikkinchi, alohida bosqich qo'shildi — tepadan pastga ketma-ket, har
+liganing (Rising'dan tashqari) yetishmagan qismini pastroq liganing hali ko'chmagan eng
+yaxshi a'zolaridan tortib to'ldiradi, kaskadli (Gold Silverdan oladi, shu sababli Silver
+kamayib qolsa Bronzedan, Bronze esa Risingdan — Rising cheksiz qolishi mumkin, u hech qachon
+"upper" bo'lmaydi). SHU BILAN BIRGA, joriy (2026-10) oy uchun production ma'lumoti HAM qo'lda
+tuzatildi (RDS'ga EC2 orqali SSM `AWS-RunShellScript` + `psql` bilan to'g'ridan-to'g'ri
+ulanib, `ishchi.boshlangich_liga` ustuni yangilandi — chunki bu o'zgarish joriy oyning LIVE
+hisobida darhol ko'rinishi uchun, oy oxirigacha kutilmadi): avval id=194 (28-o'rin, Diamond)
+Gold'ga; keyin to'liq kaskad — Silverning top-2 (id 142,144) Gold'ga, Bronzening top-2 (id
+139,67) Silver'ga (Silver shu sababli kamaygani uchun), Risingning top-8 (id 97,230,68,155,
+121,231,74,92) Bronze'ga. Natija: Diamond/Gold/Silver/Bronze — hammasi aniq 27, Rising 36
+(jami 144 o'zgarmadi). Eski akkauntdagi
 tarix (v1-v27 backend, v1-v64 frontend) pastdagi bo'limlarda saqlanadi — endi faqat tarixiy
 ma'lumot.
 

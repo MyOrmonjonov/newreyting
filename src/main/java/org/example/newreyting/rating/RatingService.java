@@ -41,6 +41,13 @@ import java.util.concurrent.TimeUnit;
 public class RatingService {
 
     private static final String[] LEAGUE_KEYS = {"diamond", "gold", "silver", "bronze", "rising"};
+    /**
+     * Nizomga ko'ra har liga (Rising'dan tashqari — u eng past, yangi agentlar doim shu
+     * yerdan boshlanadi, cheksiz o'sishi mumkin) 27 kishidan OSHMASLIGI kerak. finalizeMonth
+     * shu chegaradan oshgan ortiqchani ham (odatiy 5ta-5ta aylanishdan tashqari) pastroq
+     * ligaga tushiradi.
+     */
+    private static final int LEAGUE_CAP = 27;
     // MICCO Sales League Nizomi VII BOB — har liganing yillik g'olibiga beriladigan unvon.
     private static final Map<String, String> LEAGUE_NOMINATIONS = Map.of(
             "diamond", "Diamond Champion",
@@ -374,12 +381,41 @@ public class RatingService {
                     promoted.add(a.id());
                 }
             }
-            int demoteCount = Math.min(5, upperGroup.size());
+            // Odatiy oyma-oy aylanish 5ta, LEKIN agar upperGroup promoteCount qabul qilgandan
+            // keyin ham LEAGUE_CAP'dan oshib qolsa (masalan boshqa sabab — qo'lda biriktirish,
+            // eski ma'lumot — bilan to'planib qolgan bo'lsa), chegaradan oshgan ortiqchasi ham
+            // qo'shimcha tushiriladi, shunda keyingi oyda upper doim <= LEAGUE_CAP bo'ladi.
+            int overflow = upperGroup.size() + promoteCount - LEAGUE_CAP;
+            int demoteCount = Math.min(upperGroup.size(), Math.max(5, overflow));
             int demoteThreshold = upperGroup.size() - demoteCount;
             for (AgentResponse a : upperGroup) {
                 if (a.place() > demoteThreshold && !promoted.contains(a.id())) {
                     nextLeague.put(a.id(), lower);
                 }
+            }
+        }
+        // Yuqoridagi aylanishdan keyin upper LEAGUE_CAP'dan KAM bo'lib qolishi mumkin (masalan
+        // lowerGroup'da promoteCount uchun yetarli odam bo'lmasa). Shuni to'ldirish uchun
+        // qo'shimcha, ALOHIDA bosqich — tepadan pastga qarab, har bir liganing (Rising'dan
+        // tashqari, u hech qachon "upper" emas) YETISHMAGAN qismini pastroq liganing ENG
+        // YAXSHI, hali ko'chmagan a'zolaridan tortib to'ldiradi. Shu bosqichning o'zi ham
+        // tepadan pastga ketma-ket ishlagani uchun (bir liga avval "lower" sifatida kamayib
+        // qolsa, keyingi juftlikda "upper" bo'lganda bu kamayish allaqachon hisobga olinadi)
+        // kaskadli taqsimot to'g'ri chiqadi (masalan Gold Silverdan oladi, Silver shu sababdan
+        // kamayib qolsa Bronzedan oladi, Bronze esa Risingdan — Rising cheksiz qolishi mumkin).
+        for (int i = 0; i < LEAGUE_KEYS.length - 1; i++) {
+            String upper = LEAGUE_KEYS[i];
+            String lower = LEAGUE_KEYS[i + 1];
+            long upperCurrentSize = nextLeague.values().stream().filter(l -> l.equals(upper)).count();
+            int shortfall = LEAGUE_CAP - (int) upperCurrentSize;
+            if (shortfall <= 0) continue;
+            List<AgentResponse> lowerStillHere = byLeague.getOrDefault(lower, List.of()).stream()
+                    .filter(a -> nextLeague.get(a.id()).equals(lower))
+                    .sorted(Comparator.comparingInt(AgentResponse::place))
+                    .toList();
+            int take = Math.min(shortfall, lowerStillHere.size());
+            for (int k = 0; k < take; k++) {
+                nextLeague.put(lowerStillHere.get(k).id(), upper);
             }
         }
         for (Map.Entry<Long, String> e : nextLeague.entrySet()) {
