@@ -17,6 +17,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -61,6 +63,19 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
+    /** STATELESS (JWT) bo'lgani uchun HTTP sessiya o'rniga shu so'rovning o'zida (servlet
+     * request attribute) saqlaydi — {@link JwtAuthFilter} shu yerga yozadi. Buning muhimligi:
+     * oddiy {@code SecurityContextHolder}ning ThreadLocal'i ba'zan (masalan so'rov tanasi
+     * alohida I/O bosqichida o'qilganda) JwtAuthFilter ishlagan threaddan BOSHQA threadda
+     * davom etishi mumkin — bunday holda ThreadLocal'dagi autentifikatsiya "yo'qolib qoladi"
+     * va keyingi (@PreAuthorize) tekshiruvi uni ko'rmay, noto'g'ri "autentifikatsiya yo'q"
+     * 403 qaytaradi. Request attribute esa threadga emas, so'rovning o'ziga bog'liq bo'lgani
+     * uchun bunday holatda ham saqlanib qoladi. */
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new RequestAttributeSecurityContextRepository();
+    }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -87,6 +102,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .securityContext(context -> context.securityContextRepository(securityContextRepository()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/public/**").permitAll()

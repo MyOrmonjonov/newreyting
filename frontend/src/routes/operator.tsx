@@ -71,15 +71,17 @@ function OperatorPage() {
   const { data: ishchilar = [], isLoading: loadingIshchilar } = useQuery({
     queryKey: ["ishchilar"],
     queryFn: () => api.get<IshchiRow[]>("/api/ishchilar"),
+    enabled: !!user,
   });
   const { data: mahsulotlar = [] } = useQuery({
     queryKey: ["mahsulotlar"],
     queryFn: () => api.get<MahsulotRow[]>("/api/mahsulotlar"),
+    enabled: !!user,
   });
   const { data: supervayzerlar = [] } = useQuery({
     queryKey: ["users", "supervayzers"],
     queryFn: () => api.get<SupervayzerRow[]>("/api/users/supervayzers"),
-    enabled: !isSupervayzer,
+    enabled: !!user && !isSupervayzer,
   });
 
   // --- Ro'yxat filtrlari (Supervayzer / Menejer / Liga / Viloyat) ---
