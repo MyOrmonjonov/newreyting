@@ -8,7 +8,8 @@ public record ScoreboardRowResponse(
         String fullName,
         List<MonthPoint> oylar,
         double ortachaPercent,
-        int jamiBall
+        int jamiBall,
+        String rasm
 ) {
     public record MonthPoint(String oy, double percent, int ball) {
     }

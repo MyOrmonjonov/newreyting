@@ -620,3 +620,32 @@ serverga, YANGI AWS akkauntga (`985040259171`) to'liq ko'chirish.
 
 **Keyingi safar ulanish uchun**: yuqoridagi "Live manzillar" va "Qayta deploy qilish" bo'limiga
 qarang — hammasi `--profile micco-new` bilan.
+
+## Supervayzer/menejer reytingi — dizayn moslashtirildi, 12 soatlik majburiy sessiya olib tashlandi (2026-10-14)
+
+Foydalanuvchi talabiga ko'ra ikkita o'zgarish:
+
+- **Supervayzer/menejer reytingi dizayni** endi `reyting.ishchi.tsx`dagi bilan bir xil: ilgari
+  1,2,3-o'rinlar alohida 3 ta podium sifatida tepada chiqib, pastdagi ro'yxatdan chiqarib
+  tashlanardi (`hasPodium`/`second`/`third`). Endi FAQAT 1-o'rin tepada alohida (toj bilan)
+  ko'rsatiladi, pastdagi to'liq ro'yxat esa 1-o'rindan boshlab BARCHA o'rinlarni ko'rsatadi
+  (1-o'rin qatori oltin "podium-glow" bilan ajralib turadi) — xuddi agentlar sahifasidagi kabi.
+- **Supervayzer/menejerlar uchun ham haqiqiy surat** qo'shildi (ilgari faqat ishchilarda bor edi,
+  supervayzer/menejer doim dicebear belgi-avatar bilan chiqardi). Backend: `RankedUserResponse`/
+  `ScoreboardRowResponse`ga `rasm` (yengil URL yo'li, `User.rasm`dan) qo'shildi, yangi
+  `GET /api/reyting/user/{id}/rasm` endpoint (ishchi rasm endpointi bilan bir xil uslub —
+  base64 emas, keshlanadigan URL). Frontend: `resolvePhoto(r.rasm) || avatarFor(...)` fallback
+  bilan.
+- **12 soatlik majburiy "sessiya tugadi" chiqarib yuborish olib tashlandi** — foydalanuvchi
+  buni xatoliklarga sabab bo'lyapti deb bildirdi. `app.jwt.expiration-minutes` 720 (12 soat)dan
+  5256000 (10 yil)ga oshirildi — amalda cheksiz sessiya (JJWT'da `exp` da'vosi majburiy bo'lgani
+  uchun to'liq olib tashlab bo'lmaydi, lekin 10 yil amaliyotda hech qachon yetib bormaydi).
+  Frontend'dagi proaktiv `scheduleExpiry()` (auth-context.tsx) allaqachon muddat 24 soatdan uzoq
+  bo'lsa hech qanday taymer qo'ymaydi — shuning uchun frontendda o'zgarish shart emas edi.
+
+**Deploy qilindi**: backend v39, frontend v89 (ikkalasi ham `Ready`/`Green`, brauzer orqali
+`/reyting/supervayzer` va `/reyting/menejer`da tasdiqlandi).
+
+**Diqqat**: bu o'zgarish git'ga commit qilinmagan — kod ishlab chiqarishga deploy qilindi, lekin
+lokal working tree hamon "o'zgartirilgan, commit qilinmagan" holatda (foydalanuvchi commit haqida
+so'ramagan).

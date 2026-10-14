@@ -28,6 +28,7 @@ export type RankedApiRow = {
   percent: number;
   yesterday: number;
   monthPoints: number;
+  rasm: string | null;
 };
 
 export type ScoreboardApiRow = {
@@ -37,6 +38,7 @@ export type ScoreboardApiRow = {
   oylar: { oy: string; percent: number; ball: number }[];
   ortachaPercent: number;
   jamiBall: number;
+  rasm: string | null;
 };
 
 const STRIPES = [

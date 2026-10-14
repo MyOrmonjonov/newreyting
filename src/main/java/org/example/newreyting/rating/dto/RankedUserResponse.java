@@ -7,6 +7,7 @@ public record RankedUserResponse(
         String fullName,
         double percent,
         int yesterday,
-        int monthPoints
+        int monthPoints,
+        String rasm
 ) {
 }

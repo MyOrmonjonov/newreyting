@@ -142,7 +142,21 @@ public class RatingService {
 
     /** {@link #rasmPath} — rasm baytlarining o'zi, {@link RatingController#ishchiRasm}. */
     public ResponseEntity<byte[]> ishchiRasm(Long ishchiId) {
-        String dataUrl = ishchiRepository.findRasmById(ishchiId).orElse(null);
+        return rasmResponse(ishchiRepository.findRasmById(ishchiId).orElse(null));
+    }
+
+    /** Supervayzer/menejer javoblaridagi (RankedUserResponse/ScoreboardRowResponse) `rasm`
+     * maydoni uchun — xuddi {@link #rasmPath} kabi, base64 o'rniga yengil URL yo'li. */
+    private static String userRasmPath(Long userId, String rasm) {
+        return (rasm == null || rasm.isBlank()) ? null : "/api/reyting/user/" + userId + "/rasm";
+    }
+
+    /** {@link #userRasmPath} — rasm baytlarining o'zi, {@link RatingController#userRasm}. */
+    public ResponseEntity<byte[]> userRasm(Long userId) {
+        return rasmResponse(userRepository.findRasmById(userId).orElse(null));
+    }
+
+    private static ResponseEntity<byte[]> rasmResponse(String dataUrl) {
         if (dataUrl == null || dataUrl.isBlank() || !dataUrl.startsWith("data:") || !dataUrl.contains(",")) {
             return ResponseEntity.notFound().build();
         }
@@ -562,7 +576,7 @@ public class RatingService {
             int place = idx + 1;
             int points = s.manualBall() != null ? s.manualBall() : (s.hasData() ? pointsForPlace(place) : 0);
             result.add(new RankedUserResponse(s.user().getId(), place, s.user().getFullName(),
-                    round1(s.percent()), place, points));
+                    round1(s.percent()), place, points, userRasmPath(s.user().getId(), s.user().getRasm())));
         }
         return result;
     }
@@ -650,14 +664,14 @@ public class RatingService {
                 totalPoints += ball;
             }
             rows.add(new ScoreboardRowResponse(u.getId(), 0, u.getFullName(), monthPoints,
-                    round1(percentSum / Math.max(1, months.size())), totalPoints));
+                    round1(percentSum / Math.max(1, months.size())), totalPoints, userRasmPath(u.getId(), u.getRasm())));
         }
         rows.sort(Comparator.comparingInt(ScoreboardRowResponse::jamiBall).reversed());
 
         List<ScoreboardRowResponse> withPlace = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             ScoreboardRowResponse r = rows.get(i);
-            withPlace.add(new ScoreboardRowResponse(r.id(), i + 1, r.fullName(), r.oylar(), r.ortachaPercent(), r.jamiBall()));
+            withPlace.add(new ScoreboardRowResponse(r.id(), i + 1, r.fullName(), r.oylar(), r.ortachaPercent(), r.jamiBall(), r.rasm()));
         }
         return withPlace;
     }

@@ -9,7 +9,7 @@ import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDet
 import { PodiumSlot } from "@/components/Podium";
 import { MONTHS } from "@/lib/micco-data";
 import { api } from "@/lib/api";
-import { avatarFor, monthParam, todayDateInput, type RankedApiRow } from "@/lib/rating-api";
+import { avatarFor, monthParam, resolvePhoto, todayDateInput, type RankedApiRow } from "@/lib/rating-api";
 import { usePersistentState } from "@/lib/use-persistent-state";
 
 
@@ -65,7 +65,7 @@ function ManagerRating() {
         id: r.id,
         place: r.place,
         name: r.fullName,
-        avatar: avatarFor(`${r.fullName}-${r.id}`),
+        avatar: resolvePhoto(r.rasm) || avatarFor(`${r.fullName}-${r.id}`),
         percent: r.percent,
         yesterday: r.place,
       })),
@@ -74,10 +74,7 @@ function ManagerRating() {
   const avg = rows.length ? rows.reduce((s, r) => s + r.percent, 0) / rows.length : 0;
 
   const leader = rows[0];
-  const second = rows[1];
-  const third = rows[2];
-  const hasPodium = Boolean(leader && second && third);
-  const listRows = hasPodium ? rows.slice(3) : rows.slice(1);
+  const listRows = rows;
 
   function toDetail(r: (typeof rows)[number]): RankedDetailItem {
     return {
@@ -133,60 +130,19 @@ function ManagerRating() {
         </div>
 
         <div className="px-4 py-6 lg:px-8">
-          {hasPodium ? (
-            <div className="mb-8 flex items-end justify-center gap-3 sm:gap-8">
+          {leader ? (
+            <div className="mb-8 flex items-end justify-center">
               <PodiumSlot
-                avatar={second!.avatar}
-                name={second!.name}
-                percent={second!.percent}
-                rank={2}
-                size="sm"
-                avatarRef={() => {}}
-                onSelect={() => setSelected(toDetail(second!))}
-              />
-              <PodiumSlot
-                avatar={leader!.avatar}
-                name={leader!.name}
-                percent={leader!.percent}
+                avatar={leader.avatar}
+                name={leader.name}
+                percent={leader.percent}
                 rank={1}
                 size="lg"
                 crown
                 avatarRef={() => {}}
-                onSelect={() => setSelected(toDetail(leader!))}
-              />
-              <PodiumSlot
-                avatar={third!.avatar}
-                name={third!.name}
-                percent={third!.percent}
-                rank={3}
-                size="sm"
-                avatarRef={() => {}}
-                onSelect={() => setSelected(toDetail(third!))}
+                onSelect={() => setSelected(toDetail(leader))}
               />
             </div>
-          ) : leader ? (
-            <Reveal>
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelected(toDetail(leader!))}
-                onKeyDown={(e) => e.key === "Enter" && setSelected(toDetail(leader!))}
-                className="card-row podium-glow mb-5 cursor-pointer active:scale-[0.99]"
-                style={{ borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }}
-              >
-                <span className="w-8 shrink-0 text-center text-2xl font-black tabular-nums">1</span>
-                <img
-                  src={leader.avatar}
-                  alt={leader.name}
-                  className="avatar-ring h-14 w-14 shrink-0"
-                  style={{ borderColor: "var(--color-accent-gold)" }}
-                />
-                <p className="min-w-0 flex-1 truncate text-sm font-bold uppercase tracking-wide">{leader.name}</p>
-                <span className="text-2xl font-black tabular-nums">
-                  <CountUp value={leader.percent} decimals={1} suffix="%" />
-                </span>
-              </div>
-            </Reveal>
           ) : (
             <p className="py-16 text-center text-sm text-race-muted">Hali menejer yo'q.</p>
           )}
@@ -205,7 +161,12 @@ function ManagerRating() {
                   tabIndex={0}
                   onClick={() => setSelected(toDetail(r))}
                   onKeyDown={(e) => e.key === "Enter" && setSelected(toDetail(r))}
-                  className="card-row cursor-pointer active:scale-[0.99]"
+                  className={`card-row cursor-pointer active:scale-[0.99] ${r.place === 1 ? "podium-glow" : ""}`}
+                  style={
+                    r.place === 1
+                      ? { borderColor: "color-mix(in oklab, var(--color-accent-gold) 45%, transparent)" }
+                      : undefined
+                  }
                 >
                   <span className="w-6 shrink-0 text-center text-base font-black tabular-nums sm:w-10 sm:text-2xl">
                     {r.place}
@@ -214,7 +175,9 @@ function ManagerRating() {
                     src={r.avatar}
                     alt={r.name}
                     className="avatar-ring h-8 w-8 shrink-0 sm:h-11 sm:w-11"
-                    style={{ borderColor: "color-mix(in oklab, white 20%, transparent)" }}
+                    style={{
+                      borderColor: r.place === 1 ? "var(--color-accent-gold)" : "color-mix(in oklab, white 20%, transparent)",
+                    }}
                   />
                   <span className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
                     {r.name}

@@ -46,6 +46,12 @@ public class RatingController {
         return ratingService.ishchiRasm(id);
     }
 
+    /** Supervayzer/menejer surati — {@link RankedUserResponse#rasm()}/{@link ScoreboardRowResponse#rasm()}. */
+    @GetMapping("/user/{id}/rasm")
+    public ResponseEntity<byte[]> userRasm(@PathVariable Long id) {
+        return ratingService.userRasm(id);
+    }
+
     @GetMapping("/supervayzer")
     public List<RankedUserResponse> supervayzer(@RequestParam LocalDate oy) {
         return ratingService.computeSupervayzerReyting(oy);

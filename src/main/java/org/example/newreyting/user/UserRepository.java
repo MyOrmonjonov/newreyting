@@ -11,6 +11,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.createdBy WHERE LOWER(u.login) = LOWER(:login)")
     Optional<User> findByLoginIgnoreCase(@Param("login") String login);
 
+    @Query("SELECT u.rasm FROM User u WHERE u.id = :id")
+    Optional<String> findRasmById(@Param("id") Long id);
+
     boolean existsByLoginIgnoreCase(String login);
 
     // createdBy — lazy @ManyToOne. JOIN FETCH bilan bir so'rovda olib kelamiz, aks holda
