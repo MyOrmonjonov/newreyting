@@ -438,6 +438,52 @@ public class RatingService {
     }
 
     /**
+     * Agent qo'shilgan/tahrirlangan (ligasi qo'lda o'zgartirilgan) HAR SAFAR {@link
+     * org.example.newreyting.employee.IshchiService} tomonidan chaqiriladi — operator bitta
+     * ligaga 27dan ortiq odam biriktirsa, Nizomdagi 27 chegarasi oyni kutmasdan DARHOL
+     * tiklanishi kerak (foydalanuvchi qarori — xatolik bilan rad etish o'rniga avtomatik
+     * pastga tushirish). Har overflow bo'lgan liganing ENG PAST natijali a'zosi (joriy oy %
+     * bo'yicha, {@link #computeLiveIshchiReyting} bilan bir xil tartib — natija kiritilmagan
+     * bo'lsa eng oxirida) bitta pastki ligaga tushiriladi, tepadan pastga ketma-ket (shu bosqich
+     * finalizeMonth'dagi floor-fill kabi kaskadli ishlaydi — Gold overflow Silverga, shu sababli
+     * Silver oshib ketsa Bronzega va h.k.). Rising hech qachon "upper" emas, chegarasi yo'q.
+     */
+    @Transactional
+    public void rebalanceLeagueCaps() {
+        LocalDate month = LocalDate.now().withDayOfMonth(1);
+        List<Ishchi> ishchilar = ishchiRepository.findAllWithRefs();
+        Map<Long, Double> avgPercents = avgPercentByIshchi(natijaRepository.findAllByOy(month));
+
+        Map<String, List<Ishchi>> byLeague = new LinkedHashMap<>();
+        for (String key : LEAGUE_KEYS) {
+            byLeague.put(key, new ArrayList<>());
+        }
+        for (Ishchi i : ishchilar) {
+            String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
+            byLeague.get(league).add(i);
+        }
+
+        Comparator<Ishchi> worstLast = Comparator.comparing((Ishchi i) -> !avgPercents.containsKey(i.getId()))
+                .thenComparing(Comparator.comparingDouble((Ishchi i) -> avgPercents.getOrDefault(i.getId(), 0.0)).reversed());
+
+        for (int i = 0; i < LEAGUE_KEYS.length - 1; i++) {
+            String upper = LEAGUE_KEYS[i];
+            String lower = LEAGUE_KEYS[i + 1];
+            List<Ishchi> group = byLeague.get(upper);
+            int overflow = group.size() - LEAGUE_CAP;
+            if (overflow <= 0) continue;
+            group.sort(worstLast);
+            List<Ishchi> toDemote = new ArrayList<>(group.subList(group.size() - overflow, group.size()));
+            group.subList(group.size() - overflow, group.size()).clear();
+            Liga lowerLiga = Liga.valueOf(lower.toUpperCase());
+            for (Ishchi a : toDemote) {
+                a.setBoshlangichLiga(lowerLiga);
+                byLeague.get(lower).add(a);
+            }
+        }
+    }
+
+    /**
      * BIR MARTALIK migratsiya: foiz formulasi o'zgargandan keyin (paket kesimidagi og'irliksiz
      * o'rtacha — {@link #avgPercentByIshchi}) allaqachon MUZLATILGAN (finalize qilingan) o'tgan
      * oylarni yangi formula bo'yicha qayta hisoblaydi. Liga A'ZOLIGI (o'sha vaqtdagi haqiqiy

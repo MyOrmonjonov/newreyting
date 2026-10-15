@@ -6,6 +6,7 @@ import org.example.newreyting.config.DeleteRequiresForceException;
 import org.example.newreyting.employee.dto.CreateIshchiRequest;
 import org.example.newreyting.employee.dto.UpdateIshchiRequest;
 import org.example.newreyting.rating.OylikYakunRepository;
+import org.example.newreyting.rating.RatingService;
 import org.example.newreyting.result.OylikNatijaRepository;
 import org.example.newreyting.user.Role;
 import org.example.newreyting.user.User;
@@ -24,15 +25,17 @@ public class IshchiService {
     private final OylikNatijaRepository natijaRepository;
     private final OylikYakunRepository oylikYakunRepository;
     private final AuditService auditService;
+    private final RatingService ratingService;
 
     public IshchiService(IshchiRepository ishchiRepository, UserRepository userRepository,
                           OylikNatijaRepository natijaRepository, OylikYakunRepository oylikYakunRepository,
-                          AuditService auditService) {
+                          AuditService auditService, RatingService ratingService) {
         this.ishchiRepository = ishchiRepository;
         this.userRepository = userRepository;
         this.natijaRepository = natijaRepository;
         this.oylikYakunRepository = oylikYakunRepository;
         this.auditService = auditService;
+        this.ratingService = ratingService;
     }
 
     /**
@@ -89,6 +92,7 @@ public class IshchiService {
         ishchi.setRasm(validateRasm(req.rasm()));
         ishchi.setViloyat(parseViloyat(req.viloyat()));
         Ishchi saved = ishchiRepository.save(ishchi);
+        ratingService.rebalanceLeagueCaps();
         auditService.record(currentUser, HarakatTuri.QOSHDI, "Agent: " + saved.getIsm() + " " + saved.getFamiliya());
         return saved;
     }
@@ -109,6 +113,7 @@ public class IshchiService {
         ishchi.setBoshlangichLiga(parseLiga(req.boshlangichLiga()));
         ishchi.setRasm(validateRasm(req.rasm()));
         ishchi.setViloyat(parseViloyat(req.viloyat()));
+        ratingService.rebalanceLeagueCaps();
         auditService.record(currentUser, HarakatTuri.OZGARTIRDI, "Agent: " + ishchi.getIsm() + " " + ishchi.getFamiliya());
         return ishchi;
     }
