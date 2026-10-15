@@ -8,7 +8,7 @@ import { AppShell, PageHeader } from "@/components/AppShell";
 import { Donut, Reveal } from "@/components/motion";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { LEAGUES, VILOYATLAR } from "@/lib/micco-data";
+import { LEAGUES, NA_LEAGUE, VILOYATLAR } from "@/lib/micco-data";
 import { avatarFor, resolvePhoto } from "@/lib/rating-api";
 import { readAndResizePhoto } from "@/lib/photo";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
@@ -628,6 +628,7 @@ function OperatorPage() {
                       {l.name}
                     </option>
                   ))}
+                  <option value={NA_LEAGUE.key}>{NA_LEAGUE.name}</option>
                 </select>
                 <select className="field w-auto" value={filterViloyat} onChange={(e) => setFilterViloyat(e.target.value)}>
                   <option value={FILTER_ALL}>Barcha viloyatlar</option>
@@ -675,7 +676,9 @@ function OperatorPage() {
                   </thead>
                   <tbody>
                     {pagedIshchilar.map((s, i) => {
-                      const league = LEAGUES.find((l) => l.key === s.boshlangichLiga);
+                      const league =
+                        LEAGUES.find((l) => l.key === s.boshlangichLiga) ??
+                        (s.boshlangichLiga === NA_LEAGUE.key ? NA_LEAGUE : undefined);
                       return (
                       <tr
                         key={s.id}
@@ -1226,11 +1229,13 @@ function OperatorPage() {
                         {l.name}
                       </option>
                     ))}
+                    <option value={NA_LEAGUE.key}>{NA_LEAGUE.name}</option>
                   </select>
                   <p className="text-[11px] text-muted-foreground">
                     Agent shu liga ichida raqobat qiladi (masalan, tajribali xodim uchun boshqa liga tanlash
                     mumkin). Har oy yakunida Nizom qoidasi bo'yicha (top-5 yuqoriga, bottom-5 pastga) avtomatik
-                    yangilanadi.
+                    yangilanadi. "{NA_LEAGUE.name}" tanlansa — agent reytingga umuman kirmaydi, faqat natijalari
+                    saqlanadi, boshqa ligaga hech qachon o'z-o'zidan ko'chmaydi.
                   </p>
                 </div>
 

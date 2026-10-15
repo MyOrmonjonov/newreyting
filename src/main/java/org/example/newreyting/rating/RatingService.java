@@ -42,6 +42,13 @@ public class RatingService {
 
     private static final String[] LEAGUE_KEYS = {"diamond", "gold", "silver", "bronze", "rising"};
     /**
+     * Reyting SAHIFASIDA ko'rsatish uchun — LEAGUE_KEYS'dan farqli, "na" ham qo'shiladi (lekin
+     * ko'tarilish/tushish kaskadiga, 27 chegarasiga, yillik nominatsiyaga kirmaydi — shu
+     * joylarda ATAYLAB faqat LEAGUE_KEYS ishlatiladi). Faqat computeLiveIshchiReyting va
+     * frozenToResponse'da (reytingning to'liq chiqishi) ishlatiladi.
+     */
+    private static final String[] DISPLAY_LEAGUE_KEYS = {"diamond", "gold", "silver", "bronze", "rising", "na"};
+    /**
      * Nizomga ko'ra har liga (Rising'dan tashqari — u eng past, yangi agentlar doim shu
      * yerdan boshlanadi, cheksiz o'sishi mumkin) 27 kishidan OSHMASLIGI kerak. finalizeMonth
      * shu chegaradan oshgan ortiqchani ham (odatiy 5ta-5ta aylanishdan tashqari) pastroq
@@ -258,14 +265,14 @@ public class RatingService {
     private List<AgentResponse> frozenToResponse(List<OylikYakun> frozen, LocalDate month) {
         Map<Long, Integer> trophiesByIshchi = computeTrophies(month);
         Map<String, List<OylikYakun>> byLeague = new LinkedHashMap<>();
-        for (String key : LEAGUE_KEYS) {
+        for (String key : DISPLAY_LEAGUE_KEYS) {
             byLeague.put(key, new ArrayList<>());
         }
         for (OylikYakun y : frozen) {
             byLeague.get(y.getLiga()).add(y);
         }
         List<AgentResponse> result = new ArrayList<>();
-        for (String league : LEAGUE_KEYS) {
+        for (String league : DISPLAY_LEAGUE_KEYS) {
             List<OylikYakun> group = byLeague.get(league).stream()
                     .sorted(Comparator.comparingInt(OylikYakun::getPlace))
                     .toList();
@@ -302,7 +309,7 @@ public class RatingService {
         }
 
         Map<String, List<Scored>> byLeague = new LinkedHashMap<>();
-        for (String key : LEAGUE_KEYS) {
+        for (String key : DISPLAY_LEAGUE_KEYS) {
             byLeague.put(key, new ArrayList<>());
         }
         for (Ishchi i : ishchilar) {
@@ -319,7 +326,7 @@ public class RatingService {
         }
 
         List<AgentResponse> result = new ArrayList<>();
-        for (String league : LEAGUE_KEYS) {
+        for (String league : DISPLAY_LEAGUE_KEYS) {
             int place = 0;
             for (Scored s : byLeague.get(league)) {
                 place++;
@@ -460,7 +467,10 @@ public class RatingService {
         }
         for (Ishchi i : ishchilar) {
             String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
-            byLeague.get(league).add(i);
+            // "na" (yoki boshqa LEAGUE_KEYS'da yo'q qiymat) ataylab bucketga qo'shilmaydi — bunday
+            // agentlar 27 chegarasi/kaskadga umuman kirmaydi, hech qayerga tushirilmaydi.
+            List<Ishchi> bucket = byLeague.get(league);
+            if (bucket != null) bucket.add(i);
         }
 
         Comparator<Ishchi> worstLast = Comparator.comparing((Ishchi i) -> !avgPercents.containsKey(i.getId()))
@@ -780,8 +790,11 @@ public class RatingService {
         }
         for (Ishchi i : ishchilar) {
             String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
+            // N/A ligasidagi agentlar yillik nominatsiyaga kirmaydi (reytingga aloqasi yo'q).
+            List<Scored> bucket = byLeague.get(league);
+            if (bucket == null) continue;
             double avg = percentSum.getOrDefault(i.getId(), 0.0) / 12.0;
-            byLeague.get(league).add(new Scored(
+            bucket.add(new Scored(
                     i,
                     totalBall.getOrDefault(i.getId(), 0),
                     firstPlaces.getOrDefault(i.getId(), 0),
@@ -914,8 +927,11 @@ public class RatingService {
         }
         for (Ishchi i : ishchilar) {
             String league = i.getBoshlangichLiga() != null ? i.getBoshlangichLiga().key() : "rising";
+            // N/A ligasidagi agentlar 12 oylik tarix jadvaliga kirmaydi (reytingga aloqasi yo'q).
+            List<Scored> bucket = byLeague.get(league);
+            if (bucket == null) continue;
             boolean hasData = avgPercents.containsKey(i.getId());
-            byLeague.get(league).add(new Scored(i, avgPercents.getOrDefault(i.getId(), 0.0), hasData));
+            bucket.add(new Scored(i, avgPercents.getOrDefault(i.getId(), 0.0), hasData));
         }
         for (List<Scored> group : byLeague.values()) {
             group.sort(Comparator.comparing((Scored s) -> !s.hasData())

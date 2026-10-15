@@ -7,7 +7,11 @@ package org.example.newreyting.employee;
  * hisoblanadi (RatingService).
  */
 public enum Liga {
-    DIAMOND, GOLD, SILVER, BRONZE, RISING;
+    DIAMOND, GOLD, SILVER, BRONZE, RISING,
+    /** Reytingga kirmaydigan agentlar — faqat natijalari (OylikNatija) saqlanadi, ko'tarilish/
+     *  tushish, 27 chegarasi (RatingService#LEAGUE_CAP) va yillik nominatsiyalarga kirmaydi,
+     *  boshqa ligaga HECH QACHON avtomatik ko'chmaydi (faqat admin qo'lda o'zgartirsa). */
+    NA;
 
     public String key() {
         return name().toLowerCase();

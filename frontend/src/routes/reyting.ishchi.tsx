@@ -18,13 +18,14 @@ import {
   Shield,
   Circle,
   Landmark,
+  Ban,
   type LucideIcon,
 } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { Reveal, Trend } from "@/components/motion";
 import { RankedDetailModal, type RankedDetailItem } from "@/components/RankedDetailModal";
 import { PodiumSlot } from "@/components/Podium";
-import { LEAGUES, MONTHS, AGENT_LEAGUE_POINTS, type LeagueKey } from "@/lib/micco-data";
+import { LEAGUES, MONTHS, AGENT_LEAGUE_POINTS, NA_LEAGUE, type LeagueKey } from "@/lib/micco-data";
 import { api } from "@/lib/api";
 import { avatarFor, monthParam, resolvePhoto, todayDateInput, type AgentApiRow } from "@/lib/rating-api";
 import { cn } from "@/lib/utils";
@@ -132,7 +133,7 @@ export const Route = createFileRoute("/reyting/ishchi")({
   component: AgentRating,
 });
 
-type ViewKey = LeagueKey | "respublika";
+type ViewKey = LeagueKey | "respublika" | "na";
 
 // "Respublika" — barcha ligalarni bitta ustunda, diamonddan boshlab tartib
 // bilan ko'rsatadigan umumiy reyting (haqiqiy liga emas, shuning uchun
@@ -145,7 +146,7 @@ const RESPUBLIKA_TAB = {
   glow: "oklch(0.62 0.17 262)",
 };
 
-const ALL_TABS = [RESPUBLIKA_TAB, ...LEAGUES];
+const ALL_TABS = [RESPUBLIKA_TAB, ...LEAGUES, NA_LEAGUE];
 
 const LEAGUE_ICONS: Record<ViewKey, LucideIcon> = {
   diamond: Gem,
@@ -154,6 +155,7 @@ const LEAGUE_ICONS: Record<ViewKey, LucideIcon> = {
   bronze: Shield,
   rising: TrendingUp,
   respublika: Landmark,
+  na: Ban,
 };
 
 function AgentRating() {
@@ -240,8 +242,9 @@ function AgentRating() {
   });
 
   const isRespublika = league === "respublika";
-  const meta = isRespublika ? RESPUBLIKA_TAB : LEAGUES.find((l) => l.key === league)!;
-  const leaguePoints = isRespublika ? null : AGENT_LEAGUE_POINTS[league];
+  const isNa = league === "na";
+  const meta = isRespublika ? RESPUBLIKA_TAB : isNa ? NA_LEAGUE : LEAGUES.find((l) => l.key === league)!;
+  const leaguePoints = isRespublika || isNa ? null : AGENT_LEAGUE_POINTS[league];
   const rows = useMemo(() => {
     if (isRespublika) {
       // Diamonddan boshlab, liga tartibi bo'yicha bitta ustunga jamlanadi;
@@ -568,11 +571,15 @@ function AgentRating() {
               // `finalizeMonth`ning `upperGroup.size() - demoteCount` nisbiy formulasiga ko'ra
               // HAQIQATDA 40-44-o'rin tushadi, 23-27 esa unday emas). Foydalanuvchi bu
               // nomuvofiqlikdan xabardor qilingan va shunga qaramay qat'iy 23-27'ni so'radi — bu
-              // yerda "tuzatish" deb o'ylab qayta nisbiy qilib qo'yilmasin. Diamond/Rising'da ham
-              // ikkala zona ko'rsatiladi (faqat bitta yo'nalishda haqiqiy ta'sir bo'lsa ham).
+              // yerda "tuzatish" deb o'ylab qayta nisbiy qilib qo'yilmasin. Diamondda ikkala zona
+              // ko'rsatiladi (yuqoriga ko'tarilish yo'q bo'lsa ham). Rising'da esa FAQAT yuqoriga
+              // ko'tarilish (promo) zonasi ko'rsatiladi — pastga tushish (qizil) yo'q, chunki
+              // Rising'dan pastroq liga umuman mavjud emas, demak bu ogohlantirish real emas
+              // (foydalanuvchi qarori: Rising uchun qizil zona olib tashlandi). N/A — reytingga
+              // kirmaydigan liga, ikkala zona ham ma'nosiz (ko'tarilish/tushish umuman yo'q).
               const DANGER_BOUNDARY = 22;
-              const inPromo = !isRespublika && r.place <= 5;
-              const inDanger = !isRespublika && r.place > DANGER_BOUNDARY;
+              const inPromo = !isRespublika && !isNa && r.place <= 5;
+              const inDanger = !isRespublika && !isNa && league !== "rising" && r.place > DANGER_BOUNDARY;
               const rowLeague = isRespublika ? LEAGUES.find((l) => l.key === r.league)! : null;
               return (
                 <div
@@ -656,8 +663,10 @@ function AgentRating() {
                     </div>
                   </div>
 
-                  {!isRespublika && rows.length > 5 && r.place === 5 ? <ZoneLine tone="up" /> : null}
-                  {!isRespublika && r.place === DANGER_BOUNDARY ? <ZoneLine tone="down" /> : null}
+                  {!isRespublika && !isNa && rows.length > 5 && r.place === 5 ? <ZoneLine tone="up" /> : null}
+                  {!isRespublika && !isNa && league !== "rising" && r.place === DANGER_BOUNDARY ? (
+                    <ZoneLine tone="down" />
+                  ) : null}
                 </div>
               );
             })}
@@ -666,7 +675,9 @@ function AgentRating() {
           <p className="mt-6 text-[11px] leading-relaxed text-race-muted">
             {isRespublika
               ? "Respublika reytingi — barcha ligalar (Diamond, Gold, Silver, Bronze, Rising) bitta umumiy ro'yxatda, diamonddan boshlab tartiblangan."
-              : `Reyting ball — ${meta.name} ligasi: 1-o'rin ${leaguePoints!.p1} ball, 2-o'rin ${leaguePoints!.p2}, 3-o'rin ${leaguePoints!.p3}, so'ng har o'ringa −1, ${leaguePoints!.floor} balldan pastga tushmaydi.`}
+              : isNa
+                ? "N/A — bu ro'yxatdagi agentlarning faqat natijalari saqlanadi. Ko'tarilish/tushish, reyting ball formulasi va 27 chegarasi ularga taalluqli emas."
+                : `Reyting ball — ${meta.name} ligasi: 1-o'rin ${leaguePoints!.p1} ball, 2-o'rin ${leaguePoints!.p2}, 3-o'rin ${leaguePoints!.p3}, so'ng har o'ringa −1, ${leaguePoints!.floor} balldan pastga tushmaydi.`}
           </p>
           </>
           ) : (

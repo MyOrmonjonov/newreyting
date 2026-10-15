@@ -17,7 +17,7 @@ export type AgentApiRow = {
   yesterday: number;
   trophies: number;
   yearsActive: number;
-  league: "diamond" | "gold" | "silver" | "bronze" | "rising";
+  league: "diamond" | "gold" | "silver" | "bronze" | "rising" | "na";
   rasm: string | null;
 };
 

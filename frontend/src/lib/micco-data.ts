@@ -46,6 +46,20 @@ export const LEAGUES: {
   },
 ];
 
+/**
+ * Reytingga kirmaydigan "N/A" liga — faqat natijalari saqlanadi, ko'tarilish/tushish va
+ * reyting ball formulasiga kirmaydi. ATAYLAB LEAGUES/LeagueKey/AGENT_LEAGUE_POINTS'dan
+ * tashqarida — shunda Respublika (barcha ligalar) umumiy ro'yxatiga va ligaviy ball
+ * hisob-kitobiga avtomatik qo'shilib ketmaydi (backend: Liga.NA, RatingService#DISPLAY_LEAGUE_KEYS).
+ */
+export const NA_LEAGUE = {
+  key: "na" as const,
+  name: "N/A",
+  slogan: "Reytingga kirmaydi — faqat natijalari saqlanadi",
+  accent: "oklch(0.6 0.01 260)",
+  glow: "oklch(0.5 0.01 260)",
+};
+
 export const PERIOD_LABEL = "2026 IYUL";
 
 /** O'zbekistonning hududlari — agent qaysi hududda ishlashini belgilash uchun. */

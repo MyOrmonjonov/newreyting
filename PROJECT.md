@@ -649,3 +649,66 @@ Foydalanuvchi talabiga ko'ra ikkita o'zgarish:
 **Diqqat**: bu o'zgarish git'ga commit qilinmagan — kod ishlab chiqarishga deploy qilindi, lekin
 lokal working tree hamon "o'zgartirilgan, commit qilinmagan" holatda (foydalanuvchi commit haqida
 so'ramagan).
+
+## Agentlar reytingida liga 27 chegarasi yana buzilgan edi — endi avtomatik tiklanadi (2026-10-15)
+
+**Muammo**: foydalanuvchi reytingda "27 yana buzilib ketdi" deb xabar berdi. Tekshirilganda
+production'da Diamond/Gold/Silver/Bronze ligalari yana aniq 27dan chiqib ketgani tasdiqlandi
+(Diamond 30, Gold 23, Silver 29, Bronze 26, Rising 36) — 13-oktyabrda SSM+psql orqali qo'lda
+27/27/27/27ga tuzatilgan edi (`ea538a0`/`79d6165`), lekin bu BIR MARTALIK tuzatish edi, kodda
+hech qanday doimiy himoya yo'q edi. Sabab: `IshchiService.create`/`update` agent
+qo'shilganda/tahrirlanganda operatorga istalgan ligani (Diamond/Gold/Silver/Bronze) tanlashga
+ruxsat berardi, 27 chegarasini umuman tekshirmasdan; `finalizeMonth` esa faqat oy oxirida bir marta
+ishlaydi, oy davomida hech narsani tenglashtirmaydi. 14-oktyabrdagi agent-qo'shish bugfix
+(`4d3d4af`) operatorlarga yana agent qo'shish imkonini qaytargandan keyin, ularni istalgan ligaga
+biriktirish natijasida sonlar yana siljib ketgan.
+
+**Qilingan ishlar**:
+1. Joriy (2026-10) oy uchun production ma'lumoti SSM+psql orqali qo'lda qayta tuzatildi (xuddi
+   avvalgi safargidek, `ishchi.boshlangich_liga`): Diamond'ning eng past natijali 3 tasi (id 120,
+   85, 83) → Gold; Silver'ning eng yaxshi 1 tasi (id 142) → Gold; Silver'ning eng past 1 tasi
+   (id 78) → Bronze. Natija: Diamond/Gold/Silver/Bronze = 27/27/27/27, Rising = 36.
+2. **Doimiy yechim** qo'shildi, shunda bu muammo endi o'z-o'zidan qaytmaydi: foydalanuvchi bilan
+   kelishilgan qoida — chegaradan oshganda operatorga xatolik chiqarish EMAS, balki avtomatik
+   kaskadli pastga tushirish. `RatingService.rebalanceLeagueCaps()` (yangi metod) endi
+   `IshchiService.create`/`update`dan har safar chaqiriladi: agar shu chaqiruvdan keyin biror liga
+   (Rising'dan tashqari) 27dan oshsa, o'sha liganing ENG PAST natijali a'zosi (joriy oy % bo'yicha,
+   `computeLiveIshchiReyting` bilan bir xil tartibda — natija kiritilmagan bo'lsa eng oxirida)
+   avtomatik pastki ligaga tushadi, tepadan pastga ketma-ket kaskadli (Gold oshsa Silverdan,
+   Silver shu sababdan oshsa Bronzedan va h.k.).
+
+**Deploy qilindi**: backend v52 (`Ready`/`Green`, frontend o'zgarmadi). Kod commit qilindi
+(`f0c964d`, `master`ga push qilindi).
+
+## "N/A" liga qo'shildi (reytingdan tashqari) + Rising uchun qizil zona olib tashlandi (2026-10-15)
+
+Foydalanuvchi talabiga ko'ra ikkita o'zgarish, xuddi shu sessiyada:
+
+- **Rising ligasida "qizil zona" (pastga tushish ogohlantirishi) olib tashlandi** — Rising'dan
+  pastroq liga umuman yo'q, shuning uchun bu belgi haqiqiy ta'sirga ega emas edi (faqat vizual
+  izchillik uchun ko'rsatilardi, `ea538a0` qarori). Endi Rising'da FAQAT yuqoriga ko'tarilish
+  (yashil, top-5) zonasi ko'rinadi, pastga tushish (qizil, 23-27-o'rin) ko'rinmaydi. Diamondda
+  ikkala zona hamon ko'rinadi (o'zgarmadi). `reyting.ishchi.tsx`: `inDanger`/`ZoneLine tone="down"`
+  shartiga `league !== "rising"` qo'shildi.
+- **Yangi "N/A" liga** — reytingga/ko'tarilish-tushishga/27 chegarasiga UMUMAN kirmaydigan agentlar
+  uchun. Operator buni (boshqa ligalar kabi) agent qo'shish/tahrirlash formasida tanlashi mumkin;
+  shunday belgilangan agentning FAQAT natijalari (OylikNatija) kiritiladi va saqlanadi, lekin u
+  Respublika umumiy ro'yxatiga, yillik nominatsiyaga, 12 oylik tarix jadvaliga va 27-chegara
+  kaskadiga (`rebalanceLeagueCaps`/`finalizeMonth`) kirmaydi — boshqa ligaga faqat admin qo'lda
+  o'zgartirsa ko'chadi, avtomatik hech qachon emas.
+  - Backend: `Liga.NA` enum qiymati qo'shildi (`.key()` → `"na"`). `RatingService`da yangi
+    `DISPLAY_LEAGUE_KEYS` (`LEAGUE_KEYS` + `"na"`) — FAQAT `computeLiveIshchiReyting` va
+    `frozenToResponse`da (reytingning to'liq chiqishi) ishlatiladi, shunda N/A agentlar API
+    javobida ko'rinadi. `LEAGUE_KEYS`ning o'zi (kaskad va yillik/tarix hisob-kitoblari)
+    O'ZGARMADI — shu joylarda N/A agentlar shunchaki o'tkazib yuboriladi (null bucket tekshiruvi
+    bilan, NPE'siz).
+  - Frontend: `micco-data.ts`da yangi `NA_LEAGUE` konstantasi — ATAYLAB `LEAGUES`/`LeagueKey`/
+    `AGENT_LEAGUE_POINTS`dan TASHQARIDA (shunda Respublika umumiy ro'yxatiga va ball formulasiga
+    avtomatik qo'shilib ketmaydi). `reyting.ishchi.tsx`da alohida tab sifatida qo'shildi
+    (`ALL_TABS`), lekin promo/danger zonalari va ularning rang-belgilari ko'rsatilmaydi (`isNa`
+    tekshiruvi). `operator.tsx`dagi liga tanlash/filtr select'lariga "N/A" qo'shildi, jadvaldagi
+    liga ustunida ham N/A belgisi ko'rinadi (ilgari `LEAGUES.find` topolmagani uchun "—"
+    ko'rsatardi).
+
+**Deploy qilindi**: backend v53, frontend v92 (ikkalasi ham `Ready`/`Green`, `/api/reyting/ishchi`
+orqali tasdiqlandi — hali N/A'ga hech kim biriktirilmagani uchun sonlar o'zgarmadi: 27/27/27/27/36).
